@@ -1,6 +1,6 @@
 ---
-title: "Session 1 · Lab 1: R-Projects & Quarto"
-subtitle: "Project strcture, data import and first presentation"
+title: "PVA1 · Lab 1: R-Projekte & Quarto"
+subtitle: "Projektstruktur, Datenimport und erste Präsentation"
 author: "Prof. Dr. Jörg Schoder"
 date: today
 lang: en
@@ -32,25 +32,21 @@ library(gt)
 data("ames", package = "openintro", envir = .GlobalEnv)
 ```
 
-## Lab 1 · Overview
+## Lab 1 · Überblick
 
-### Learning Objectives
+### Lernziele
 
--  Create an r fa('r-project') project with a clean folder structure
+-   `r fa('r-project')`-Projekt mit sauberer Ordnerstruktur anlegen
+-   Daten aus Paketen und aus Dateien importieren
+-   Erste explorative Befehle kennenlernen (`dim()`, `head()`, `glimpse()`)
+-   Quarto-Präsentation erstellen und rendern
+-   Inline-`r fa('r-project')`-Code in Quarto nutzen
 
-- Import data from packages and local files
-
-- Learn initial exploratory commands (dim(), head(), glimpse())
-
-- Create and render a Quarto presentation
-
-- Use inline r fa('r-project') code in Quarto
-
-### Today's Roadmap
+### Fahrplan heute
 
 | Phase      | Inhalt                                |
 |------------|---------------------------------------|
-| 🔵 Concept | Projektstruktur & Datenimport         |
+| 🔵 Konzept | Projektstruktur & Datenimport         |
 | 🔵 Demo    | `ames` erkunden, Quarto & Inline-Code |
 | 🟡 Aufgabe | eigene Datensätze importieren         |
 | 🟢 Aufgabe | Quarto-Folien erstellen               |
