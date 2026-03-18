@@ -1,0 +1,182 @@
+---
+title: "Snippets"
+output: html_document
+---
+
+---
+class: left
+
+.blockquote[Deskriptive und explorative Datenanalyse]
+
+## Wahrnehmung und Kausalität
+
+.panelset[
+.panel[.panel-name[Grauton A vs. B]
+```{r}
+#| echo: false
+knitr::include_url('https://persci.mit.edu/gallery/checkershadow',height = "420px")
+```
+]
+.panel[.panel-name[Beweis]
+```{r}
+#| echo: false
+#| out-width: '100%'
+#| fig-align: 'center'
+knitr::include_graphics('https://persci.mit.edu/wp-content/uploads/checkershadow_double_med-1024x398.jpg')
+```
+]
+]
+
+
+
+???
+
+[Stocker, Kap 10](https://www.uibk.ac.at/econometrics/einf/kap10.pdf)
+
+* Aber: Mustererkennung bedeutet nicht, dass es auch kausale Zusammenhänge sind! 
+
+* Charts legen Zusammenhang nahe, der vielleiht in Wahrheit gar nicht existiert.
+
+* Wahrnehmung kann täuschen. Kant: Kausalität als a priori gegebene Kategorie bildet, die notwendig ist um Erfahrung überhaupt erst machen zu können. 
+  * Kausalität existiert demnach nicht unabhängig von unserer Wahrnehmung, sondern wird gewissermaßen "in die Realität hineinprojeziert" und ist in diesem Sinne eine Vorbedingung fur unsere Wahrnehmung.
+  * In dieser Hinsicht war Kant noch radikaler als Hume, für ihn gehört Kausalität
+gewissermaßen zur inneren Struktur der Erkenntnis
+
+* Diese Ideen wurden später von verschiedenen Richtungen des Konstruktivismus aufgegriffen, die davon ausgehen, dass die empfundene Realität von den Individuen
+selbst durch den Vorgang des Erkennens konstruiert wird
+
+* Beispiel: Unser Gehirn analysiert das Schachbrett scheinbar ohne unser aktives Zutun
+  * und schließt aus der Anordnung und der unscharfen Kontur, dass B im Schatten
+liegt, also dunkler sein sollte. 
+  * Um diesen Effekt zu korrigieren und die Kontrast auszugleichen "rechnet" unser Gehirn diesen Effekt heraus, weshalb uns B heller als A erscheint
+
+
+
+---
+class: left
+
+.blockquote[CRISP-DM & R-Tooling]
+
+## Tooling: R-Projekte & Reproduzierbarkeit
+
+.panelset[
+.panel[.panel-name[Warum R-Projekte?]
+
+* **Problem ohne R-Projekte:**
+
+```r
+# Absoluter Pfad — funktioniert NUR auf Ihrem Rechner!
+tbl_buli <- read_rds("C:/Users/jschoder/ER014/data/raw/buli_raw_2023-09-06.rds")
+```
+
+`r fa('times-circle')` Auf jedem anderen Rechner: **Fehler!**
+
+* **Lösung: R-Projekt + `xfun::from_root()`**
+
+```r
+# Relativer Pfad — funktioniert auf JEDEM Rechner mit dem Projekt
+library(tidyverse)
+my_in_file <- "buli_raw_2023-09-06.rds"
+tbl_buli <- read_rds(xfun::from_root("data","raw",my_in_file))
+```
+]
+
+.panel[.panel-name[Check-in Carseats]
+
+`r fa('check-circle')` **Carseats** ist direkt im **ISLR2**-Paket enthalten `r fa('r-project')` Unkomplizierter "Import"!
+
+.small[
+```r
+# Schritt 1: Projekt geöffnet? (oben rechts in RStudio)
+# → ER014.Rproj aktiv?
+
+# Schritt 2: Pakete installieren (einmalig) und laden
+install.packages(c("tidyverse", "ISLR2", "moderndive", "skimr"))
+library(tidyverse) # enthält auch glimpse-Funktion (dplyr-Paket)
+library(ISLR2)     # enthält Carseats-Daten
+
+# Schritt 3: Carseats Daten in tibble-Objekt umwandeln und speichern
+tbl_carseats <- tibble(Carseats) # umwandeln mittels tibble()-Funktion 
+glimpse(tbl_carseats) # Überblick über die Daten: Zeilen/Spalten/Variablentypen
+```
+]
+
+**Wenn `glimpse(tbl_carseats)` 400 Zeilen und 11 Spalten zeigt: `r fa('check')` Ready!**
+]
+]
+
+???
+* R-Projekte erzeugen eine .Rproj-Datei im Wurzelverzeichnis
+* Alle relativen Pfade gehen von dort aus
+* Carseats aus ISLR2 ist ideal: kein Import, Business-Kontext, bekannt aus Statistik-Lehrbüchern
+
+
+
+
+---
+class: left
+
+.blockquote[Big Picture & Data Strategy]
+
+## Unsere Leitidee: Kompetenz für **Translator**-Rolle erarbeiten
+
+.center[*Wenn KI den Informatik-Anteil übernimmt — was bleibt?*]
+
+.pull-left[
+
+### Früher
+`r fa('code')` Code schreiben = Kernkompetenz
+
+### Heute
+`r fa('wand-magic-sparkles')` Generative KI **demokratisiert Coding** und damit Prototyping.
+
+### Konsequenz für dieses Modul
+* Programmierung nicht als Selbstzweck
+* Im Zentrum stehen **Validierung, Interpretation und strategische Einordnung**
+]
+
+.pull-right[
+
+<br><br>
+<svg viewBox="0 0 300 240" width="100%" height="220">
+  <defs><style>
+    .arm  { stroke: #686868; stroke-width: 3; fill: none; }
+    .bowl { fill: #b3b2b2; stroke: #686868; stroke-width: 2; }
+    .lbl  { font-family: sans-serif; font-size: 11px; text-anchor: middle; }
+    .heavy { fill: #502479; }
+    .light { fill: #D50006; }
+  </style></defs>
+  <line class="arm" x1="150" y1="40" x2="150" y2="100"/>
+  <line class="arm" x1="150" y1="70" x2="60"  y2="85"/>
+  <line class="arm" x1="60"  y1="85" x2="60"  y2="130"/>
+  <ellipse class="bowl light" cx="60" cy="138" rx="45" ry="12"/>
+  <text class="lbl" x="60" y="168" fill="#D50006" font-weight="bold">Coding</text>
+  <text class="lbl" x="60" y="182" fill="#686868">(wird leichter)</text>
+  <text style="font-family:sans-serif;font-size:9px;text-anchor:middle;fill:#686868" x="60" y="196">KI schreibt den Code</text>
+  <line class="arm" x1="150" y1="70" x2="240" y2="60"/>
+  <line class="arm" x1="240" y1="60" x2="240" y2="105"/>
+  <ellipse class="bowl heavy" cx="240" cy="113" rx="45" ry="12"/>
+  <text class="lbl" x="240" y="143" fill="#502479" font-weight="bold">Validierung</text>
+  <text class="lbl" x="240" y="157" fill="#502479" font-weight="bold">& Strategie</text>
+  <text class="lbl" x="240" y="173" fill="#686868">(wird wichtiger)</text>
+  <circle cx="150" cy="40" r="6" fill="#D50006"/>
+  <line class="arm" x1="130" y1="20" x2="170" y2="20"/>
+  <line class="arm" x1="150" y1="20" x2="150" y2="40"/>
+</svg>
+
+
+]
+
+???
+### Früher
+`r fa('code')` Code schreiben = Kernkompetenz
+
+### Heute
+`r fa('wand-magic-sparkles')` Generative KI **demokratisiert Coding** und damit Prototyping.
+
+### Konsequenz für dieses Modul
+* Programmierung nicht als Selbstzweck
+* Im Zentrum stehen **Validierung, Interpretation und strategische Einordnung**
+* Konsequenz für Lernziel: Nicht Programmierung als Selbstzweck
+* Sondern: Als "Translator" zwischen Fachbereich und Data-Science-Teams agieren
+* Verifizierung, Validierung und strategische Einordnung sind die neuen Kernkompetenzen
