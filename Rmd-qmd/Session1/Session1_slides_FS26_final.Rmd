@@ -1116,7 +1116,7 @@ count: false
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
     <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Testing</span><br>
-    <span style="color:#666;">Parameter verstehen · „Warum?"</span>
+    <span style="color:#666;">Understand parameters · „Why?"</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
@@ -1164,7 +1164,7 @@ count: false
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
     <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Testing</span><br>
-    <span style="color:#666;">Parameter verstehen · „Warum?"</span>
+    <span style="color:#666;">Understand parameters · „Why?"</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
@@ -1218,7 +1218,7 @@ count: false
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
     <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Testing</span><br>
-    <span style="color:#666;">Parameter verstehen · „Warum?"</span>
+    <span style="color:#666;">Understand parameters · „Why?"</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
@@ -1245,12 +1245,12 @@ count: false
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('vial')` Parametric</strong> &nbsp;
     <span class="vs2-chip">t-Test</span><span class="vs2-chip">ANOVA</span><span class="vs2-chip">R²</span><br>
-    <span style="color:#666;">Model fit: p-Wert · Konfidenzintervall</span>
+    <span style="color:#666;">Model fit: p-value · Confidence interval (CI)</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('chart-line')` Predictive</strong> &nbsp;
     <span class="vs2-chip">Train/Test-Split</span><span class="vs2-chip">Cross-Validation</span><span class="vs2-chip">RMSE</span><br>
-    <span style="color:#666;">Model fit: Out-of-sample Fehler</span>
+    <span style="color:#666;">Model fit: Out-of-sample Error</span>
   </div>
 </div>
 <!-- Dim 4: ausgegraut -->
@@ -1277,22 +1277,22 @@ count: false
   <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Research Interest</div>
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> · <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span>
-    <span style="color:#666;display:block;">Parameter verstehen · „Warum?"</span>
+    <span style="color:#666;display:block;">Understand parameters · „Why?"</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
-    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> · <span class="vs2-chip">Prädiktion</span><span class="vs2-chip">Korrelation</span>
-    <span style="color:#666;display:block;">Genauigkeit maximieren · „Was kommt?"</span>
+    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> · <span class="vs2-chip">Prädiktion</span><span class="vs2-chip">Correlation</span>
+    <span style="color:#666;display:block;">Maximise accuracy · "What comes next?</span>
   </div>
 </div>
 <div class="vs2-row">
   <div class="vs2-dim">`r fa('chart-area', fill='#777')` &nbsp;Dealing with Uncertainty</div>
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
-    <strong style="color:#502479;">`r fa('signal')` Theoretical</strong> · <span class="vs2-chip">CLT</span><span class="vs2-chip">α-Niveau</span>
-    <span style="color:#666;display:block;">Normalverteilung · strenge Annahmen</span>
+    <strong style="color:#502479;">`r fa('signal')` Theoretical</strong> · <span class="vs2-chip">CLT</span><span class="vs2-chip">α-level</span>
+    <span style="color:#666;display:block;">Normal distribution · strict assumptions</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('arrows-rotate')` Data-driven</strong> · <span class="vs2-chip">Bootstrap</span><span class="vs2-chip">FDR</span>
-    <span style="color:#666;display:block;">Keine Verteilungsannahmen · Resampling</span>
+    <span style="color:#666;display:block;">No distributional assumptions · Resampling</span>
   </div>
 </div>
 <div class="vs2-row">
@@ -1303,21 +1303,21 @@ count: false
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
     <strong style="color:#D50006;">`r fa('chart-line')` Predictive</strong> · <span class="vs2-chip">Train/Test</span><span class="vs2-chip">CV</span><span class="vs2-chip">RMSE</span>
-    <span style="color:#666;display:block;">Out-of-sample Fehler</span>
+    <span style="color:#666;display:block;">Out-of-sample Error</span>
   </div>
 </div>
 <!-- Dim 4: Daten — AKTIV -->
 <div class="vs2-row">
   <div class="vs2-dim">`r fa('database', fill='#777')` &nbsp;Data</div>
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
-    <strong style="color:#502479;">`r fa('table')` Klein bis mittel</strong> &nbsp;
-    <span class="vs2-chip">n &lt;&lt; 1000</span><span class="vs2-chip">wenige Variablen</span><br>
-    <span style="color:#666;">Theorie-geleitet · strukturiert</span>
+    <strong style="color:#502479;">`r fa('table')` small to medium</strong> &nbsp;
+    <span class="vs2-chip">n &lt;&lt; 1000</span><span class="vs2-chip">few variables</span><br>
+    <span style="color:#666;">Theory-based · structured</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
-    <strong style="color:#D50006;">`r fa('database')` Groß bis riesig</strong> &nbsp;
-    <span class="vs2-chip">n &gt;&gt; 1000</span><span class="vs2-chip">viele Variablen</span><br>
-    <span style="color:#666;">Daten-getrieben · flat file</span>
+    <strong style="color:#D50006;">`r fa('database')` Big Data (TB to PB)</strong> &nbsp;
+    <span class="vs2-chip">n &gt;&gt; 1000</span><span class="vs2-chip">many cariables</span><br>
+    <span style="color:#666;">Data Warehouse/Lakes · data-driven</span>
   </div>
 </div>
 
@@ -1350,7 +1350,7 @@ class: left
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#502479;text-anchor:middle"
         x="112" y="14">Traditional Statistics</text>
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#D5A000;text-anchor:middle"
-        x="432" y="10">ER014 — Modern Statistics &amp; Transition</text>
+        x="432" y="10">ER114 — Modern Statistics &amp; Transition</text>
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#D50006;text-anchor:middle"
         x="755" y="14">Data Science / ML</text>
 
@@ -1362,7 +1362,7 @@ class: left
   <rect x="22"  y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
   <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="84">t-test · ANOVA</text>
   <rect x="112" y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
-  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="84">p-value · α</text>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="84">p-value · α-level</text>
   <rect x="22"  y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
   <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="112">CLT · Normal dist.</text>
   <rect x="112" y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
@@ -1370,39 +1370,39 @@ class: left
 
   <!-- Tags ER014-Brücke: 3 Blöcke -->
   <rect x="222" y="38" width="132" height="140" rx="5" fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
-  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="288" y="54">① EDA &amp; Modelling/text>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="288" y="54">① EDA &amp; Modelling</text>
   <rect x="230" y="60" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="73">EDA vs. Data Mining</text>
   <rect x="230" y="82" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="95">Simple Regression</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="95">Linear Regression</text>
   <rect x="230" y="104" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="117">Conditional Mean</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="117">Conditional mean</text>
   <rect x="230" y="126" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="139">Population model</text>
   <rect x="230" y="148" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="161">Residual analysis</text>
 
   <rect x="362" y="38" width="132" height="140" rx="5" fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
-  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="428" y="54">② Inferenz (modern)</text>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="428" y="54">② Inference (modern)</text>
   <rect x="370" y="60" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="73">Only One Test (Resampling)</text>
   <rect x="370" y="82" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="95">Bootstrap · infer-Paket</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="95">Bootstrap · infer-library</text>
   <rect x="370" y="104" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="117">Fehler 1./2. Art · FDR</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="117">Type 1/2 Error · FDR</text>
   <rect x="370" y="126" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="139">p-Hacking · Effektstärke</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="139">p-Hacking · Effect size</text>
   <rect x="370" y="148" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="161">Signifikanz vs. Relevanz</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="161">Significance vs. Relevance</text>
 
   <rect x="502" y="38" width="140" height="140" rx="5" fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
-  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="572" y="54">③ Regression &amp; Ausblick</text>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle" x="572" y="54">③ Regression &amp; Causality</text>
   <rect x="510" y="60" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="73">Multiple Regression</text>
   <rect x="510" y="82" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="95">Multikollinearität</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="95">Multicollinearity</text>
   <rect x="510" y="104" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
-  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="117">Overfitting · Regularisierung</text>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="117">Overfitting · Regularization</text>
   <rect x="510" y="126" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="139">Lasso · Ridge</text>
   <rect x="510" y="148" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
@@ -1425,7 +1425,7 @@ class: left
         stroke="#b3b2b2" stroke-width="1.5" stroke-dasharray="5,3"
         marker-end="url(#darr)"/>
   <text style="font-family:sans-serif;font-size:8.5px;fill:#aaa;text-anchor:middle"
-        x="430" y="195">methodische Evolution</text>
+        x="430" y="195">methodological evolution</text>
 
   <!-- ER014 Klammer unten -->
   <line x1="215" y1="185" x2="215" y2="190" stroke="#D5A000" stroke-width="2"/>
@@ -1434,7 +1434,7 @@ class: left
 
   <!-- Folgemodule -->
   <text style="font-family:sans-serif;font-size:9px;fill:#D50006;text-anchor:middle;font-style:italic"
-        x="755" y="195">ER017 · ER018</text>
+        x="755" y="195">ER117 · ER118</text>
 
 </svg>
 
@@ -1530,7 +1530,7 @@ count: false
 
 <div class="bridge-wrap">
 <div class="bridge-hdr">
-  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Traditional Concept</div>
   <div class="bridge-hdr-c"></div>
   <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
 </div>
@@ -1538,14 +1538,14 @@ count: false
 <div class="bridge-row">
   <div class="bridge-left">
     <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
-    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><span class="bridge-chip-l">Populationsmodell</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><span class="bridge-chip-l">Population model</span><br>
     <span style="color:#666;">Regression estimates the mean of Y given X</span>
   </div>
-  <div class="bridge-arrow">Markt­bench­mark</div>
+  <div class="bridge-arrow">Market­bench­mark</div>
   <div class="bridge-right">
-    <span class="bridge-kw-r">`r fa('bullseye')` Residuum als Arbitrage-Chance</span><br>
-    <span class="bridge-chip-r">Jedes ML-Modell</span><span class="bridge-chip-r">Underperformance</span><br>
-    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Unter-/Überbewertung quantifizieren</span>
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">ML model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span>
   </div>
 </div>
 <!-- 2–5: ausgegraut -->
@@ -1585,7 +1585,7 @@ count: false
 
 <div class="bridge-wrap">
 <div class="bridge-hdr">
-  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Traditional Concept</div>
   <div class="bridge-hdr-c"></div>
   <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
 </div>
@@ -1593,13 +1593,13 @@ count: false
 <div class="bridge-row">
   <div class="bridge-left"><span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br><span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><span class="bridge-chip-l">Population model</span><br><span style="color:#666;">Regression estimates the mean of Y given X</span></div>
   <div class="bridge-arrow">Market­bench­mark</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">Any ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
 </div>
 <!-- 2: AKTIV -->
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standardfehler</span><span class="bridge-chip-l">Konfidenzintervall</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">„Was wenn wir immer wieder neu ziehen würden?"</span></div>
-  <div class="bridge-arrow">Unsicher­heit messen</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">keine Verteilungsannahme</span><br><span style="color:#666;">Rechenpower ersetzt Formel — für beliebige Algorithmen</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">Confidence interval</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">„Idea of repeated sample from population"</span></div>
+  <div class="bridge-arrow">Quantify­uncertainty</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br><span style="color:#666;">Computational power substitutes formulas</span></div>
 </div>
 <!-- 3–5: ausgegraut -->
 <div class="bridge-row bridge-ghost">
@@ -1629,19 +1629,19 @@ count: false
 
 <div class="bridge-wrap">
 <div class="bridge-hdr">
-  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Traditional Concept</div>
   <div class="bridge-hdr-c"></div>
   <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
 </div>
 <div class="bridge-row">
   <div class="bridge-left"><span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br><span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><span class="bridge-chip-l">Population model</span><br><span style="color:#666;">Regression estimates the mean of Y given X</span></div>
   <div class="bridge-arrow">Market­bench­mark</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">Any ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
 </div>
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standardfehler</span><span class="bridge-chip-l">Konfidenzintervall</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">„Was wenn wir immer wieder neu ziehen würden?"</span></div>
-  <div class="bridge-arrow">Unsicher­heit messen</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">keine Verteilungsannahme</span><br><span style="color:#666;">Rechenpower ersetzt Formel — für beliebige Algorithmen</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">Confidence interval</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">„Idea of repeated sample from population"</span></div>
+  <div class="bridge-arrow">Quantify­uncertainty</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br><span style="color:#666;">Computational power substitutes formula</span></div>
 </div>
 <!-- 3: AKTIV -->
 <div class="bridge-row">
@@ -1672,17 +1672,17 @@ count: false
 
 <div class="bridge-wrap">
 <div class="bridge-hdr">
-  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Traditional Concept</div>
   <div class="bridge-hdr-c"></div>
   <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
 </div>
 <div class="bridge-row">
   <div class="bridge-left"><span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br><span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><br><span style="color:#666;">Regression estimates the mean of Y given X</span></div>
   <div class="bridge-arrow">Market­bench­mark</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">Any ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
 </div>
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">"What if we drew samples again and again?"</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">"Idea of repeated sample from population"</span></div>
   <div class="bridge-arrow">Measure uncertainty</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br><span style="color:#666;">Computing power replaces formula</span></div>
 </div>
@@ -1693,7 +1693,7 @@ count: false
 </div>
 <!-- 4: AKTIV -->
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-value · α-level · multiplicity</span><br><span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Testing</span><span class="bridge-chip-l">1 test</span><br><span style="color:#666;">For one test: 5% error rate acceptable?</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-value · α-level · multiplicity</span><br><span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Testing</span><span class="bridge-chip-l">One test</span><br><span style="color:#666;">For one test: 5% error rate acceptable?</span></div>
   <div class="bridge-arrow">Signal vs. noise</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span><br><span class="bridge-chip-r">1000 tests → 50 false hits</span><span class="bridge-chip-r">Benjamini-Hochberg</span><br><span style="color:#666;">False Discovery Rate controls rate of false alarms</span></div>
 </div>
@@ -1715,22 +1715,22 @@ count: false
 
 <div class="bridge-wrap">
 <div class="bridge-hdr">
-  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Traditional Concept</div>
   <div class="bridge-hdr-c"></div>
   <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
 </div>
 <div class="bridge-row">
   <div class="bridge-left"><span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br><span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression line</span><br><span style="color:#666;">Regression estimates the mean of Y given X</span></div>
   <div class="bridge-arrow">Market­bench­mark</div>
-  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">Any ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br><span class="bridge-chip-r">ML model</span><span class="bridge-chip-r">Underperformance</span><br><span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; quantify under-/over-performance</span></div>
 </div>
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">"What if we drew samples again and again?"</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling distribution</span><br><span class="bridge-chip-l">Standard error</span><span class="bridge-chip-l">CLT</span><br><span style="color:#666;">"Idea of repeated sample from population"</span></div>
   <div class="bridge-arrow">Measure uncertainty</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br><span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br><span style="color:#666;">Computing power replaces formula</span></div>
 </div>
 <div class="bridge-row">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('scale-balanced')` Expected value &amp; error types</span><br><span class="bridge-chip-l">E[X] = Σ pᵢ·xᵢ</span><span class="bridge-chip-l">Type 1/2 Error</span><br><span style="color:#666;">Decisions under uncertainty</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('scale-balanced')` Expected value &amp; error types</span><br><span class="bridge-chip-l">E[X] = Σ pᵢ·xᵢ</span><span class="bridge-chip-l">Type I error</span><span class="bridge-chip-l">Type II error</span><br><span style="color:#666;">Decisions under uncertainty</span></div>
   <div class="bridge-arrow">ROI-logic</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span><br><span class="bridge-chip-r">Model probability</span><span class="bridge-chip-r">Cost/Benefit</span><br><span style="color:#666;">„70% Churn-probability" → ROI?</span></div>
 </div>
@@ -2198,6 +2198,22 @@ class: left
 ## If `r fa('r-project')` is a language, we speak a dialect: the Tidyverse
 
 .panelset[
+.panel[.panel-name[Data Project Workflow]
+```{r}
+#| echo: false
+xfun::from_root('img','Session1','DataScience_Workflow.png') |>
+  knitr::include_graphics()
+```
+.quellePanURL[Own Illustration.]
+]
+.panel[.panel-name[Tidyverse]
+```{r}
+#| echo: false
+xfun::from_root('img','Session1','tidyverse_(storybench).png') |>
+  knitr::include_graphics()
+```
+.quellePanURL[Source: [Frigard (2017)](https://www.storybench.org/getting-started-with-tidyverse-in-r/)].
+]
 .panel[.panel-name[Tidy Data]
 ```{r}
 #| label: img-tidy-format
@@ -2206,7 +2222,7 @@ class: left
 #| out.width: '70%'
 knitr::include_graphics('https://d33wubrfki0l68.cloudfront.net/6f1ddb544fc5c69a2478e444ab8112fb0eea23f8/91adc/images/tidy-1.png')
 ```
-.quellePanURL[Bildquelle: [Wickham et al.](https://r4ds.had.co.nz/tidy-data.html)]
+quellePanURL[Source: [Wickham et al.](https://r4ds.had.co.nz/tidy-data.html)]
 `r NoCite(bib,"grolemund_tidy_2017")`
 ]
 .panel[.panel-name[Verbs]
@@ -2277,7 +2293,7 @@ class: left
 
 .blockquote[CRISP-DM & R-Tooling]
 
-## Why RMarkdown/Quarto?
+## Why QuartoR/Markdown?
 
 
 .panelset[
@@ -2294,7 +2310,7 @@ single file
 
 * Increased productivity for recurring reports/updates (automation)
 ]
-.panel[.panel-name[Rmd vs. qmd]
+.panel[.panel-name[Quarto vs. RMArkdown]
 ```{r}
 #| echo: false
 knitr::include_url('https://quarto.org/docs/faq/rmarkdown.html',height = '400px')
@@ -2348,7 +2364,7 @@ class: left
 `r fa('users')` <strong>Individual work</strong>
 <br>
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>PVA1_Lab1_RProjekte_Quarto.qmd</code>
+<code>Session1_Lab1_RProjekte_Quarto.qmd</code>
 </div>
 </div>
 <br>
@@ -2407,7 +2423,7 @@ class: left
             background:#fff5f5; margin-top:1em;">
 <div style="font-family:sans-serif; font-size:16px; font-weight:bold;
             color:#D50006; margin-bottom:10px;">
-`r fa('flask')` Lab 1: Data Understanding &amp; EDA mit Carseats
+`r fa('flask')` Lab 2: Data Understanding &amp; EDA mit Carseats
 </div>
 <div style="font-size:0.85em; line-height:1.8;">
 
@@ -2427,7 +2443,7 @@ Verteilungen verstehen, Zusammenhänge visualisieren, Hypothesen formulieren.
 <br>
 
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>PVA1_Lab1_EDA.qmd</code>
+<code>PVA1_Lab2_EDA.qmd</code>
 
 </div>
 </div>
@@ -2762,7 +2778,7 @@ Regression als deskriptives Werkzeug (Population).
 <br>
 
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>PVA1_Lab2_Baseline.qmd</code>
+<code>Session1_Lab2_Baseline.qmd</code>
 
 </div>
 </div>
@@ -3006,8 +3022,8 @@ How does $\hat\beta_{\text{Price}}$ change vs. baseline model?
 <br>
 
 `r fa('circle-right')` <strong>Fully annotated demo script:</strong>
-<code>PVA1_Demo_MultipleRegression.qmd</code>
-(für Dozent als Fahrplan, für Studierende als Nachschlagewerk)
+<code>Session1_Demo_MultipleRegression.qmd</code>
+(Roadmap for Lecturer, Cheat Sheet for Students)
 
 </div>
 </div>
@@ -3039,7 +3055,7 @@ class: left
             background:#fff5f5; margin-top:1em;">
 <div style="font-family:sans-serif; font-size:16px; font-weight:bold;
             color:#D50006; margin-bottom:10px;">
-`r fa('flask')` Lab 3: Performance Mining &amp; Managerial Memo
+`r fa('flask')` Lab 4: Performance Mining &amp; Managerial Memo
 </div>
 <div style="font-size:0.85em; line-height:1.8;">
 
@@ -3059,7 +3075,7 @@ erstellen, Ergebnisse als Manager-Memo formulieren (Translator-Rolle).
 <br>
 
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>PVA1_Lab3_PerformanceMining.qmd</code>
+<code>Session1_Lab4_PerformanceMining.qmd</code>
 
 </div>
 </div>
