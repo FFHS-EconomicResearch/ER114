@@ -2282,7 +2282,7 @@ class: left
 
 .panelset[
 .panel[.panel-name[Purpose]
-* Ability to integrate `r fa(‘r-project’)` program code (statistical
+* Ability to integrate `r fa('r-project')` program code (statistical
 analyses) and text (verbal descriptions/explanations) into a
 single file
 
