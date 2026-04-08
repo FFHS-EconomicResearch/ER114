@@ -1,0 +1,757 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Search for the marker text rather than relying on exact line numbers.
+
+  "buli_raw_{date}.rds"   Dataset filename — update date if new scrape
+  xfun::from_root(...)    Adjust path if project structure differs
+  set.seed(2024)          Change seed for different cohort results
+============================================================ -->
+---
+title: "Session 2 · Lab 1: Resampling & Only One Test"
+subtitle: "From Sampling Distribution to Bootstrap — and Why Every Test Is a Regression"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)    # data wrangling & plotting
+library(moderndive)   # get_regression_table(), get_regression_summaries()
+library(infer)        # specify-hypothesize-generate-calculate
+library(gt)           # formatted tables
+
+date <- '2023-09-06'
+my_in_file <- glue::glue('buli_raw_{date}.rds')
+tbl_buli_raw <- read_rds(file = xfun::from_root("data","raw", my_in_file))
+
+tbl_buli <- tbl_buli_raw %>%
+              mutate(
+                age       = lubridate::year(Sys.Date()) -
+                            lubridate::year(player_dob),
+                log_value = log(player_market_value_euro),
+                pos_bin   = if_else(player_position == "Goalkeeper",
+                                    "Goalkeeper", "Outfield"),
+                # pos_cat: works with both broad ("Defender","Midfield","Attack")
+                # and detailed ("Centre-Back","Left Winger") position labels
+                pos_cat   = case_when(
+                              str_detect(player_position, "(?i)goal|keeper")              ~ "Goalkeeper",
+                              str_detect(player_position, "(?i)back|defen")               ~ "Defender",
+                              str_detect(player_position, "(?i)mid")                      ~ "Midfielder",
+                              str_detect(player_position, "(?i)attack|forw|wing|strik")   ~ "Forward",
+                              TRUE                                                        ~ "Forward"
+                            ) %>% factor(levels = c("Goalkeeper","Defender",
+                                                    "Midfielder","Forward")) %>%
+                            droplevels()
+              ) %>%
+              rename(name = player_name,
+                     mv   = player_market_value_euro) %>%
+              filter(!is.na(mv), !is.na(age))
+
+options(scipen = 999)
+```
+
+## Scenario & Orientation
+
+In Session 1 we fitted a regression of log market value on age and found a positive coefficient. But that was **one dataset, one fit**. Would we get the same coefficient from a different season, a different sample? This lab makes uncertainty *tangible* by simulating what "repeated sampling" actually looks like — and then shows that bootstrap does the same thing from a single sample.
+
+Along the way, we discover a unifying principle: the t-test, ANOVA, and regression are **not** separate techniques. They are all special cases of one framework.
+
+```{r crisp-overview}
+#| echo: false
+tibble::tribble(
+  ~Phase, ~Name,                    ~Content,                                ~Status,
+  "1",    "Business Understanding", "Identify under-/overvalued players",    "Done (Session 1)",
+  "2",    "Data Understanding",     "EDA of Bundesliga market values",       "Done (Session 1)",
+  "3",    "Data Preparation",       "log-transform, position dummy",         "Done (Session 1)",
+  "4",    "Modelling",              "OLS: log_value ~ age",                  "Done (Session 1)",
+  "5",    "Evaluation",             "Is the age effect real? (inference)",    "← This lab",
+  "6",    "Deployment",             "Transfer decision framework",           "Session 2 lecture"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = Phase == "5")) %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## Learning Objectives
+
+- Understand the **sampling distribution** as the foundation of all inference
+- Experience the difference between a **sampling distribution** and a **bootstrap distribution** visually
+- Compute **bootstrap confidence intervals** and **permutation p-values** with the `infer` package
+- Recognise that the t-test, ANOVA, and regression are **all the same test** — the "Only One Test" principle
+:::
+
+**Navigation guide**
+
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|--------------|
+| ⚠️ | Red | Mandatory task | Live session |
+| 💡 | Green | Tip / best practice | Anytime |
+| 📚 | Blue (collapsed) | Background theory | At home |
+| ℹ️ | Blue (open) | Short clarification | When needed |
+
+:::{.callout-tip}
+## ⏱ Time Budget
+**45 minutes** — complete mandatory tasks (A1–A5) first; bonus tasks if time permits.
+:::
+
+---
+
+## Icebreaker: One Population, Three Stories
+
+Three random subsamples of 30 players each from the same season produce three different regression lines.
+
+```{r icebreaker-data}
+set.seed(23)
+buli_s1 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(7)
+buli_s2 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(42)
+buli_s3 <- tbl_buli %>% slice_sample(n = 30)
+```
+
+```{r icebreaker-plot}
+#| echo: false
+tbl_buli %>%
+  ggplot(aes(x = age, y = log_value)) +
+  geom_point(alpha = 0.15, color = "#b3b2b2", size = 0.7) +
+  geom_smooth(method = "lm", se = FALSE,
+              color = "#333", linewidth = 1.4) +
+  geom_smooth(data = buli_s1, method = "lm", se = FALSE,
+              color = "#D50006", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s2, method = "lm", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s3, method = "lm", se = FALSE,
+              color = "#7d0a52", linewidth = 0.9, linetype = "dashed") +
+  labs(x = "Age", y = "log(Market Value)",
+       title = "Population (black) vs. 3 random samples (coloured)") +
+  theme_minimal(base_size = 11)
+```
+
+Each dashed line tells a slightly different story. Some are steeper, some flatter. If we had only seen one, we might draw a very different conclusion.
+
+:::{.callout-important}
+## The Core Problem
+A single regression coefficient is **one dart thrown at a board**. To judge the thrower's skill, we need many throws. The distribution of those throws is the **sampling distribution** — and it is the foundation of *all* statistical inference. This lab makes that distribution visible.
+:::
+
+---
+
+## Step 1: The Point Estimate
+
+Before measuring uncertainty, we need the thing we are uncertain about: the observed slope.
+
+The `infer` package provides a pipeline that works identically for any statistic:
+
+```
+data %>% specify() %>% [hypothesize()] %>% generate() %>% calculate()
+```
+
+We start with just `specify()` + `calculate()` to get the observed value:
+
+```{r obs-slope}
+#| code-fold: false
+obs_slope <- tbl_buli %>%
+               specify(log_value ~ age) %>%
+               calculate(stat = "slope")
+obs_slope
+```
+
+This is our point estimate: $\widehat{\beta}_{\text{age}}$ = `r round(pull(obs_slope), 4)`. Because the outcome is log-transformed, the coefficient has a percentage interpretation: each additional year of age is associated with approximately $(e^{\hat\beta} - 1) \times 100$ = `r round((exp(pull(obs_slope)) - 1) * 100, 1)`% higher market value.
+
+But a single number without a measure of precision is just a guess. How much would it change if we had a different sample?
+
+---
+
+## Step 2: Sampling Distribution vs. Bootstrap Distribution
+
+This is the conceptual heart of the lab. We compare two distributions:
+
+1. **Sampling distribution** — what happens when we draw many samples from the *population*
+2. **Bootstrap distribution** — what happens when we resample from *one sample*
+
+### 2.1 The Sampling Distribution (The Ideal We Cannot Usually See)
+
+We treat the full Bundesliga season (≈`r nrow(tbl_buli)` players) as our population. This is a simplification — in the lecture we discussed that the season is itself one realisation of a data-generating process. But *for the purpose of understanding the sampling distribution*, we pretend these are all the players that could ever exist.
+
+We now draw 500 random samples of n = 50, compute the slope each time, and plot the distribution:
+
+```{r sampling-dist}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+# --- the "true" population slope ---
+pop_slope <- tbl_buli %>%
+               lm(log_value ~ age, data = .) %>%
+               coef() %>%
+               pluck("age")
+
+# --- draw 500 samples of n=50, compute slope each time ---
+sampling_dist <- map_dbl(1:500, function(i) {
+  tbl_buli %>%
+    slice_sample(n = 50) %>%
+    lm(log_value ~ age, data = .) %>%
+    coef() %>%
+    pluck("age")
+})
+```
+
+```{r sampling-dist-plot}
+#| echo: false
+tibble(slope = sampling_dist) %>%
+  ggplot(aes(x = slope)) +
+  geom_histogram(bins = 30, fill = "#502479", color = "white", alpha = 0.7) +
+  geom_vline(xintercept = pop_slope, color = "#D50006",
+             linewidth = 1.2, linetype = "solid") +
+  annotate("text", x = pop_slope + 0.002, y = Inf,
+           label = paste0("Population slope = ", round(pop_slope, 4)),
+           hjust = 0, vjust = 1.5, color = "#D50006", size = 3.5) +
+  labs(title    = "Sampling Distribution: 500 samples of n = 50",
+       subtitle = "Each bar = one sample's slope coefficient",
+       x        = expression(hat(beta)[age]),
+       y        = "Count") +
+  theme_minimal(base_size = 11)
+```
+
+This is what we **normally never see** — the distribution of estimates across many hypothetical replications. It is centred on the "true" population slope (red line) and its spread is the **standard error**.
+
+### 2.2 The Bootstrap Distribution (What We Can Actually Compute)
+
+In reality we have *one* sample, not 500. Bootstrap mimics the sampling process by drawing 1,000 samples **with replacement** from that single sample:
+
+```{r boot-dist}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+# --- take ONE sample of n=50 ---
+tbl_sample <- tbl_buli %>% slice_sample(n = 50)
+
+# --- bootstrap: resample 1000x with replacement from that ONE sample ---
+boot_dist <- tbl_sample %>%
+               specify(log_value ~ age) %>%
+               generate(reps = 1000, type = "bootstrap") %>%
+               calculate(stat = "slope")
+```
+
+### 2.3 The Comparison — Do They Match?
+
+Now we overlay both distributions. If bootstrap works, the two should look similar:
+
+```{r comparison-plot}
+#| echo: false
+#| fig-height: 5
+tbl_compare <- bind_rows(
+  tibble(slope = sampling_dist, type = "Sampling (500 × n=50 from population)"),
+  tibble(slope = pull(boot_dist, stat),
+         type  = "Bootstrap (1000 × n=50 from one sample)")
+)
+
+tbl_compare %>%
+  ggplot(aes(x = slope, fill = type)) +
+  geom_histogram(bins = 30, color = "white", alpha = 0.55,
+                 position = "identity") +
+  geom_vline(xintercept = pop_slope, color = "#D50006",
+             linewidth = 1, linetype = "dashed") +
+  scale_fill_manual(values = c(
+    "Sampling (500 × n=50 from population)" = "#502479",
+    "Bootstrap (1000 × n=50 from one sample)"   = "#D50006"
+  )) +
+  labs(title    = "Sampling Distribution vs. Bootstrap Distribution",
+       subtitle = "Dashed red line = population slope",
+       x        = expression(hat(beta)[age]),
+       y        = "Count",
+       fill     = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+The two distributions have similar shape and spread. The bootstrap is centred on the *sample* slope (slightly off from the population slope), but the **width** — the standard error — is well approximated.
+
+:::{.callout-important}
+## The Key Insight
+The **sampling distribution** shows what happens with many real samples — we normally can't see it. The **bootstrap distribution** approximates it from a single sample. This is why bootstrap works: it estimates the *variability* of your statistic without needing repeated experiments.
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Why Does Bootstrap Work?
+The bootstrap treats the observed sample as a stand-in for the population. The central limit theorem guarantees that — for large enough samples — the bootstrap distribution converges to the true sampling distribution, regardless of the underlying data distribution. The bootstrap gets the *spread* right (standard error), even though its *centre* is the sample statistic rather than the population parameter. This is why bootstrap confidence intervals have correct coverage rates.
+:::
+
+For the remainder of this lab, we switch to using the **full population** (all ~`r nrow(tbl_buli)` players) as our data and bootstrap from it directly — the same approach as in Lab 2.
+
+```{r boot-full}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+# --- point estimate from full data ---
+obs_slope <- tbl_buli %>%
+               specify(log_value ~ age) %>%
+               calculate(stat = "slope")
+
+# --- bootstrap from full data ---
+boot_dist_full <- tbl_buli %>%
+                    specify(log_value ~ age) %>%
+                    generate(reps = 1000, type = "bootstrap") %>%
+                    calculate(stat = "slope")
+```
+
+---
+
+## Step 3: Bootstrap Confidence Interval
+
+The bootstrap distribution from Step 2 gives us two ways to construct a 95% confidence interval:
+
+::: {.panel-tabset}
+
+### Percentile Method
+
+Take the middle 95% of the bootstrap distribution — the simplest approach:
+
+```{r ci-pct}
+#| code-fold: false
+ci_pct <- boot_dist_full %>%
+            get_confidence_interval(type = "percentile", level = 0.95)
+ci_pct
+```
+
+### Standard Error Method
+
+Centre the interval around the observed estimate, using the bootstrap standard error:
+
+```{r ci-se}
+#| code-fold: false
+ci_se <- boot_dist_full %>%
+           get_confidence_interval(
+             type           = "se",
+             point_estimate = obs_slope,
+             level          = 0.95
+           )
+ci_se
+```
+
+### Visualisation
+
+```{r ci-viz}
+#| echo: false
+visualize(boot_dist_full) +
+  shade_confidence_interval(
+    endpoints = ci_pct, fill = NULL,
+    linetype = "solid", color = "#D50006"
+  ) +
+  shade_confidence_interval(
+    endpoints = ci_se, fill = NULL,
+    linetype = "dashed", color = "#502479"
+  ) +
+  labs(
+    title    = "Bootstrap CI: Percentile (red) vs. Standard Error (purple)",
+    subtitle = "Both methods yield similar intervals",
+    x        = expression(hat(beta)[age]),
+    y        = "Count"
+  )
+```
+
+:::
+
+Neither interval contains zero → the age effect is **statistically significant** at the 5% level.
+
+:::{.callout-important}
+## Correct Interpretation of the CI
+Under repeated sampling, 95% of confidence intervals constructed this way would contain the true parameter $\beta_{\text{age}}$.
+
+**Not:** "There is a 95% probability that the true value lies in this interval."
+:::
+
+---
+
+## Step 4: Permutation Test
+
+The permutation test approaches inference from the opposite direction: instead of estimating how much the coefficient *varies*, it simulates a **world where there is no relationship at all**. By randomly shuffling the age values, any systematic association between age and market value is destroyed.
+
+```{r perm-test}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+null_dist <- tbl_buli %>%
+               specify(log_value ~ age) %>%
+               hypothesize(null = "independence") %>%
+               generate(reps = 1000, type = "permute") %>%
+               calculate(stat = "slope")
+
+p_val <- null_dist %>%
+           get_p_value(obs_stat = obs_slope, direction = "two-sided")
+p_val
+```
+
+```{r perm-viz}
+#| echo: false
+null_dist %>%
+  visualize() +
+  shade_p_value(obs_stat = obs_slope, direction = "two-sided") +
+  labs(
+    title    = "Null Distribution (Permutation Test)",
+    subtitle = glue::glue("p-value = {round(p_val$p_value, 4)} | Red area = p-value"),
+    x        = expression(hat(beta)~"under H"[0]*": independence"),
+    y        = "Count"
+  )
+```
+
+The null distribution is centred at zero. Our observed slope lies far outside — the p-value is `r round(p_val$p_value, 4)`.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Bootstrap vs. Permutation — When to Use Which?
+| | **Bootstrap** | **Permutation** |
+|---|---|---|
+| `hypothesize()` | No | Yes (`null = "independence"`) |
+| `generate()` type | `"bootstrap"` | `"permute"` |
+| Question | "How much does my estimate vary?" | "Could this result arise by chance?" |
+| Output | Confidence interval | p-value |
+
+Both are resampling methods, but they answer *different questions*. Bootstrap estimates variability; permutation tests a null hypothesis.
+:::
+
+---
+
+## Step 5: Only One Test — Regression Subsumes Everything
+
+In many introductory statistics courses, the t-test, ANOVA, and regression are taught as separate procedures. They are not. **They are all special cases of the linear model.**
+
+### 5.1 The t-Test Is a Regression
+
+Do goalkeepers and outfield players have different log market values? The classic way to test this is a two-sample t-test. But we can also frame it as a regression:
+
+$$\log(\text{mv}) = \beta_0 + \beta_1 \cdot \mathbb{I}_{\text{Outfield}} + \varepsilon$$
+
+Here, $\beta_1$ is the *difference in group means* — exactly what the t-test estimates.
+
+```{r ttest-as-regression}
+#| code-fold: false
+# --- approach 1: t-test ---
+t_result <- t.test(log_value ~ pos_bin, data = tbl_buli, var.equal = TRUE)
+
+# --- approach 2: regression ---
+lm_pos <- lm(log_value ~ pos_bin, data = tbl_buli)
+```
+
+```{r ttest-comparison}
+#| echo: false
+tibble::tribble(
+  ~Approach,       ~Estimate,                    ~`t-statistic`,          ~`p-value`,
+  "t-test",        round(diff(t_result$estimate), 4),
+                                                  round(t_result$statistic, 4),
+                                                                           round(t_result$p.value, 4),
+  "Regression",    round(coef(lm_pos)["pos_binOutfield"], 4),
+                                                  round(summary(lm_pos)$coefficients["pos_binOutfield","t value"], 4),
+                                                                           round(summary(lm_pos)$coefficients["pos_binOutfield","Pr(>|t|)"], 4)
+) %>%
+  gt() %>%
+  fmt_number(decimals = 4) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body()) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("The values are identical (up to sign convention for the t-statistic)")
+```
+
+The estimates, t-statistics, and p-values are identical. **The t-test is just a regression with a binary predictor.**
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Why Are They the Same?
+The two-sample t-test with equal variances computes:
+
+$$t = \frac{\bar{x}_1 - \bar{x}_2}{s_p \sqrt{1/n_1 + 1/n_2}}$$
+
+The regression t-test for $\beta_1$ in $Y = \beta_0 + \beta_1 X$ with a binary $X$ computes:
+
+$$t = \frac{\hat\beta_1}{\text{SE}(\hat\beta_1)}$$
+
+These are algebraically identical. The regression simply uses matrix algebra to express the same quantity.
+:::
+
+### 5.2 ANOVA Is a Regression with a Factor
+
+What if we have more than two groups? Instead of the binary goalkeeper/outfield split, we use four position categories: Goalkeeper, Defender, Midfielder, Forward.
+
+```{r pos-check}
+#| code-fold: false
+# --- verify position groups ---
+tbl_buli %>% count(pos_cat)
+```
+
+```{r anova-as-regression}
+#| code-fold: false
+# --- regression with a factor (k levels) ---
+lm_pos4 <- lm(log_value ~ pos_cat, data = tbl_buli)
+```
+
+```{r anova-table}
+#| echo: false
+get_regression_table(lm_pos4) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci), decimals = 3) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = p_value < 0.05)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Yellow = significant at α = 0.05. Reference category: Goalkeeper")
+```
+
+Each coefficient is a t-test comparing that position to the reference (Goalkeeper). But there is also a **global question**: does position matter *at all*? That is the F-test:
+
+```{r f-test}
+#| code-fold: false
+# --- the F-test: does ANY position coefficient differ from zero? ---
+anova(lm_pos4)
+```
+
+```{r f-summary}
+#| echo: false
+get_regression_summaries(lm_pos4) %>%
+  gt() %>%
+  fmt_number(decimals = 3) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(columns = statistic)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("The F-statistic tests: do ALL position coefficients jointly equal zero?")
+```
+
+The t-test asks: "Is *this one* coefficient different from zero?" The F-test asks: "Is *any* coefficient different from zero?" Both live inside `get_regression_table()` and `get_regression_summaries()`.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: The Testing Hierarchy
+| Test | Question | Model |
+|------|----------|-------|
+| **t-test (2 groups)** | Is the mean difference ≠ 0? | `lm(y ~ x_binary)` |
+| **ANOVA (k groups)** | Is any group mean different? | `lm(y ~ x_factor)` |
+| **Simple regression** | Is the slope ≠ 0? | `lm(y ~ x_numeric)` |
+| **Multiple regression** | Are any slopes ≠ 0? | `lm(y ~ x1 + x2 + ...)` |
+
+All of these are the *same* linear model $Y = X\beta + \varepsilon$, just with different design matrices $X$. This is the "Only One Test" principle from [ModernDive](https://moderndive.com): learn one framework and you can handle any hypothesis.
+
+For a comprehensive overview of which test maps to which regression, see the flowchart in [Appendix D of ModernDive](https://moderndive.com/D-regression).
+:::
+
+### 5.3 The Resampling Version
+
+All of the above relies on theoretical distributions (t, F). With infer, we can replace *any* of them with a permutation test. The logic is always identical — shuffle the predictor, recompute, compare.
+
+```{r perm-pos4}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+# --- observed F-statistic ---
+obs_f <- tbl_buli %>%
+           specify(log_value ~ pos_cat) %>%
+           calculate(stat = "F")
+
+# --- null distribution via permutation ---
+null_f <- tbl_buli %>%
+            specify(log_value ~ pos_cat) %>%
+            hypothesize(null = "independence") %>%
+            generate(reps = 1000, type = "permute") %>%
+            calculate(stat = "F")
+
+p_f <- null_f %>% get_p_value(obs_stat = obs_f, direction = "greater")
+```
+
+```{r perm-pos4-viz}
+#| echo: false
+null_f %>%
+  visualize() +
+  shade_p_value(obs_stat = obs_f, direction = "greater") +
+  labs(title    = "Permutation Test for Position Effect (4 groups)",
+       subtitle = glue::glue("Observed F = {round(pull(obs_f), 2)} | p = {round(p_f$p_value, 4)}"),
+       x        = "F-statistic under H₀",
+       y        = "Count")
+```
+
+Same conclusion, no distributional assumptions required.
+
+---
+
+## Step 6: Verification — Traditional Regression Output
+
+We close the loop by showing `get_regression_table()` for the simple age model — the same numbers we computed via resampling in Steps 2–4:
+
+```{r trad-table}
+#| code-fold: false
+reg_buli <- lm(log_value ~ age, data = tbl_buli)
+get_regression_table(reg_buli)
+```
+
+```{r trad-table-fmt}
+#| echo: false
+get_regression_table(reg_buli) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci), decimals = 4) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(rows = term == "age")) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("Yellow: age coefficient — compare CI with bootstrap result from Step 3")
+```
+
+### Three Methods, One Answer
+
+```{r three-methods}
+#| echo: false
+trad_age <- get_regression_table(reg_buli) %>% filter(term == "age")
+
+tibble::tribble(
+  ~Method,                    ~`CI Lower`,                ~`CI Upper`,  ~`Significant?`,
+  "Bootstrap (Percentile)",    round(ci_pct$lower_ci, 4),
+                               round(ci_pct$upper_ci, 4),               "Yes",
+  "Bootstrap (SE)",            round(ci_se$lower_ci, 4),
+                               round(ci_se$upper_ci, 4),                "Yes",
+  "Traditional (t-test)",      round(trad_age$lower_ci, 4),
+                               round(trad_age$upper_ci, 4),             "Yes"
+) %>%
+  gt() %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body()) %>%
+  tab_options(table.font.size = "14px")
+```
+
+All three converge. This is **not** a coincidence — they all estimate the same quantity (the standard error of the slope), just by different routes.
+
+---
+
+## Mandatory Tasks
+
+:::{.callout-important icon=false}
+## ⚠️ A1: Sampling vs. Bootstrap Distribution
+
+Look at the overlay plot from Step 2.3.
+
+1. In what respect are the two distributions **similar**?
+2. In what respect do they **differ**?
+3. Why is the bootstrap distribution centred on the *sample* slope rather than the *population* slope?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A2: Confidence Interval Interpretation
+
+The bootstrap CI from Step 3 is [`r round(ci_pct$lower_ci, 4)`, `r round(ci_pct$upper_ci, 4)`].
+
+1. Does this interval contain zero? What does that imply?
+2. Write the correct interpretation of "95% confidence" in one sentence.
+3. A colleague says: "There's a 95% chance the true slope is in this interval." Why is that wrong?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A3: Permutation Test
+
+The permutation p-value is `r round(p_val$p_value, 4)`.
+
+1. In your own words: what does the null distribution in Step 4 represent?
+2. Why is the null distribution centred at zero?
+3. The p-value from `get_regression_table()` is `r round(trad_age$p_value, 4)`. Are they consistent?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A4: t-Test = Regression
+
+Look at the comparison table in Step 5.1.
+
+1. Which column confirms that the t-test and regression give the same result?
+2. A colleague insists on using a t-test "because it's the right test for comparing two groups." What would you say?
+3. What advantage does the regression framing have over the classical t-test framing?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A5: ANOVA & F-Test
+
+Look at the regression table and F-test in Step 5.2.
+
+1. What is the reference category? How do you know?
+2. Pick one of the position coefficients from the regression table. What does its sign and magnitude mean?
+3. Why do we need the F-test when we already have t-tests for each coefficient?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## 💡 B1: Sample Size and Bootstrap Precision
+
+Repeat the Step 2 comparison with n = 20 and n = 100. How does sample size affect the bootstrap's ability to approximate the sampling distribution?
+
+```r
+set.seed(2024)
+tbl_n20  <- tbl_buli %>% slice_sample(n = 20)
+tbl_n100 <- tbl_buli %>% slice_sample(n = 100)
+# bootstrap each and compare spread
+```
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B2: Permutation Test for the Position Effect
+
+Use `infer` to run a permutation test for the binary variable `pos_bin` (Goalkeeper vs. Outfield) with `stat = "diff in means"`. Compare the p-value with the regression p-value from Step 5.1.
+
+```r
+tbl_buli %>%
+  specify(log_value ~ pos_bin) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "diff in means", order = c("Outfield", "Goalkeeper"))
+```
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B3: ModernDive Flowchart
+
+Open the [hypothesis testing flowchart in ModernDive Appendix D](https://moderndive.com/D-regression). Pick two tests from the flowchart and show — using the Bundesliga data — that they are equivalent to a linear regression.
+:::
+
+---
+
+## Summary
+
+```{r summary-table}
+#| echo: false
+tibble::tribble(
+  ~`Finding`,                       ~`Key Result`,                                ~`Implication for Lab 2`,
+  "Sampling ≈ Bootstrap",           "Bootstrap approximates the sampling dist.",   "Justifies resampling for inference",
+  "Bootstrap CI excludes zero",     "Age effect is statistically significant",     "→ interpret coefficients in Lab 2",
+  "Permutation confirms CI",        paste0("p = ", round(p_val$p_value, 4)),       "Two routes to the same verdict",
+  "t-test = regression",            "Identical estimates, t-stats, p-values",      "Regression is the universal framework",
+  "ANOVA = regression with factor", "F-test = global significance test",           "→ multiple regression in Session 3"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = c(1, 2, 4))) %>%
+  tab_style(cell_fill("#fff8e1"), cells_body(rows = c(3, 5))) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## What Comes Next
+
+In **Lab 2** we move from resampling to the full machinery of **stochastic regression analysis**: the population model vs. the sample model (Stocker notation), all three `moderndive` helper functions, and the `infer::fit()` function for multiple regression. The resampling logic from this lab remains the foundation — Lab 2 simply adds the classical counterparts.
+
+**Dataset used:** `buli_raw_2023-09-06.rds` (Bundesliga players, season 2022/23)
+:::

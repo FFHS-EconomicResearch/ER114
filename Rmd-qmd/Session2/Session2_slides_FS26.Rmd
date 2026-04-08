@@ -69,7 +69,7 @@ Zitiere <- function(bib, key, ...) {
 
 
 
-# ER014 - Data Science and Strategy for Business
+# ER114 - Data Science and Strategy for Business
 
 ## Session 2
 
@@ -133,13 +133,29 @@ class: left
 <div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
 
 <div style="color:#D50006; font-weight:bold;">25'</div>
-<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 2</strong> — p-Hacking Simulation · FDR</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 2</strong> — Stochastic Regression Analysis</div>
 
-<div style="color:#686868;">35'</div>
+
+<div style="color:#686868;">30'</div>
 <div>`r fa('scale-balanced')` <strong>Type I/II Errors as Economic Risks</strong> · Expected Value Framework</div>
+
+
+
+
+<div style="color:#D50006; font-weight:bold;">15'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 3</strong> — Part 1: Type I/II Error · EV framework </div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('ruler')` <strong>p-Hacking</strong> p-Hacking · FDR · BH</div>
+
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 3</strong> — Part 2: p-Hacking · FDR </div>
+
 
 <div style="color:#686868;">25'</div>
 <div>`r fa('ruler')` <strong>Statistical vs. Practical Significance</strong> · Effect Size · Session 3 Preview</div>
+
 
 <div style="color:#686868;">10'</div>
 <div>`r fa('flag-checkered')` <strong>Debrief & Preview</strong></div>
@@ -330,44 +346,12 @@ But: This season is **one realization** of a random experiment. If we looked at 
 
 
 
+
+
 ---
 class: left
 
 .blockquote[Big Picture & Statistical Uncertainty]
-
-## Do Goalkeepers **generally** benefit? A Shift in Model Interpretation
-
-.pull-left[
-### Descriptive Regression
-$$y_i = b_0 + b_1 x_i + e_i$$
-
-- Data as population data (no randomness, no error term in the stochastic sense)
-- **Summary** of observed data
-- $\hat{y}_i$: Prediction as a conditional mean
-- Coefficients: Marginal effects (ceteris paribus)
-- Residual $e_i$: Variance *not explained* by the model
-
-*→ That was our world in PVA 1.*
-]
-
-.pull-right[
-### Stochastic regression model
-
-$$Y_i = \beta_0 + \beta_1 X_i + \varepsilon_i$$
-
-- **Model for a data-generating process (DGP)** (bowl analogy in [moderndive.com](https://www.moderndive.com))
-- $\beta_j$: (unknown!) parameters of the *population* 
-- $\varepsilon_i \sim (0, \sigma^2)$: **stochastic** error term. Should ideally be only "noise" (contain no systematic information about Y → Session 3)
-- Goal: Infer about the population from the *sample*
-
-*→ This is the shift in today’s PVA.*
-]
-
-
----
-class: left
-
-.blockquote[From Description to Modeling]
 
 ## Why Model? Three Perspectives
 
@@ -401,7 +385,7 @@ tibble(
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Statistics vs. Data Science — Two Schools of Thought
 
@@ -482,9 +466,8 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
 
-## Statistics vs. Data Science — Two Schools of Thought
+.blockquote[Big Picture & Statistical Uncertainty]
 
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
   <div class="vs2-hdr" style="background:#502479;">`r fa('chart-line', fill='white')` &nbsp;Classical Statistics</div>
@@ -541,7 +524,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Statistics vs. Data Science — Two Schools of Thought
 
@@ -582,11 +565,11 @@ count: false
   <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('superscript')` OLS · GLM</strong> &nbsp;
-    <span class="vs2-chip">R²</span><span class="vs2-chip">p-Wert</span><span class="vs2-chip">In-Sample</span><br>
+    <span class="vs2-chip">R²</span><span class="vs2-chip">p-value</span><span class="vs2-chip">In-Sample</span><br>
     <span style="color:#666;">Significance · model fit on training data</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
-    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neuronale Netze</strong> &nbsp;
+    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neural Networks</strong> &nbsp;
     <span class="vs2-chip">Cross-Validation</span><span class="vs2-chip">Out-of-Sample</span><br>
     <span style="color:#666;">Avoid overfitting · predict on new data</span>
   </div>
@@ -608,7 +591,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Statistics vs. Data Science — Two Schools of Thought
 
@@ -647,11 +630,11 @@ count: false
   <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
   <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
     <strong style="color:#502479;">`r fa('superscript')` OLS · GLM</strong> &nbsp;
-    <span class="vs2-chip">R²</span><span class="vs2-chip">p-Wert</span><span class="vs2-chip">In-Sample</span><br>
+    <span class="vs2-chip">R²</span><span class="vs2-chip">p-value</span><span class="vs2-chip">In-Sample</span><br>
     <span style="color:#666;">Significance · model fit on training data</span>
   </div>
   <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
-    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neuronale Netze</strong> &nbsp;
+    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neural Networks</strong> &nbsp;
     <span class="vs2-chip">Cross-Validation</span><span class="vs2-chip">Out-of-Sample</span><br>
     <span style="color:#666;">Avoid overfitting · predict on new data</span>
   </div>
@@ -676,14 +659,14 @@ count: false
 * Low-Dimensional: n≫p — OLS has a unique solution, classical statistics works
 * High-Dimensional: p≈n → OLS breaks down, regularization needed (→ Session 3)
 * Shmueli (2010): Statistical Science 25(3), 289–310
-* In this module: we start classical — next slide shows where ER014 sits
+* In this module: we start classical — next slide shows where ER114 sits
 
 ---
 class: left
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
-## Positioning ER014: Bridge between Statistics and Data Science
+## Positioning ER114: Bridge between Statistics and Data Science
 
 <svg viewBox="0 0 860 315" width="100%" style="display:block; margin-top:0.1em;">
   <defs>
@@ -704,25 +687,25 @@ class: left
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#502479;text-anchor:middle"
         x="107" y="30">Classical Statistics</text>
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#b07800;text-anchor:middle"
-        x="432" y="30">ER014 — Modern Statistics &amp; Transition</text>
+        x="432" y="30">ER114 — Modern Statistics &amp; Transition</text>
   <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#D50006;text-anchor:middle"
         x="755" y="30">Data Science / ML</text>
 
   <!-- ── Tags Classical ── -->
   <rect x="22"  y="42" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
-  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="56">EDA · Visualisierung</text>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="56">EDA · Visualization</text>
   <rect x="112" y="42" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
   <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="56">OLS · Regression</text>
   <rect x="22"  y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
   <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="84">t-Test · ANOVA</text>
   <rect x="112" y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
-  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="84">p-Wert · α</text>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="84">p-value · α</text>
   <rect x="22"  y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
-  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="112">CLT · Normalvert.</text>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="112">CLT · Normal dist.</text>
   <rect x="112" y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
   <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="112">Multiple Regression</text>
 
-  <!-- ── Tags ER014 bridge: 3 blocks ── -->
+  <!-- ── Tags ER114 bridge: 3 blocks ── -->
 
   <!-- Block 1: EDA & Modellierung -->
   <rect x="222" y="38" width="132" height="140" rx="5"
@@ -791,17 +774,17 @@ class: left
   <text style="font-family:sans-serif;font-size:8.5px;fill:#aaa;text-anchor:middle"
         x="430" y="213">methodological evolution</text>
 
-  <!-- ── ER014 bracket below ── -->
+  <!-- ── ER114 bracket below ── -->
   <line x1="215" y1="220" x2="215" y2="235" stroke="#D5A000" stroke-width="2"/>
   <line x1="215" y1="235" x2="650" y2="235" stroke="#D5A000" stroke-width="2"/>
   <line x1="650" y1="220" x2="650" y2="235" stroke="#D5A000" stroke-width="2"/>
   <rect x="355" y="238" width="150" height="22" rx="4" fill="#D5A000"/>
   <text style="font-family:sans-serif;font-size:11px;font-weight:bold;fill:white;text-anchor:middle"
-        x="430" y="253">ER014 — this course</text>
+        x="430" y="253">ER114 — this course</text>
 
   <!-- ── Follow-up modules right ── -->
   <text style="font-family:sans-serif;font-size:9px;fill:#D50006;text-anchor:middle;font-style:italic"
-        x="755" y="253">ER017 · ER018</text>
+        x="755" y="253">ERx17 · ERx18</text>
 
 </svg>
 
@@ -824,7 +807,7 @@ class: left
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Five Statistical Foundations — and Their Transfer to Data Science
 
@@ -941,7 +924,7 @@ count: false
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span></div>
 </div>
 <div class="bridge-row bridge-ghost">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-value · α-Level · Multiplicity</span></div>
   <div class="bridge-arrow">—</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
 </div>
@@ -961,7 +944,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Five Statistical Foundations — and Their Transfer to Data Science
 
@@ -1009,7 +992,7 @@ count: false
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span></div>
 </div>
 <div class="bridge-row bridge-ghost">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-value · α-Level · Multiplicity</span></div>
   <div class="bridge-arrow">—</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
 </div>
@@ -1028,7 +1011,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Five Statistical Foundations — and Their Transfer to Data Science
 
@@ -1086,7 +1069,7 @@ count: false
 
 <!-- 4–5: grayed out -->
 <div class="bridge-row bridge-ghost">
-  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-value · α-Level · Multiplicity</span></div>
   <div class="bridge-arrow">—</div>
   <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
 </div>
@@ -1106,7 +1089,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Five Statistical Foundations — and Their Transfer to Data Science
 
@@ -1165,7 +1148,7 @@ count: false
 <!-- 4: AKTIV -->
 <div class="bridge-row">
   <div class="bridge-left">
-    <span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span><br>
+    <span class="bridge-kw-l">`r fa('filter')` p-value · α-Level · Multiplicity</span><br>
     <span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Test</span><span class="bridge-chip-l">1 Test</span><br>
     <span style="color:#666;">For one test: 5% error rate acceptable</span>
   </div>
@@ -1194,7 +1177,7 @@ count: false
 class: left
 count: false
 
-.blockquote[Big Picture & Data Strategy]
+.blockquote[Big Picture & Statistical Uncertainty]
 
 ## Five Statistical Foundations — and Their Transfer to Data Science
 
@@ -1253,7 +1236,7 @@ count: false
 <!-- 4 -->
 <div class="bridge-row">
   <div class="bridge-left">
-    <span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span><br>
+    <span class="bridge-kw-l">`r fa('filter')` p-value · α-Level · Multiplicity</span><br>
     <span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Test</span><span class="bridge-chip-l">1 Test</span><br>
     <span style="color:#666;">For one test: 5% error rate acceptable</span>
   </div>
@@ -1286,7 +1269,7 @@ count: false
 * RCT (A/B test): randomization eliminates confounders — gold standard for causal inference
 * DAG (Directed Acyclic Graph): Pearl's Framework — which variables must be controlled?
 * Conditional Ignorability: causal effect identifiable when all confounders are observed and controlled
-* All 5 concepts are anchored in ER014 and are prerequisites for ER017/ER018
+* All 5 concepts are anchored in ER114 and are prerequisites for ERx17/ERx18
 
 
 
@@ -1324,7 +1307,55 @@ class: left
 `r fa('circle-right')` We are interested in the **stable, generative mechanism** — not a single season
 ]
 
+---
+class: left
 
+.blockquote[Population vs. Sample]
+
+## Do Goalkeepers **generally** benefit? A Shift in Model Interpretation
+
+.panelset[
+.panel[.panel-name[Descriptive Regression]
+### Session 1
+$$y_i = b_0 + b_1 x_i + e_i$$
+
+.small[
+- Data as population data
+- **Summary** of observed data (OLS minimizes Sum of Squared Residuals (SSR) **in the data at hand**)
+- $\hat{y}_i$: Prediction as a conditional mean
+- Coefficient $b_j$: Marginal effects (ceteris paribus)
+- Residual $e_i$: Variance *not explained* by the model
+
+`r fa('circle-right')` No statement about generalizability
+]
+]
+.panel[.panel-name[Stochastic Regression]
+### Session 2
+
+$$y_i = \beta_0 + \beta_1 x_i + \varepsilon_i$$
+
+.small[
+- **Model for a data-generating process (DGP)** (bowl analogy in [moderndive.com](https://www.moderndive.com))
+- $\beta_j$: (unknown!) parameter(s) of the *population* 
+- Coefficients: **estimates** of the unknown population parameter $\beta$: $$\underbrace{\hat\beta}_{\text{Sample}} \approx \underbrace{\beta}_{\text{Population}}$$
+- $\varepsilon_i \sim (0, \sigma^2)$: **stochastic** error term. Should ideally be only "noise" (contain no systematic information about Y → Session 3)
+- Goal: Infer about the population from the *sample*
+
+.center[
+`r fa('circle-right')` Question: How precise is this estimate?
+`r fa('circle-right')` Answer: **Standard Error** und **Confidence Interval**
+]
+]
+
+]
+]
+
+
+???
+
+`r fa('circle-right')` Question: How precise is this estimate?
+
+`r fa('circle-right')` Answer: **Standard Error** und **Confidence Interval**
 
 ---
 class: left
@@ -1409,34 +1440,7 @@ tbl_buli %>%
 * All are similar but not identical — that is sampling variability
 * The black coefficient is "true" for this season — but is it stable?
 
----
-class: left
 
-.blockquote[Population vs. Sample]
-
-## Stochastic Regression Analysis: The Basic Idea
-
-.pull-left[
-### Descriptive Regression (Session 1)
-`r fa('circle-right')` OLS minimiert Errorquadratsumme **in den vorliegenden Data**
-
-`r fa('circle-right')` Coefficient = conditional mean **of this sample**
-
-`r fa('circle-right')` No statement about generalizability
-]
-
-.pull-right[
-
-### Stochastic Regression (Session 2)
-`r fa('circle-right')` Coefficient = **estimate** of an unknown population parameter $\beta$: $$\underbrace{\hat\beta}_{\text{Sample}} \approx \underbrace{\beta}_{\text{Population}}$$
-
-`r fa('circle-right')` Question: How precise is this estimate?
-
-`r fa('circle-right')` Antwort: **Standard Error** und **Confidence Interval**
-]
-
-
-???
 
 ---
 class: left
@@ -1596,112 +1600,262 @@ Fitted regression coefficient (sample)
 * Sampling variability: a new draw would yield a different value
 * Standard Error quantifiziert diese Variabilität
 
+
 ---
 class: left
+
 .blockquote[Population vs. Sample]
-## `r fa('flask', fill='#D50006')` Lab 1 — Reference
+
+## `r fa('flask', fill='#D50006')` Lab 1 — Resampling & Only One Test
 
 <div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
             background:#fff5f5; margin-top:1em;">
 <div style="font-family:sans-serif; font-size:16px; font-weight:bold;
             color:#D50006; margin-bottom:10px;">
-`r fa('flask')` Lab 1: Only One Test — Bootstrap &amp; Permutation with infer
+`r fa('flask')` Lab 1: Resampling &amp; Only One Test
 </div>
 <div style="font-size:0.85em; line-height:1.8;">
 
-<strong>Lernziel:</strong> Bootstrap confidence interval and permutation test for the
-regression coefficient in the Bundesliga model and compare with the
-traditional t-test.
+<strong>Learning objective:</strong> Experience the difference between the sampling
+distribution and the bootstrap distribution. Compute bootstrap CIs and
+permutation p-values. Discover that t-test, ANOVA, and regression are all the same test.
 
 <br>
 
-<strong>Datasatz:</strong> <code>buli_raw_2023-09-06.rds</code>
+<strong>Dataset:</strong> <code>buli_raw_2023-09-06.rds</code>
 (Bundesliga players, season 2022/23) &nbsp;·&nbsp;
-<strong>Model:</strong> <code>log_value ~ age</code>
+<strong>Models:</strong> <code>log_value ~ age</code> · <code>log_value ~ pos_cat</code>
 
 <br>
 
-`r fa('clock')` <strong>40 minutes</strong> &nbsp;·&nbsp;
+`r fa('clock')` <strong>45 minutes</strong> &nbsp;·&nbsp;
 `r fa('users')` <strong>Individual work or pairs</strong>
 
 <br>
 
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>Session 2_Lab1_InferenceResampling.qmd</code>
+<code>Session2_Lab1_Resampling.qmd</code>
 
 </div>
 </div>
 
 <br>
 
-.center[.small[Continue after the lab → <strong>Debrief: Critical Validator Building Blocks A+B</strong>]]
+.center[.small[Continue after the lab → <strong>Debrief Lab 1</strong>]]
 
 ???
-* Lab takes approx. 40 minutes
-* Required tasks: Bootstrap CI + permutation test + comparison t-test
-* Bonus tasks: interaction model, reps=100 vs. 1000, underpowered sample
-* Save results: obs_slope, boot_dist, ci_pct, ci_se, null_dist are not needed in Lab 2
+* Lab takes approx. 45 minutes
+* Key experience: overlay plot of sampling distribution vs. bootstrap distribution — "bootstrap works!"
+* Step 5: t-test = regression (identical table), ANOVA = regression with factor, F-test = global significance
+* Required tasks: A1 (sampling vs. bootstrap), A2 (CI interpretation), A3 (permutation p-value), A4 (t-test = regression), A5 (ANOVA & F-test)
+* Bonus: varying sample size, permutation for position effect, ModernDive flowchart
+* Results needed for Lab 2: conceptual understanding of SE, CI, p-value as resampling counterparts
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 1 DEBRIEF
+     Insert immediately after the Lab 1 slide.
+     ═══════════════════════════════════════════════════════════ -->
+
 ---
 class: left
 
-.blockquote[Debrief Lab 1 + Critical Validator]
+.blockquote[Debrief Lab 1]
 
-## Debrief: Inference als Filter — Galaks Darts-Analogie
+## Debrief: Resampling & Only One Test
 
 .panelset[
-.panel[.panel-name[Darts Analogy]
-### The Darts Analogy (Galak)
+.panel[.panel-name[Sampling vs. Bootstrap]
 
-`r fa('bullseye')` **One throw** = one sample — does it hit the center by chance?
+### The Core Visualisation
 
-`r fa('circle-right')` Only **many throws** reveal the true precision
+`r fa('circle-right')` **Sampling distribution:** 500 samples from the "population" → distribution of slopes centred on the true parameter
 
-`r fa('circle-right')` Standard Error = durchschnittliche Streuung der Würfe
+`r fa('circle-right')` **Bootstrap distribution:** 1000 resamples from *one* sample → similar shape and spread
 
-`r fa('circle-right')` Confidence Interval = Bereich, der bei 95% aller Dartspiele die wahre Mitte enthält
+`r fa('circle-right')` Bootstrap approximates the sampling distribution **without** knowing the population
 
-]
-.panel[.panel-name[Transfer Lab 1]
-
-### Transfer to Lab 1
-
-`r fa('circle-right')` Bootstrap-KI: Was passiert wenn wir 1000× neu aus den Buli-Data ziehen?
-
-`r fa('circle-right')` Does the CI contain zero? → Is the age effect significant?
-
-`r fa('circle-right')` Permutation test: simulate the null world — how extreme is our observed coefficient?
-]
-
-.panel[.panel-name[Critical Validator]
-### Critical Validator — Building Blocks A+B
-
-**Baustein A: Inference als Filter**
-.small[
-> "Statistische Inference filtert echtes Signal von zufälligem Rauschen — wie ein Dart-Spieler, der nach vielen Würfen beurteilt wird, nicht nach einem einzigen."
-]
-
-**Building Block B: Erroneous Decisions**
-.small[
-> Fire alarm model: alarm goes off (FP) vs. fire goes undetected (FN)
->
-> In the Bundesliga context: buying a player who is not actually undervalued (FP) vs. missing a real arbitrage opportunity (FN)
-]
-
-`r fa('circle-right')` **Which error is more costly?** → That depends on the costs — not on the p-value!
-]
+`r fa('circle-right')` The *width* (standard error) is well estimated; the *centre* is the sample statistic, not the population parameter
 
 ]
+.panel[.panel-name[Only One Test]
 
+### Regression Subsumes Everything
+
+`r fa('circle-right')` **t-test** (2 groups) = `lm(y ~ x_binary)` → identical estimate, t-statistic, p-value
+
+`r fa('circle-right')` **ANOVA** (k groups) = `lm(y ~ x_factor)` → F-test = global significance test
+
+`r fa('circle-right')` Every classical test is a **special case** of the linear model
+
+`r fa('circle-right')` Resampling (permutation) replaces **any** of these without distributional assumptions
+
+.center[`r fa('circle-right')` See [ModernDive Appendix D](https://moderndive.com/D-regression) for the full flowchart]
+]
+.panel[.panel-name[Bridge to Lab 2]
+
+### What We Established — and What Comes Next
+
+`r fa('check', fill='#2a7a2a')` **Bootstrap** estimates how much $\hat\beta$ varies → CI
+
+`r fa('check', fill='#2a7a2a')` **Permutation** tests whether $\hat\beta$ could be zero → p-value
+
+`r fa('check', fill='#2a7a2a')` The `get_regression_table()` gives the **same numbers** via formulas
+
+`r fa('circle-right')` But we treated that table as a black box. In Lab 2 we open it: **What do SE, t, p, CI actually mean?** And how do they connect to the population model $Y = \beta_0 + \beta_1 X + \varepsilon$?
+]
+]
 
 ???
-* Discuss Critical Validator posting: What did the teams find for building blocks A+B?
-* Galak video was preparation — anchor it concretely here
-* Transition: how do we formalize the costs of erroneous decisions? → Expected Value Framework
+* Key discussion point: "Why does bootstrap work even though it only uses one sample?"
+* Answer: it gets the spread (SE) right — CLT guarantees convergence for large n
+* Transition to Lab 2: every column in get_regression_table() has a resampling counterpart
+* After debrief → Break, then Lab 2
+
+
 
 ---
 class: inverse, center, middle
 
 # ☕ Break
+
+
+---
+class: left
+
+.blockquote[Stochastic Regression]
+
+## `r fa('flask', fill='#D50006')` Lab 2 — Stochastic Regression Analysis
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 2: From Descriptive Fit to Inferential Reasoning
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Distinguish between population model ($\beta, \varepsilon$)
+and sample model ($b, e$). Interpret all columns of <code>get_regression_table()</code>,
+<code>get_regression_summaries()</code>, and <code>get_regression_points()</code>. Use
+<code>infer::fit()</code> for the interaction model. Assess residual diagnostics.
+
+<br>
+
+<strong>Dataset:</strong> <code>buli_raw_2023-09-06.rds</code> &nbsp;·&nbsp;
+<strong>Models:</strong> <code>log_value ~ age</code> · <code>log_value ~ age * pos_bin</code>
+
+<br>
+
+`r fa('clock')` <strong>50 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session2_Lab2_RegressionAnalysis.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief Lab 2</strong>]]
+
+???
+* Lab takes approx. 50 minutes — longest lab of the session
+* Stocker notation table: Greek (population) vs. Latin (sample) — key conceptual foundation
+* Three moderndive helpers: get_regression_table(), get_regression_summaries(), get_regression_points()
+* Quantile regression teaser: "the mean is only one parameter"
+* infer::fit() for interaction model — bootstrap CIs + permutation for all coefficients
+* Residual diagnostics: 3 plots (residuals-vs-fitted, QQ, scale-location)
+* Framing: parametric vs. resampling — when do classical SEs fail?
+* BLUE preview → Session 3
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 2 DEBRIEF
+     Insert immediately after the Lab 2 slide.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 2]
+
+## Debrief: Stochastic Regression Analysis
+
+.panelset[
+.panel[.panel-name[Notation]
+
+### Population vs. Sample — Why It Matters
+
+| | Population (unknown) | Sample (estimated) |
+|---|---|---|
+| Slope | $\beta_1$ | $b_1$ |
+| Error | $\varepsilon$ (unobservable) | $e = y - \hat{y}$ (observable) |
+| Line means | $E[Y|X]$ (conditional expected value) | $\bar{y}|x$ (conditional mean) |
+
+`r fa('circle-right')` **Every number in the regression output is a sample quantity** — an estimate, not truth
+
+`r fa('circle-right')` The SE quantifies how much $b_1$ would vary across samples — exactly what bootstrap showed in Lab 1
+]
+.panel[.panel-name[Classical = Resampling]
+
+### Every Column Has a Counterpart
+
+| Classical | Resampling (Lab 1) |
+|---|---|
+| SE from formula | SD of bootstrap distribution |
+| t = estimate / SE | Position in null distribution |
+| p from t-distribution | Permutation p-value |
+| CI = est ± 1.96 · SE | Bootstrap percentile CI |
+
+`r fa('circle-right')` When assumptions hold: **both agree** → use classical (more efficient)
+
+`r fa('circle-right')` When diagnostics fail: **trust bootstrap** (more robust)
+]
+.panel[.panel-name[Diagnostics]
+
+### Three Plots, One Question: Can We Trust the Classical SEs?
+
+`r fa('circle-right')` **Residuals vs. Fitted:** Is the relationship linear?
+
+`r fa('circle-right')` **QQ-Plot:** Are residuals approximately normal?
+
+`r fa('circle-right')` **Scale-Location:** Is the error variance constant (homoskedasticity)?
+
+If all three look clean → classical SEs are **BLUE** (Best Linear Unbiased Estimator)
+
+If not → resampling SEs are more honest
+
+`r fa('circle-right')` Full treatment of BLUE and Gauss-Markov → **Session 3**
+]
+.panel[.panel-name[Bridge to Lab 3]
+
+### From One Test to Many
+
+`r fa('check', fill='#2a7a2a')` We now know how to test whether **one** coefficient is significant
+
+`r fa('check', fill='#2a7a2a')` We have both classical and resampling tools to do it
+
+`r fa('circle-right')` **But what happens when we test 100 variables at once?**
+
+`r fa('circle-right')` At $\alpha = 0.05$: we expect $100 \times 0.05 = 5$ false discoveries — **pure noise!**
+
+`r fa('circle-right')` That is the **multiplicity problem** → Lab 3: p-Hacking & FDR
+]
+]
+
+???
+* Key discussion: "The conditional mean is only one parameter" — quantile regression plot showed different slopes for different quantiles
+* Low R² does not mean the model is useless — it means the mean does not capture all variation
+* Residual diagnostics: practical rule — if classical and bootstrap CIs agree, the result is robust
+* Transition: we established tools for one test; Lab 3 shows what goes wrong with many tests
+
+
+
+
 
 ---
 class: inverse, center, middle
@@ -1828,43 +1982,90 @@ class: left
 
 .blockquote[Type I and Type II Errors]
 
-## `r fa('flask', fill='#D50006')` Lab 2 — Reference
+## `r fa('flask', fill='#D50006')` Lab 3a — p-Hacking Simulation
 
 <div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
             background:#fff5f5; margin-top:1em;">
-
 <div style="font-family:sans-serif; font-size:16px; font-weight:bold;
             color:#D50006; margin-bottom:10px;">
-`r fa('flask')` Lab 2: p-Hacking Simulation &amp; False Discovery Rate
+`r fa('flask')` Lab 3a: The Multiplicity Problem — Experience It
 </div>
-
 <div style="font-size:0.85em; line-height:1.8;">
 
-<strong>Learning objective:</strong> Experience p-hacking through simulation and apply the
-Benjamini-Hochberg procedure to control the False Discovery Rate.
+<strong>Learning objective:</strong> Experience p-hacking through simulation.
+Understand why $\alpha = 0.05$ fails when testing many variables at once.
 
 <br>
 
-<strong>Scenario:</strong> You test 100 random variables for association
-with Bundesliga market value. How many are purely randomly significant at α = 0.05?
+<strong>Scenario:</strong> Test 100 random variables against Bundesliga market value.
+How many are significant at $\alpha = 0.05$ purely by chance?
 
 <br>
 
-`r fa('circle-right')` <strong>Separate lab document:</strong>
-<code>Session 2_Lab2_pHacking_FDR.Rmd</code>
+<strong>Work on:</strong> <code>Session2_Lab3_pHacking.qmd</code> — <strong>Steps 1 &amp; 2 only</strong>
+(Simulation + real Bundesliga variables). Stop before Step 3 (BH correction).
+
+<br>
+
+`r fa('clock')` <strong>15 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong> &nbsp;·&nbsp;
+`r fa('pen')` <strong>Task A1</strong>
 
 </div>
 </div>
 
 <br>
 
-.center[.small[Continue after the lab → <strong>Statistical vs. Practical Significance</strong>]]
-
+.center[.small[
+`r fa('circle-right')` After Lab 3a → **Lecture: How do we fix this?** (Act 4 · FDR &amp; BH procedure)
+]]
 
 ???
-* Lab 2 takes approx. 25 minutes
-* Key experience: With 100 tests at α=0.05 I expect ~5 false hits by chance
-* Benjamini-Hochberg: adjusted p-values — controls proportion of false discoveries
+* Only 15 minutes — students run the simulation and see the result
+* Key experience: ~5 of 100 random tests are "significant" — pure noise!
+* Students also test real Bundesliga variables → some significant, but how many are real?
+* The lab STOPS with an open question: "How do we separate real effects from false discoveries?"
+* That question motivates Act 4 — the lecture introduces BH as the answer
+* Task A1 (scale to 1000 tests) can be started here or completed in Lab 3b
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 3a]
+
+## Quick Debrief: What Did We Just See?
+
+<div style="display:grid; grid-template-columns:50px 1fr; gap:0.4em 0.8em;
+            font-size:0.85em; margin-top:0.5em; align-items:start;">
+
+<div>`r fa('chart-bar', fill='#D50006')`</div>
+<div><strong>`r sum(pnorm(qnorm(0.025)) * 2)` — at $\alpha = 0.05$, 5% of random tests cross the threshold.</strong><br>
+This is not a bug. It is the definition of the significance level.</div>
+
+<div>`r fa('triangle-exclamation', fill='#D50006')`</div>
+<div><strong>The real Bundesliga data make it worse.</strong><br>
+Many numeric variables are correlated with market value — but some are just noise that happens to pass $\alpha = 0.05$.</div>
+
+<div>`r fa('question-circle', fill='#502479')`</div>
+<div><strong>The open question:</strong> We have `r fa('circle-right')` a list of "significant" variables. How do we know which ones are <em>truly</em> significant and which are false discoveries?</div>
+
+</div>
+
+<br>
+
+.blockquote[
+That is exactly what the **Benjamini-Hochberg procedure** solves. →
+]
+
+???
+* Quick debrief — max 3 minutes
+* Do NOT resolve the question yet — let the lecture (Act 4) provide the answer
+* The students have the visceral experience; now they are ready for the theory
+* Transition: "You felt the problem. Now let's see the solution."
+
+
+
 
 ---
 class: inverse, center, middle
@@ -1985,6 +2186,103 @@ $$\text{FDR} = \frac{\text{False Discoveries}}{\text{All Discoveries}}$$
 * FDR is the standard method in genomics (testing thousands of genes simultaneously)
 * For Bundesliga: if we test all transfer market variables, we need FDR
 * Transition: even if an effect is "truly" significant — is it large enough to be relevant?
+
+
+---
+class: left
+
+.blockquote[p-Hacking & FDR]
+
+## `r fa('flask', fill='#D50006')` Lab 3b — Applying the Benjamini-Hochberg Correction
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 3b: FDR Correction — The Solution
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Apply the Benjamini-Hochberg procedure to the
+p-values from Lab 3a. Compare raw, Bonferroni, and BH-corrected significance.
+Connect FDR to the Expected Value Framework.
+
+<br>
+
+<strong>Continue in:</strong> <code>Session2_Lab3_pHacking.qmd</code> — <strong>Step 3</strong>
+(BH correction) + <strong>Tasks A2 &amp; A3</strong>
+
+<br>
+
+`r fa('clock')` <strong>10 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong> &nbsp;·&nbsp;
+`r fa('pen')` <strong>Tasks A2 + A3</strong>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after Lab 3b → <strong>Debrief Lab 3 · Bridge to Significance vs. Relevance</strong>]]
+
+???
+* Students now have the theory from Act 4 — they apply it to their own simulation results
+* p.adjust(p_values, method = "BH") is the key line of code
+* Task A2: interpret Bonferroni vs. BH — which variables survive?
+* Task A3: connect FDR to Expected Value Framework — does BH correction increase p_A?
+* Bonus tasks (B1–B3) can be done at home
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3 DEBRIEF (after Lab 3b)
+     Full debrief covering both parts + bridge to Act 5.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 3]
+
+## Debrief: p-Hacking, FDR & Decision Logic
+
+.panelset[
+.panel[.panel-name[The Discovery]
+
+### Lab 3a Recap: The Problem
+
+`r fa('circle-right')` **100 random tests at $\alpha = 0.05$** → ~5 are "significant" despite zero real effect
+
+`r fa('circle-right')` p-value distribution under $H_0$ is **uniform** — 5% will always fall below 0.05
+
+`r fa('circle-right')` Selective reporting of only significant results = **p-hacking**
+
+`r fa('circle-right')` This is not a researcher's mistake — it is a **mathematical certainty**
+
+]
+.panel[.panel-name[The Solution]
+
+### Lab 3b Recap: Benjamini-Hochberg
+
+| Situation | Method |
+|-----------|--------|
+| 1 test, clear hypothesis | $\alpha = 0.05$ classical |
+| Few tests (5–20) | Bonferroni (conservative) |
+| Many tests (>50) | **BH (FDR)** — standard in DS |
+
+`r fa('circle-right')` BH controls the **proportion** of false discoveries — not individual error rates
+
+`r fa('circle-right')` Result: fewer variables survive → but those that do are **more trustworthy**
+
+`r fa('circle-right')` In R: `p.adjust(p_values, method = "BH")`
+]
+.panel[.panel-name[Expected Value]
+
+### The Business Threshold ≠ $\alpha$
+
+$$p_{\text{A}} > \frac{c(\text{FP})}{c(\text{FP}) + c(\text{FN})}$$
+
+
+
 
 ---
 class: inverse, center, middle

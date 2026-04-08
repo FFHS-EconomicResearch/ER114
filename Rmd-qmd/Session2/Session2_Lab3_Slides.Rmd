@@ -1,0 +1,245 @@
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3 — SANDWICH STRUCTURE
+     
+     Placement in Session2_slides.Rmd:
+     
+     Act 3 · Type I/II Errors + EV Framework (lecture)
+       ▶ LAB 3a SLIDE  — p-Hacking Simulation (the discovery)
+     Act 4 · p-Hacking & FDR (lecture — BH theory, FDR vs. FWER)
+       ▶ LAB 3b SLIDE  — BH Application (the solution)
+       ▶ LAB 3 DEBRIEF — Full debrief
+     Act 5 · Significance vs. Relevance
+
+     The old Lab 2 slide (~line 1758) is REPLACED by Lab 3a.
+     Lab 3b and Debrief are NEW slides inserted after Act 4.
+     ═══════════════════════════════════════════════════════════ -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3a: p-HACKING SIMULATION (before Act 4)
+     Insert AFTER Act 3 (Type I/II Errors, EV Framework).
+     Students discover the problem BEFORE hearing the solution.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Type I and Type II Errors]
+
+## `r fa('flask', fill='#D50006')` Lab 3a — p-Hacking Simulation
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 3a: The Multiplicity Problem — Experience It
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Experience p-hacking through simulation.
+Understand why $\alpha = 0.05$ fails when testing many variables at once.
+
+<br>
+
+<strong>Scenario:</strong> Test 100 random variables against Bundesliga market value.
+How many are significant at $\alpha = 0.05$ purely by chance?
+
+<br>
+
+<strong>Work on:</strong> <code>Session2_Lab3_pHacking.qmd</code> — <strong>Steps 1 &amp; 2 only</strong>
+(Simulation + real Bundesliga variables). Stop before Step 3 (BH correction).
+
+<br>
+
+`r fa('clock')` <strong>15 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong> &nbsp;·&nbsp;
+`r fa('pen')` <strong>Task A1</strong>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[
+`r fa('circle-right')` After Lab 3a → **Lecture: How do we fix this?** (Act 4 · FDR &amp; BH procedure)
+]]
+
+???
+* Only 15 minutes — students run the simulation and see the result
+* Key experience: ~5 of 100 random tests are "significant" — pure noise!
+* Students also test real Bundesliga variables → some significant, but how many are real?
+* The lab STOPS with an open question: "How do we separate real effects from false discoveries?"
+* That question motivates Act 4 — the lecture introduces BH as the answer
+* Task A1 (scale to 1000 tests) can be started here or completed in Lab 3b
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 3a]
+
+## Quick Debrief: What Did We Just See?
+
+<div style="display:grid; grid-template-columns:50px 1fr; gap:0.4em 0.8em;
+            font-size:0.85em; margin-top:0.5em; align-items:start;">
+
+<div>`r fa('chart-bar', fill='#D50006')`</div>
+<div><strong>`r sum(pnorm(qnorm(0.025)) * 2)` — at $\alpha = 0.05$, 5% of random tests cross the threshold.</strong><br>
+This is not a bug. It is the definition of the significance level.</div>
+
+<div>`r fa('triangle-exclamation', fill='#D50006')`</div>
+<div><strong>The real Bundesliga data make it worse.</strong><br>
+Many numeric variables are correlated with market value — but some are just noise that happens to pass $\alpha = 0.05$.</div>
+
+<div>`r fa('question-circle', fill='#502479')`</div>
+<div><strong>The open question:</strong> We have `r fa('circle-right')` a list of "significant" variables. How do we know which ones are <em>truly</em> significant and which are false discoveries?</div>
+
+</div>
+
+<br>
+
+.blockquote[
+That is exactly what the **Benjamini-Hochberg procedure** solves. →
+]
+
+???
+* Quick debrief — max 3 minutes
+* Do NOT resolve the question yet — let the lecture (Act 4) provide the answer
+* The students have the visceral experience; now they are ready for the theory
+* Transition: "You felt the problem. Now let's see the solution."
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     *** HERE COMES ACT 4 (p-Hacking & FDR) FROM THE LECTURE ***
+     The existing lecture slides on BH procedure, FDR vs. FWER,
+     "when to use which method" table etc. go here.
+     ═══════════════════════════════════════════════════════════ -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3b: BH APPLICATION (after Act 4)
+     Students now apply the solution they just learned.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[p-Hacking & FDR]
+
+## `r fa('flask', fill='#D50006')` Lab 3b — Applying the Benjamini-Hochberg Correction
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 3b: FDR Correction — The Solution
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Apply the Benjamini-Hochberg procedure to the
+p-values from Lab 3a. Compare raw, Bonferroni, and BH-corrected significance.
+Connect FDR to the Expected Value Framework.
+
+<br>
+
+<strong>Continue in:</strong> <code>Session2_Lab3_pHacking.qmd</code> — <strong>Step 3</strong>
+(BH correction) + <strong>Tasks A2 &amp; A3</strong>
+
+<br>
+
+`r fa('clock')` <strong>10 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong> &nbsp;·&nbsp;
+`r fa('pen')` <strong>Tasks A2 + A3</strong>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after Lab 3b → <strong>Debrief Lab 3 · Bridge to Significance vs. Relevance</strong>]]
+
+???
+* Students now have the theory from Act 4 — they apply it to their own simulation results
+* p.adjust(p_values, method = "BH") is the key line of code
+* Task A2: interpret Bonferroni vs. BH — which variables survive?
+* Task A3: connect FDR to Expected Value Framework — does BH correction increase p_A?
+* Bonus tasks (B1–B3) can be done at home
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3 DEBRIEF (after Lab 3b)
+     Full debrief covering both parts + bridge to Act 5.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 3]
+
+## Debrief: p-Hacking, FDR & Decision Logic
+
+.panelset[
+.panel[.panel-name[The Discovery]
+
+### Lab 3a Recap: The Problem
+
+`r fa('circle-right')` **100 random tests at $\alpha = 0.05$** → ~5 are "significant" despite zero real effect
+
+`r fa('circle-right')` p-value distribution under $H_0$ is **uniform** — 5% will always fall below 0.05
+
+`r fa('circle-right')` Selective reporting of only significant results = **p-hacking**
+
+`r fa('circle-right')` This is not a researcher's mistake — it is a **mathematical certainty**
+
+]
+.panel[.panel-name[The Solution]
+
+### Lab 3b Recap: Benjamini-Hochberg
+
+| Situation | Method |
+|-----------|--------|
+| 1 test, clear hypothesis | $\alpha = 0.05$ classical |
+| Few tests (5–20) | Bonferroni (conservative) |
+| Many tests (>50) | **BH (FDR)** — standard in DS |
+
+`r fa('circle-right')` BH controls the **proportion** of false discoveries — not individual error rates
+
+`r fa('circle-right')` Result: fewer variables survive → but those that do are **more trustworthy**
+
+`r fa('circle-right')` In R: `p.adjust(p_values, method = "BH")`
+]
+.panel[.panel-name[Expected Value]
+
+### The Business Threshold ≠ $\alpha$
+
+$$p_{\text{A}} > \frac{c(\text{FP})}{c(\text{FP}) + c(\text{FN})}$$
+
+`r fa('circle-right')` **FP cost:** buy a fairly-valued player → opportunity cost
+
+`r fa('circle-right')` **FN cost:** miss real arbitrage → foregone profit
+
+`r fa('circle-right')` Break-even can be **far below** 5% — because not acting also has a cost
+
+`r fa('circle-right')` FDR correction increases our **confidence** that a finding is real → higher $p_{\text{A}}$
+]
+.panel[.panel-name[Bridge to Act 5]
+
+### Significant ≠ Relevant
+
+`r fa('check', fill='#2a7a2a')` We can now tell real effects from noise (Labs 1–3)
+
+`r fa('check', fill='#2a7a2a')` We can control false discovery rates (Lab 3)
+
+`r fa('circle-right')` **But even a real effect can be trivially small**
+
+`r fa('circle-right')` With $n = 10{,}000{,}000$: every tiny effect is significant — **does it matter?**
+
+`r fa('circle-right')` → **Effect sizes** and the distinction between statistical and practical significance
+]
+]
+
+???
+* Key insight of the sandwich: students felt the problem (3a), learned the theory (Act 4), applied it (3b)
+* Discussion point: "Which Bundesliga variables survived BH correction — and do they make substantive sense?"
+* EV Framework: α = 0.05 is an arbitrary convention — real decision thresholds depend on asymmetric costs
+* Transition to Act 5: significant effect + low R² → the SIZE of the effect matters, not just its existence

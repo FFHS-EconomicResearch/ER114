@@ -1,0 +1,670 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Search for the marker text rather than relying on exact line numbers.
+
+  "buli_raw_{date}.rds"   Dataset filename — update date if new scrape
+  xfun::from_root(...)    Adjust path if project structure differs
+  set.seed(2024)          Change seed for different cohort results
+============================================================ -->
+---
+title: "Session 2 · Lab 2: Stochastic Regression Analysis"
+subtitle: "From Descriptive Fit to Inferential Reasoning — Classical and Resampling Approaches"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)    # data wrangling & plotting
+library(moderndive)   # get_regression_table/summaries/points
+library(infer)        # specify-generate-fit
+library(gt)           # formatted tables
+
+date <- '2023-09-06'
+my_in_file <- glue::glue('buli_raw_{date}.rds')
+tbl_buli_raw <- read_rds(file = xfun::from_root("data","raw", my_in_file))
+
+tbl_buli <- tbl_buli_raw %>%
+              mutate(
+                age       = lubridate::year(Sys.Date()) -
+                            lubridate::year(player_dob),
+                log_value = log(player_market_value_euro),
+                pos_bin   = if_else(player_position == "Goalkeeper",
+                                    "Goalkeeper", "Outfield")
+              ) %>%
+              rename(name = player_name,
+                     mv   = player_market_value_euro) %>%
+              filter(!is.na(mv), !is.na(age))
+
+options(scipen = 999)
+```
+
+## Scenario & Orientation
+
+In Lab 1 we established *that* the age effect is significant — via bootstrap, permutation, and t-test. But we treated `get_regression_table()` as a black box. This lab opens that box.
+
+We start with a fundamental distinction: in Session 1, regression was **descriptive** — we computed the best-fitting line through the data we had. Now we treat that line as an **estimate** of an unknown population relationship. This shift — from conditional mean to conditional expected value — is the conceptual foundation of all statistical inference in regression.
+
+```{r crisp-overview}
+#| echo: false
+tibble::tribble(
+  ~Phase, ~Name,                    ~Content,                                        ~Status,
+  "1",    "Business Understanding", "Identify under-/overvalued players",            "Done (Session 1)",
+  "2",    "Data Understanding",     "EDA of Bundesliga market values",               "Done (Session 1)",
+  "3",    "Data Preparation",       "log-transform, position dummy",                 "Done (Session 1)",
+  "4",    "Modelling",              "OLS: simple + interaction model",               "Done (Session 1)",
+  "5",    "Evaluation",             "Stochastic regression: classical + resampling", "← This lab",
+  "6",    "Deployment",             "Transfer decision framework",                   "Session 2 lecture"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = Phase == "5")) %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## Learning Objectives
+
+- Distinguish between the **population model** (Greek letters) and the **sample model** (Latin letters)
+- Interpret all columns of `get_regression_table()`, `get_regression_summaries()`, and `get_regression_points()` — connecting each to its resampling counterpart from Lab 1
+- Use `infer::fit()` to compute bootstrap CIs and permutation p-values for **multiple regression**
+- Assess regression assumptions via **residual diagnostics** and understand when resampling is preferable
+- Recognise that regression estimates the **conditional mean** — and that this is only one way to model a distribution
+:::
+
+**Navigation guide**
+
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|--------------|
+| ⚠️ | Red | Mandatory task | Live session |
+| 💡 | Green | Tip / best practice | Anytime |
+| 📚 | Blue (collapsed) | Background theory | At home |
+| ℹ️ | Blue (open) | Short clarification | When needed |
+
+:::{.callout-tip}
+## ⏱ Time Budget
+**50 minutes** — complete mandatory tasks (A1–A6) first; bonus tasks if time permits.
+:::
+
+---
+
+## Step 1: Population Model vs. Sample Model — The Stocker Notation
+
+The key conceptual shift in this lab is understanding that every fitted regression is a **sample-based estimate** of an unknown **population relationship**.
+
+### 1.1 Two Models, Two Notations
+
+```{r notation-table}
+#| echo: false
+tibble::tribble(
+  ~Element,                ~`Population (unknown)`,                      ~`Sample (estimated)`,
+  "Model equation",        "$$Y = \\beta_0 + \\beta_1 X + \\varepsilon$$",
+                                                                         "$$\\hat{y} = b_0 + b_1 x + e$$",
+  "Intercept",             "$$\\beta_0$$ (Greek beta)",                   "$$b_0$$ (Latin b)",
+  "Slope",                 "$$\\beta_1$$ (Greek beta)",                   "$$b_1$$ (Latin b)",
+  "Error term",            "$$\\varepsilon$$ (epsilon — unobservable)",   "$$e = y - \\hat{y}$$ (residual — observable)",
+  "Error variance",        "$$\\sigma^2$$ (unknown)",                     "$$s^2 = \\frac{\\sum e_i^2}{n-k-1}$$ (estimated)",
+  "Meaning of the line",   "Conditional expected value: $$E[Y|X]$$",     "Conditional mean: $$\\bar{y}|x$$",
+  "Coefficients are...",   "Fixed parameters (constants of nature)",      "Random variables (vary across samples)"
+) %>%
+  gt() %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_text(weight = "bold"), cells_body(columns = Element)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Greek letters = population (unknown); Latin letters = sample (estimated)")
+```
+
+The population model is what we want to know but can never observe directly. The sample model is what we compute from data. **Every number in a regression output is a sample quantity** — an estimate of an unknown population parameter.
+
+:::{.callout-important}
+## The Fundamental Shift
+In Session 1, the regression line was a **description** of the data: the conditional mean $\bar{y}|x$. Now it becomes an **estimate** of the conditional expected value $E[Y|X]$. Same line, different interpretation — and the difference is precisely the uncertainty we quantified via bootstrap in Lab 1.
+:::
+
+### 1.2 The Conditional Mean Is Only One Parameter
+
+OLS regression estimates **one feature** of the conditional distribution of $Y|X$: the mean. But a distribution has many other features — spread, shape, tails.
+
+```{r quantile-teaser}
+#| echo: false
+#| fig-height: 4
+tbl_buli %>%
+  ggplot(aes(x = age, y = log_value)) +
+  geom_point(alpha = 0.15, color = "#b3b2b2", size = 0.7) +
+  geom_smooth(method = "lm", se = FALSE,
+              color = "#D50006", linewidth = 1.2) +
+  geom_quantile(quantiles = c(0.1, 0.9),
+                color = "#502479", linewidth = 0.8,
+                linetype = "dashed") +
+  annotate("text", x = 35, y = 17.5, label = "90th percentile",
+           color = "#502479", size = 3, hjust = 0) +
+  annotate("text", x = 35, y = 13.5, label = "10th percentile",
+           color = "#502479", size = 3, hjust = 0) +
+  annotate("text", x = 35, y = 15.2, label = "OLS mean",
+           color = "#D50006", size = 3, hjust = 0, fontface = "bold") +
+  labs(x     = "Age",
+       y     = "log(Market Value)",
+       title = "OLS estimates the mean — but the spread matters too") +
+  theme_minimal(base_size = 11)
+```
+
+The red line is OLS — the conditional *mean*. The dashed purple lines show the 10th and 90th percentiles of the conditional distribution (via quantile regression). The spread around the mean is not constant — a pattern we will revisit in the residual diagnostics.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Beyond the Mean — Quantile Regression and Beyond
+OLS answers: "What is the *average* market value for a player of age $x$?" But a scout might ask: "What is the market value that only 10% of players of that age exceed?" — that is a question about the *upper tail*, not the mean.
+
+**Quantile regression** (Koenker & Bassett, 1978) estimates conditional *quantiles* instead of the conditional mean. Other approaches model the entire conditional distribution: distributional regression, GAMLSS, or Bayesian methods. These are beyond the scope of ER014, but the key takeaway is: **the mean is a useful summary, but it is not the whole story.** Keep this in mind when interpreting $R^2$ — a low $R^2$ does not mean the model is useless; it means the *mean* does not capture all the variation.
+:::
+
+---
+
+## Step 2: The Classical Toolkit — `lm()` and Three moderndive Helpers
+
+The `moderndive` package provides three functions that extract everything from an `lm()` object in tidy, readable form:
+
+| Function | Returns | Population counterpart |
+|----------|---------|----------------------|
+| `get_regression_table()` | Coefficients, SE, t, p, CI | Inference on $\beta_j$ |
+| `get_regression_summaries()` | $R^2$, adj. $R^2$, RMSE, F-stat | Model-level diagnostics |
+| `get_regression_points()` | Fitted values $\hat{y}$ and residuals $e$ | Estimates of $\varepsilon$ |
+
+### 2.1 Coefficients: `get_regression_table()`
+
+```{r reg-table}
+#| code-fold: false
+lm_age <- lm(log_value ~ age, data = tbl_buli)
+get_regression_table(lm_age)
+```
+
+```{r reg-table-fmt}
+#| echo: false
+get_regression_table(lm_age) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci), decimals = 4) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(rows = term == "age")) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("Yellow: age coefficient — each column is explained below")
+```
+
+Each column maps to a concept from Lab 1:
+
+| Column | What it is | Lab 1 counterpart |
+|--------|-----------|-------------------|
+| `estimate` | $b_1$ — the sample slope | `obs_slope` from `calculate(stat = "slope")` |
+| `std_error` | $\text{SE}(b_1)$ — estimated standard deviation of the sampling distribution | Width of the bootstrap distribution |
+| `statistic` | $t = b_1 / \text{SE}(b_1)$ — how many SEs away from zero | Position of `obs_slope` relative to the null distribution |
+| `p_value` | Probability of seeing $|t|$ this large if $\beta_1 = 0$ | Permutation p-value |
+| `lower_ci`, `upper_ci` | 95% CI assuming normality: $b_1 \pm 1.96 \cdot \text{SE}$ | Bootstrap percentile CI |
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Where Does the Standard Error Come From?
+The classical SE of the slope coefficient is:
+
+$$\text{SE}(b_1) = \frac{s}{\sqrt{\sum(x_i - \bar{x})^2}}$$
+
+where $s = \sqrt{\frac{\sum e_i^2}{n - 2}}$ is the residual standard error. This formula **assumes** that the errors $\varepsilon$ are i.i.d. with constant variance (homoskedasticity). If that assumption fails, the formula gives the wrong SE — and the bootstrap from Lab 1 is more reliable.
+:::
+
+### 2.2 Model-Level Summary: `get_regression_summaries()`
+
+```{r reg-summaries}
+#| code-fold: false
+get_regression_summaries(lm_age)
+```
+
+```{r reg-summaries-fmt}
+#| echo: false
+get_regression_summaries(lm_age) %>%
+  gt() %>%
+  fmt_number(decimals = 3) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(columns = c(r_squared, statistic))) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("Yellow: R² (how much variation explained) and F-statistic (global significance)")
+```
+
+| Column | What it is | Interpretation |
+|--------|-----------|----------------|
+| `r_squared` | $R^2 = 1 - \text{SSR}/\text{SST}$ | Proportion of variance in $y$ explained by the model |
+| `adj_r_squared` | Adjusted for number of predictors | Penalises adding useless predictors |
+| `mse` | Mean squared error | Average squared residual |
+| `rmse` | $\sqrt{\text{MSE}}$ | Residual standard error $s$ — in the units of $y$ |
+| `sigma` | Same as RMSE for simple models | Estimate of $\sigma$ (population error SD) |
+| `statistic` | F-statistic | Global test: are *all* slopes jointly zero? (Lab 1, Step 5.2) |
+| `p_value` | p-value for F-test | Significance of the overall model |
+| `df` | Degrees of freedom | Number of estimated slope parameters |
+| `nobs` | Number of observations | Sample size |
+
+### 2.3 Fitted Values and Residuals: `get_regression_points()`
+
+```{r reg-points}
+#| code-fold: false
+reg_points <- get_regression_points(lm_age)
+reg_points %>% head(6)
+```
+
+```{r reg-points-fmt}
+#| echo: false
+reg_points %>%
+  head(6) %>%
+  gt() %>%
+  fmt_number(columns = c(log_value, log_value_hat, residual), decimals = 3) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(columns = c(log_value_hat, residual))) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Yellow: ŷ (fitted value) and e = y − ŷ (residual)")
+```
+
+Every row is a player. The `residual` column is the **observable counterpart** of the unobservable population error $\varepsilon$ — and it is the basis for all diagnostics in Step 5.
+
+---
+
+## Step 3: Interpreting SE, t, p, CI — The Bridge to Lab 1
+
+Having seen the three tables, we now connect every classical quantity to its resampling counterpart. The point is not that one is "better" — it is that **they measure the same thing**.
+
+```{r bridge-table}
+#| echo: false
+tibble::tribble(
+  ~`Classical (parametric)`,                       ~`Resampling (Lab 1)`,                          ~`What it measures`,
+  "SE from formula",                                "SD of bootstrap distribution",                 "Precision of the estimate",
+  "t = estimate / SE",                              "Position of obs_stat in null distribution",    "Signal-to-noise ratio",
+  "p-value from t-distribution",                    "Permutation p-value",                          "Extremity under H₀",
+  "CI = estimate ± 1.96 · SE",                      "Bootstrap percentile CI",                      "Plausible range for β",
+  "F-statistic (get_regression_summaries)",          "Permutation F-stat (Lab 1, Step 5.3)",         "Global model significance"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body()) %>%
+  tab_options(table.font.size = "13px")
+```
+
+When do the two approaches **diverge**? When the classical assumptions (normality, homoskedasticity) are violated. We check those assumptions in Step 5.
+
+---
+
+## Step 4: Multiple Regression with `infer::fit()`
+
+In Lab 1 we used `calculate(stat = "slope")` for a single predictor. For the interaction model `log_value ~ age * pos_bin`, we need `fit()` — which returns bootstrap or permutation results for **all coefficients at once**.
+
+### 4.1 Classical Baseline
+
+```{r lm-interaction}
+#| code-fold: false
+lm_inter <- lm(log_value ~ age * pos_bin, data = tbl_buli)
+get_regression_table(lm_inter)
+```
+
+```{r lm-interaction-fmt}
+#| echo: false
+get_regression_table(lm_inter) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci), decimals = 4) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(rows = p_value < 0.05)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Yellow = significant at α = 0.05")
+```
+
+### 4.2 Bootstrap CIs via `fit()`
+
+```{r boot-fit}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+# --- observed coefficients ---
+obs_fit <- tbl_buli %>%
+             specify(log_value ~ age * pos_bin) %>%
+             fit()
+
+# --- bootstrap ---
+boot_fit <- tbl_buli %>%
+              specify(log_value ~ age * pos_bin) %>%
+              generate(reps = 1000, type = "bootstrap") %>%
+              fit()
+
+# --- bootstrap CIs ---
+ci_fit <- boot_fit %>%
+            get_confidence_interval(
+              point_estimate = obs_fit,
+              type           = "percentile",
+              level          = 0.95
+            )
+ci_fit
+```
+
+```{r boot-fit-viz}
+#| echo: false
+#| fig-height: 6
+boot_fit %>%
+  visualize() +
+  shade_confidence_interval(endpoints = ci_fit) +
+  facet_wrap(~ term, scales = "free_x") +
+  labs(title = "Bootstrap CIs for all coefficients (interaction model)",
+       x     = "Coefficient value",
+       y     = "Count") +
+  theme_minimal(base_size = 10)
+```
+
+### 4.3 Permutation Test via `fit()`
+
+```{r perm-fit}
+#| code-fold: false
+#| cache: true
+set.seed(2024)
+
+null_fit <- tbl_buli %>%
+              specify(log_value ~ age * pos_bin) %>%
+              hypothesize(null = "independence") %>%
+              generate(reps = 1000, type = "permute") %>%
+              fit()
+
+p_fit <- null_fit %>%
+           get_p_value(obs_stat = obs_fit, direction = "two-sided")
+p_fit
+```
+
+```{r perm-fit-viz}
+#| echo: false
+#| fig-height: 6
+null_fit %>%
+  visualize() +
+  shade_p_value(obs_stat = obs_fit, direction = "two-sided") +
+  facet_wrap(~ term, scales = "free_x") +
+  labs(title = "Null distributions — permutation test (interaction model)",
+       x     = "Coefficient under H₀",
+       y     = "Count") +
+  theme_minimal(base_size = 10)
+```
+
+### 4.4 Classical vs. Resampling — Side by Side
+
+```{r compare-ci}
+#| echo: false
+trad_ci <- get_regression_table(lm_inter) %>%
+             select(term, lower_ci_trad = lower_ci, upper_ci_trad = upper_ci,
+                    p_trad = p_value)
+
+boot_ci <- ci_fit %>%
+             rename(lower_ci_boot = lower_ci, upper_ci_boot = upper_ci)
+
+p_boot <- p_fit %>% rename(p_boot = p_value)
+
+trad_ci %>%
+  left_join(boot_ci, by = "term") %>%
+  left_join(p_boot, by = "term") %>%
+  gt() %>%
+  fmt_number(decimals = 4) %>%
+  tab_spanner("Classical (t-test)", columns = c(lower_ci_trad, upper_ci_trad, p_trad)) %>%
+  tab_spanner("Bootstrap / Permutation", columns = c(lower_ci_boot, upper_ci_boot, p_boot)) %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#f0fff0"),
+            cells_body(rows = p_trad < 0.05 & p_boot < 0.05)) %>%
+  tab_style(cell_fill("#fff8e1"),
+            cells_body(rows = (p_trad < 0.05) != (p_boot < 0.05))) %>%
+  tab_options(table.font.size = "12px") %>%
+  tab_footnote("Green = both methods agree; Yellow = methods disagree")
+```
+
+When both methods agree (green rows), we can be confident in the result. If they ever disagree (yellow), the classical assumptions may be violated — and the resampling result is more trustworthy.
+
+---
+
+## Step 5: Residual Diagnostics — When Do Classical Assumptions Matter?
+
+The classical formulas for SE, t, p, and CI rest on assumptions about the residuals. If these assumptions fail, the formulas may give wrong answers — while bootstrap/permutation remain valid. We check three assumptions:
+
+### 5.1 Linearity: Residuals vs. Fitted
+
+```{r resid-fitted}
+#| code-fold: false
+reg_points_inter <- get_regression_points(lm_inter)
+```
+
+```{r resid-fitted-plot}
+#| echo: false
+reg_points_inter %>%
+  ggplot(aes(x = log_value_hat, y = residual)) +
+  geom_point(alpha = 0.3, color = "#686868", size = 0.8) +
+  geom_hline(yintercept = 0, color = "#D50006", linewidth = 0.8) +
+  geom_smooth(method = "loess", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  labs(x     = expression(hat(y)~"(fitted value)"),
+       y     = expression(e~"(residual)"),
+       title = "Residuals vs. Fitted Values",
+       subtitle = "Purple dashed = LOESS smoother; should be flat if linearity holds") +
+  theme_minimal(base_size = 11)
+```
+
+If the LOESS smoother deviates strongly from the horizontal red line, the linearity assumption is questionable.
+
+### 5.2 Normality: QQ-Plot
+
+```{r qq-plot}
+#| echo: false
+reg_points_inter %>%
+  ggplot(aes(sample = residual)) +
+  stat_qq(alpha = 0.3, color = "#686868", size = 0.8) +
+  stat_qq_line(color = "#D50006", linewidth = 0.8) +
+  labs(x     = "Theoretical quantiles",
+       y     = "Sample quantiles",
+       title = "Normal Q-Q Plot of Residuals",
+       subtitle = "Points should follow the red line if normality holds") +
+  theme_minimal(base_size = 11)
+```
+
+Deviations in the tails are common with real data. Moderate deviations are acceptable for large samples (CLT protects the t-test); severe deviations favour the bootstrap.
+
+### 5.3 Homoskedasticity: Scale-Location Plot
+
+```{r scale-location}
+#| echo: false
+reg_points_inter %>%
+  mutate(sqrt_abs_resid = sqrt(abs(residual))) %>%
+  ggplot(aes(x = log_value_hat, y = sqrt_abs_resid)) +
+  geom_point(alpha = 0.3, color = "#686868", size = 0.8) +
+  geom_smooth(method = "loess", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  labs(x     = expression(hat(y)~"(fitted value)"),
+       y     = expression(sqrt("|e|")),
+       title = "Scale-Location Plot",
+       subtitle = "If spread increases with fitted values → heteroskedasticity") +
+  theme_minimal(base_size = 11)
+```
+
+If the purple smoother slopes upward, the error variance is not constant — the classical SEs are biased. Bootstrap SEs remain valid.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Parametric vs. Nonparametric — and BLUE
+The classical OLS estimator is **BLUE** — Best Linear Unbiased Estimator — under the Gauss-Markov assumptions (linearity, exogeneity, homoskedasticity, no multicollinearity). "Best" means smallest variance among all linear unbiased estimators.
+
+When these assumptions hold, the parametric SE is more *efficient* (smaller) than the bootstrap SE. When they fail, the parametric SE is *wrong* — and bootstrap is more *honest*.
+
+This is why we always check residual diagnostics: not to decide whether to use regression, but to decide **which standard errors to trust**. We return to BLUE and its implications in Session 3 when we discuss multicollinearity and regularisation.
+:::
+
+:::{.callout-note}
+## Practical Rule of Thumb
+| Diagnostics look clean | Use classical SEs — they are more efficient |
+|---|---|
+| Diagnostics look problematic | Use bootstrap CIs — they are more robust |
+| Not sure | Report both — if they agree, the result is solid |
+:::
+
+---
+
+## Mandatory Tasks
+
+:::{.callout-important icon=false}
+## ⚠️ A1: Population vs. Sample Notation
+
+Look at the notation table in Step 1.1.
+
+1. What is the key difference between $\beta_1$ and $b_1$?
+2. Why is $\varepsilon$ "unobservable" while $e$ is "observable"?
+3. A colleague writes: "The slope of our model is 0.067." Is this a statement about $\beta_1$ or $b_1$? Why does the distinction matter?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A2: Reading `get_regression_table()`
+
+Look at the regression table for `lm_age` in Step 2.1.
+
+1. What does the `std_error` for age tell you? Relate it to the bootstrap distribution from Lab 1.
+2. The `statistic` column shows a t-value. What is it — conceptually — and when is it "large enough"?
+3. The CI is [`r round(get_regression_table(lm_age) %>% filter(term == "age") %>% pull(lower_ci), 4)`, `r round(get_regression_table(lm_age) %>% filter(term == "age") %>% pull(upper_ci), 4)`]. Does it match the bootstrap CI from Lab 1? Why might they differ slightly?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A3: Reading `get_regression_summaries()`
+
+Look at the model summary in Step 2.2.
+
+1. The $R^2$ is `r round(get_regression_summaries(lm_age) %>% pull(r_squared), 3)`. What does this mean in words?
+2. Is a low $R^2$ a reason to discard the model? Consider the quantile regression plot in Step 1.2.
+3. What does the F-statistic test? How does it relate to the permutation F-test from Lab 1, Step 5.3?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A4: Interaction Model — Classical vs. Resampling
+
+Look at the comparison table in Step 4.4.
+
+1. For which coefficients do both methods agree on significance?
+2. The interaction term `age:pos_binOutfield` — what does its sign tell you about the age effect for outfield players vs. goalkeepers?
+3. If the two methods disagreed for a coefficient, which would you trust more? Why?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A5: Residual Diagnostics
+
+Examine the three diagnostic plots in Step 5.
+
+1. Does the residuals-vs-fitted plot suggest a linearity problem?
+2. Does the QQ-plot suggest serious non-normality?
+3. Does the scale-location plot suggest heteroskedasticity?
+4. Given your answers: are the classical SEs from `get_regression_table()` trustworthy for this model?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A6: The Conditional Mean Is Not Everything
+
+Look at the quantile regression plot in Step 1.2.
+
+1. What does the gap between the 10th and 90th percentile lines tell you?
+2. For a 30-year-old player, roughly how large is the spread between the 10th and 90th percentile of log market value?
+3. Why might a scout care more about the upper quantile than the mean?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## 💡 B1: Robust Standard Errors
+
+The `estimatr` package provides `lm_robust()` which computes heteroskedasticity-consistent (HC) standard errors. Compare:
+
+```r
+# install.packages("estimatr")  # if needed
+library(estimatr)
+lm_robust(log_value ~ age, data = tbl_buli, se_type = "HC2") %>%
+  tidy() %>%
+  select(term, estimate, std.error, p.value, conf.low, conf.high)
+```
+
+How do the HC2 standard errors compare to the classical SEs and the bootstrap SEs?
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B2: Bootstrap for `get_regression_summaries()` Quantities
+
+Bootstrap the $R^2$ of the simple age model:
+
+```r
+set.seed(2024)
+boot_r2 <- map_dbl(1:1000, function(i) {
+  tbl_buli %>%
+    slice_sample(n = nrow(tbl_buli), replace = TRUE) %>%
+    lm(log_value ~ age, data = .) %>%
+    summary() %>%
+    pluck("r.squared")
+})
+quantile(boot_r2, c(0.025, 0.975))
+```
+
+How variable is $R^2$ across samples? Does it ever reach zero?
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B3: Residual Diagnostics for the Simple Model
+
+Repeat the three diagnostic plots from Step 5 for the simple model `lm_age` (without interaction). Do the diagnostics look better or worse? What does this tell you about the interaction term's role?
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B4: Influence Points
+
+Use `get_regression_points()` to identify the 5 players with the largest absolute residuals. Who are they? Are they potential outliers — or just players that the model cannot explain well?
+
+```r
+get_regression_points(lm_inter) %>%
+  mutate(abs_resid = abs(residual)) %>%
+  arrange(desc(abs_resid)) %>%
+  head(5)
+```
+:::
+
+---
+
+## Summary
+
+```{r summary-table}
+#| echo: false
+tibble::tribble(
+  ~`Finding`,                            ~`Key Result`,                                      ~`Implication`,
+  "Population vs. sample notation",      "Greek = unknown; Latin = estimated",                "Every regression output is an estimate, not truth",
+  "get_regression_table()",              "SE, t, p, CI — all have resampling counterparts",   "Classical and resampling measure the same things",
+  "get_regression_summaries()",          paste0("R² = ", round(get_regression_summaries(lm_age) %>% pull(r_squared), 3)),
+                                                                                              "Low R² ≠ useless model; mean ≠ whole distribution",
+  "fit() for multiple regression",       "Bootstrap CIs for all coefficients at once",         "Scales resampling to any model complexity",
+  "Classical ≈ Resampling (when valid)", "CIs agree when assumptions hold",                   "Diagnostics determine which SEs to trust",
+  "Residual diagnostics",               "Check linearity, normality, homoskedasticity",       "→ BLUE assumptions revisited in Session 3"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = c(1, 2, 4))) %>%
+  tab_style(cell_fill("#fff8e1"), cells_body(rows = c(3, 5, 6))) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## What Comes Next
+
+In **Lab 3** we confront the **multiplicity problem**: when you test many hypotheses at once, false discoveries are inevitable. We simulate p-hacking, apply the Benjamini-Hochberg procedure, and connect everything to the **Expected Value Framework** — because the business decision depends on the *cost* of errors, not just their probability.
+
+**Dataset used:** `buli_raw_2023-09-06.rds` (Bundesliga players, season 2022/23)
+:::

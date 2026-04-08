@@ -1,0 +1,426 @@
+<!-- ============================================================
+  SESSION 2 — LAB SLIDES & DEBRIEF SLIDES
+  
+  PLACEMENT RECOMMENDATIONS (in Session2_slides.Rmd):
+  
+  ┌─────────────────────────────────────────────────┐
+  │ Act 0 · Recap                                   │
+  │ Act 1 · Population vs. Sample                   │
+  │   (Sampling distribution, stochastic regression)│
+  │                                                 │
+  │ ▶ LAB 1 SLIDE  ← insert here (after Step 1)    │
+  │ ▶ LAB 1 DEBRIEF ← insert here                  │
+  │                                                 │
+  │ ☕ Break                                        │
+  │                                                 │
+  │ Bridge: Stocker Notation (short, from lecture)   │
+  │                                                 │
+  │ ▶ LAB 2 SLIDE  ← insert here (after bridge)    │
+  │ ▶ LAB 2 DEBRIEF ← insert here                  │
+  │                                                 │
+  │ Act 3 · Type I and Type II Errors               │
+  │   (Confusion matrix, Expected Value Framework)  │
+  │                                                 │
+  │ ▶ LAB 3 SLIDE  ← insert here                   │
+  │ ▶ LAB 3 DEBRIEF ← insert here                  │
+  │                                                 │
+  │ Act 5 · Significance vs. Relevance              │
+  │ Debrief & Preview Session 3                     │
+  └─────────────────────────────────────────────────┘
+  
+  NOTE: The old Lab 1 slide (line ~1529) and old Lab 2 slide 
+  (line ~1758) should be REPLACED by the new versions below.
+  The agenda slide also needs updating to reflect 3 labs.
+============================================================ -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 1: RESAMPLING & ONLY ONE TEST
+     Insert AFTER Act 1 (Population vs. Sample) content,
+     BEFORE the break. Replaces old Lab 1 slide (~line 1529).
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## `r fa('flask', fill='#D50006')` Lab 1 — Resampling & Only One Test
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 1: Resampling &amp; Only One Test
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Experience the difference between the sampling
+distribution and the bootstrap distribution. Compute bootstrap CIs and
+permutation p-values. Discover that t-test, ANOVA, and regression are all the same test.
+
+<br>
+
+<strong>Dataset:</strong> <code>buli_raw_2023-09-06.rds</code>
+(Bundesliga players, season 2022/23) &nbsp;·&nbsp;
+<strong>Models:</strong> <code>log_value ~ age</code> · <code>log_value ~ pos_cat</code>
+
+<br>
+
+`r fa('clock')` <strong>45 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session2_Lab1_Resampling.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief Lab 1</strong>]]
+
+???
+* Lab takes approx. 45 minutes
+* Key experience: overlay plot of sampling distribution vs. bootstrap distribution — "bootstrap works!"
+* Step 5: t-test = regression (identical table), ANOVA = regression with factor, F-test = global significance
+* Required tasks: A1 (sampling vs. bootstrap), A2 (CI interpretation), A3 (permutation p-value), A4 (t-test = regression), A5 (ANOVA & F-test)
+* Bonus: varying sample size, permutation for position effect, ModernDive flowchart
+* Results needed for Lab 2: conceptual understanding of SE, CI, p-value as resampling counterparts
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 1 DEBRIEF
+     Insert immediately after the Lab 1 slide.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 1]
+
+## Debrief: Resampling & Only One Test
+
+.panelset[
+.panel[.panel-name[Sampling vs. Bootstrap]
+
+### The Core Visualisation
+
+`r fa('circle-right')` **Sampling distribution:** 500 samples from the "population" → distribution of slopes centred on the true parameter
+
+`r fa('circle-right')` **Bootstrap distribution:** 1000 resamples from *one* sample → similar shape and spread
+
+`r fa('circle-right')` Bootstrap approximates the sampling distribution **without** knowing the population
+
+`r fa('circle-right')` The *width* (standard error) is well estimated; the *centre* is the sample statistic, not the population parameter
+
+]
+.panel[.panel-name[Only One Test]
+
+### Regression Subsumes Everything
+
+`r fa('circle-right')` **t-test** (2 groups) = `lm(y ~ x_binary)` → identical estimate, t-statistic, p-value
+
+`r fa('circle-right')` **ANOVA** (k groups) = `lm(y ~ x_factor)` → F-test = global significance test
+
+`r fa('circle-right')` Every classical test is a **special case** of the linear model
+
+`r fa('circle-right')` Resampling (permutation) replaces **any** of these without distributional assumptions
+
+.center[`r fa('circle-right')` See [ModernDive Appendix D](https://moderndive.com/D-regression) for the full flowchart]
+]
+.panel[.panel-name[Bridge to Lab 2]
+
+### What We Established — and What Comes Next
+
+`r fa('check', fill='#2a7a2a')` **Bootstrap** estimates how much $\hat\beta$ varies → CI
+
+`r fa('check', fill='#2a7a2a')` **Permutation** tests whether $\hat\beta$ could be zero → p-value
+
+`r fa('check', fill='#2a7a2a')` The `get_regression_table()` gives the **same numbers** via formulas
+
+`r fa('circle-right')` But we treated that table as a black box. In Lab 2 we open it: **What do SE, t, p, CI actually mean?** And how do they connect to the population model $Y = \beta_0 + \beta_1 X + \varepsilon$?
+]
+]
+
+???
+* Key discussion point: "Why does bootstrap work even though it only uses one sample?"
+* Answer: it gets the spread (SE) right — CLT guarantees convergence for large n
+* Transition to Lab 2: every column in get_regression_table() has a resampling counterpart
+* After debrief → Break, then Lab 2
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 2: STOCHASTIC REGRESSION ANALYSIS
+     Insert AFTER the break, after a short bridge on Stocker
+     notation (or incorporate the notation into the lab intro).
+     Replaces the old Act 3 position or adds a new lab slot.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Stochastic Regression]
+
+## `r fa('flask', fill='#D50006')` Lab 2 — Stochastic Regression Analysis
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 2: From Descriptive Fit to Inferential Reasoning
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Distinguish between population model ($\beta, \varepsilon$)
+and sample model ($b, e$). Interpret all columns of <code>get_regression_table()</code>,
+<code>get_regression_summaries()</code>, and <code>get_regression_points()</code>. Use
+<code>infer::fit()</code> for the interaction model. Assess residual diagnostics.
+
+<br>
+
+<strong>Dataset:</strong> <code>buli_raw_2023-09-06.rds</code> &nbsp;·&nbsp;
+<strong>Models:</strong> <code>log_value ~ age</code> · <code>log_value ~ age * pos_bin</code>
+
+<br>
+
+`r fa('clock')` <strong>50 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session2_Lab2_RegressionAnalysis.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief Lab 2</strong>]]
+
+???
+* Lab takes approx. 50 minutes — longest lab of the session
+* Stocker notation table: Greek (population) vs. Latin (sample) — key conceptual foundation
+* Three moderndive helpers: get_regression_table(), get_regression_summaries(), get_regression_points()
+* Quantile regression teaser: "the mean is only one parameter"
+* infer::fit() for interaction model — bootstrap CIs + permutation for all coefficients
+* Residual diagnostics: 3 plots (residuals-vs-fitted, QQ, scale-location)
+* Framing: parametric vs. resampling — when do classical SEs fail?
+* BLUE preview → Session 3
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 2 DEBRIEF
+     Insert immediately after the Lab 2 slide.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 2]
+
+## Debrief: Stochastic Regression Analysis
+
+.panelset[
+.panel[.panel-name[Notation]
+
+### Population vs. Sample — Why It Matters
+
+| | Population (unknown) | Sample (estimated) |
+|---|---|---|
+| Slope | $\beta_1$ | $b_1$ |
+| Error | $\varepsilon$ (unobservable) | $e = y - \hat{y}$ (observable) |
+| Line means | $E[Y|X]$ (conditional expected value) | $\bar{y}|x$ (conditional mean) |
+
+`r fa('circle-right')` **Every number in the regression output is a sample quantity** — an estimate, not truth
+
+`r fa('circle-right')` The SE quantifies how much $b_1$ would vary across samples — exactly what bootstrap showed in Lab 1
+]
+.panel[.panel-name[Classical = Resampling]
+
+### Every Column Has a Counterpart
+
+| Classical | Resampling (Lab 1) |
+|---|---|
+| SE from formula | SD of bootstrap distribution |
+| t = estimate / SE | Position in null distribution |
+| p from t-distribution | Permutation p-value |
+| CI = est ± 1.96 · SE | Bootstrap percentile CI |
+
+`r fa('circle-right')` When assumptions hold: **both agree** → use classical (more efficient)
+
+`r fa('circle-right')` When diagnostics fail: **trust bootstrap** (more robust)
+]
+.panel[.panel-name[Diagnostics]
+
+### Three Plots, One Question: Can We Trust the Classical SEs?
+
+`r fa('circle-right')` **Residuals vs. Fitted:** Is the relationship linear?
+
+`r fa('circle-right')` **QQ-Plot:** Are residuals approximately normal?
+
+`r fa('circle-right')` **Scale-Location:** Is the error variance constant (homoskedasticity)?
+
+If all three look clean → classical SEs are **BLUE** (Best Linear Unbiased Estimator)
+
+If not → resampling SEs are more honest
+
+`r fa('circle-right')` Full treatment of BLUE and Gauss-Markov → **Session 3**
+]
+.panel[.panel-name[Bridge to Lab 3]
+
+### From One Test to Many
+
+`r fa('check', fill='#2a7a2a')` We now know how to test whether **one** coefficient is significant
+
+`r fa('check', fill='#2a7a2a')` We have both classical and resampling tools to do it
+
+`r fa('circle-right')` **But what happens when we test 100 variables at once?**
+
+`r fa('circle-right')` At $\alpha = 0.05$: we expect $100 \times 0.05 = 5$ false discoveries — **pure noise!**
+
+`r fa('circle-right')` That is the **multiplicity problem** → Lab 3: p-Hacking & FDR
+]
+]
+
+???
+* Key discussion: "The conditional mean is only one parameter" — quantile regression plot showed different slopes for different quantiles
+* Low R² does not mean the model is useless — it means the mean does not capture all variation
+* Residual diagnostics: practical rule — if classical and bootstrap CIs agree, the result is robust
+* Transition: we established tools for one test; Lab 3 shows what goes wrong with many tests
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3: p-HACKING & FALSE DISCOVERY RATE
+     Insert AFTER Act 3 (Type I/II Errors, Expected Value
+     Framework). Replaces old Lab 2 slide (~line 1758).
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Type I and Type II Errors]
+
+## `r fa('flask', fill='#D50006')` Lab 3 — p-Hacking & False Discovery Rate
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 3: p-Hacking Simulation &amp; FDR
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Experience p-hacking through simulation.
+Understand why $\alpha = 0.05$ fails with many simultaneous tests. Apply the
+Benjamini-Hochberg procedure (FDR). Connect to the Expected Value Framework:
+which errors are costly?
+
+<br>
+
+<strong>Scenario:</strong> Test 100 random variables against Bundesliga market value.
+How many are significant at $\alpha = 0.05$ purely by chance?
+
+<br>
+
+`r fa('clock')` <strong>25 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session2_Lab3_pHacking.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief Lab 3 · Statistical vs. Practical Significance</strong>]]
+
+???
+* Lab takes approx. 25 minutes — shortest lab, but high-impact simulation
+* Key experience: ~5 of 100 random tests are significant — that is not a bug, it is mathematics
+* Benjamini-Hochberg: adjusts p-values to control FDR — fewer false discoveries
+* Task A3 connects FDR to Expected Value Framework from the lecture
+* After debrief → transition to Act 5 (Significance vs. Relevance)
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAB 3 DEBRIEF
+     Insert immediately after the Lab 3 slide.
+     ═══════════════════════════════════════════════════════════ -->
+
+---
+class: left
+
+.blockquote[Debrief Lab 3]
+
+## Debrief: p-Hacking, FDR & Decision Logic
+
+.panelset[
+.panel[.panel-name[p-Hacking Result]
+
+### The Simulation Shows What Theory Predicts
+
+`r fa('circle-right')` **100 random tests at $\alpha = 0.05$** → ~5 are "significant" despite zero real effect
+
+`r fa('circle-right')` These are **false discoveries** — pure noise that passed the threshold
+
+`r fa('circle-right')` A researcher who tests 100 variables and publishes only the significant ones commits **p-hacking**
+
+`r fa('circle-right')` The p-value distribution under $H_0$ is **uniform** — 5% will always fall below 0.05
+]
+.panel[.panel-name[FDR Control]
+
+### Benjamini-Hochberg: The Standard for Data Science
+
+| Situation | Method |
+|-----------|--------|
+| 1 test, clear hypothesis | $\alpha = 0.05$ classical |
+| Few tests (5–20) | Bonferroni (conservative) |
+| Many tests (>50) | **BH (FDR)** — standard in DS |
+| Data mining / exploration | **BH (FDR)** |
+
+`r fa('circle-right')` BH controls the **proportion** of false discoveries — not individual error rates
+
+`r fa('circle-right')` In R: `p.adjust(p_values, method = "BH")`
+]
+.panel[.panel-name[Expected Value]
+
+### The Business Threshold ≠ $\alpha$
+
+$$p_{\text{A}} > \frac{c(\text{FP})}{c(\text{FP}) + c(\text{FN})}$$
+
+`r fa('circle-right')` **FP cost:** buy a fairly-valued player → opportunity cost
+
+`r fa('circle-right')` **FN cost:** miss real arbitrage → foregone profit
+
+`r fa('circle-right')` Break-even can be **far below** 5% — because not acting also has a cost
+
+`r fa('circle-right')` The p-value tells you if an effect is *real*; the EV framework tells you if action is *worthwhile*
+]
+.panel[.panel-name[Bridge to Act 5]
+
+### Significant ≠ Relevant
+
+`r fa('check', fill='#2a7a2a')` We can now tell real effects from noise (Labs 1–3)
+
+`r fa('check', fill='#2a7a2a')` We can control false discovery rates (Lab 3)
+
+`r fa('circle-right')` **But even a real effect can be trivially small**
+
+`r fa('circle-right')` With $n = 10{,}000{,}000$: every tiny effect is significant — **does it matter?**
+
+`r fa('circle-right')` → **Effect sizes** and the distinction between statistical and practical significance
+]
+]
+
+???
+* Key discussion: "5 false hits from 100 tests is not a failure of statistics — it is the definition of α = 0.05"
+* FDR vs. FWER: Bonferroni controls probability of ANY false positive; BH controls the proportion among discoveries
+* EV Framework: α = 0.05 is an arbitrary convention — real decision thresholds depend on asymmetric costs
+* Transition to Act 5: significant effect + low R² → the size of the effect matters, not just its existence

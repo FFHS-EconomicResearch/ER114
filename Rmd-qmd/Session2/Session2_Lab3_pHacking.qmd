@@ -1,0 +1,417 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Search for the marker text rather than relying on exact line numbers.
+
+  "buli_raw_{date}.rds"   Dataset filename — update date if new scrape
+  xfun::from_root(...)    Adjust path if project structure differs
+  set.seed(42)            Change seed for different cohort results
+============================================================ -->
+---
+title: "Session 2 · Lab 3: p-Hacking & False Discovery Rate"
+subtitle: "Understanding and Controlling the Multiplicity Problem"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)    # data wrangling & plotting
+library(moderndive)   # get_regression_table()
+library(infer)        # resampling framework
+library(gt)           # formatted tables
+
+date <- '2023-09-06'
+tbl_buli_raw <- read_rds(
+  file = xfun::from_root("data","raw",
+                         glue::glue('buli_raw_{date}.rds')))
+
+tbl_buli <- tbl_buli_raw %>%
+              mutate(
+                age       = lubridate::year(Sys.Date()) -
+                            lubridate::year(player_dob),
+                log_value = log(player_market_value_euro),
+                pos_bin   = if_else(player_position == "Goalkeeper",
+                                    "Goalkeeper", "Outfield")
+              ) %>%
+              rename(name = player_name,
+                     mv   = player_market_value_euro) %>%
+              filter(!is.na(mv), !is.na(age))
+
+options(scipen = 999)
+```
+
+## Scenario & Orientation
+
+In Labs 1 and 2 we tested **one** hypothesis — "does age predict market value?" — and found a significant result. But what happens when a data scientist tests **hundreds** of variables against the same outcome? Some will appear significant purely by chance. This lab makes that problem viscerally real through simulation.
+
+```{r crisp-overview}
+#| echo: false
+tibble::tribble(
+  ~Phase, ~Name,                    ~Content,                                ~Status,
+  "1",    "Business Understanding", "Identify under-/overvalued players",    "Done (Session 1)",
+  "2",    "Data Understanding",     "EDA of Bundesliga market values",       "Done (Session 1)",
+  "3",    "Data Preparation",       "log-transform, position dummy",         "Done (Session 1)",
+  "4",    "Modelling",              "OLS: log_value ~ age",                  "Done (Session 1)",
+  "5",    "Evaluation",             "Multiple testing & false discoveries",  "← This lab",
+  "6",    "Deployment",             "Transfer decision framework",           "Session 2 lecture"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = Phase == "5")) %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_options(table.font.size = "13px")
+```
+
+**Navigation guide**
+
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|--------------|
+| ⚠️ | Red | Mandatory task | Live session |
+| 💡 | Green | Tip / best practice | Anytime |
+| 📚 | Blue (collapsed) | Background theory | At home |
+| ℹ️ | Blue (open) | Short clarification | When needed |
+
+:::{.callout-tip}
+## ⏱ Time Budget
+**25 minutes** — complete mandatory tasks (A1–A3) first; bonus tasks if time permits.
+:::
+
+---
+
+## Icebreaker: The Jellybean Problem
+
+Imagine a lab tests 20 jellybean colours for a link to acne. At α = 0.05, how many colours do you **expect** to appear significant — even if jellybeans have nothing to do with acne?
+
+$$20 \times 0.05 = 1$$
+
+One colour will cross the significance threshold by pure chance. If the lab publishes only *that* result — "Green jellybeans linked to acne!" — the finding looks real. But it is noise.
+
+:::{.callout-important}
+## The Core Problem
+At α = 0.05, **every 20th test** produces a false positive. With 100 tests, you get ~5 false discoveries. With 1,000 tests, you get ~50. This is not a bug — it is the mathematical consequence of the α-level. **This motivates everything we do in this lab.**
+:::
+
+We will now simulate this exact problem with the Bundesliga data.
+
+---
+
+## Step 1: Simulating p-Hacking
+
+We generate 100 completely random variables — with no real relationship to market value — and test each one individually against `log_value`.
+
+```{r phacking}
+#| code-fold: false
+#| cache: true
+set.seed(42)
+n_tests <- 100
+n_obs   <- nrow(tbl_buli)
+
+p_values_random <- map_dbl(1:n_tests, function(i) {
+  tbl_sim <- tbl_buli %>%
+               mutate(rand_var = rnorm(n_obs))
+  lm(log_value ~ rand_var, data = tbl_sim) %>%
+    get_regression_table() %>%
+    filter(term == "rand_var") %>%
+    pull(p_value)
+})
+
+# result
+n_significant <- sum(p_values_random < 0.05)
+cat("Significant at α = 0.05:", n_significant, "of", n_tests, "tests\n")
+cat("Expected (theoretical):  ", n_tests * 0.05)
+```
+
+`r n_significant` tests are significant — despite **no real effect** in any of them.
+
+```{r phacking-viz}
+tibble(
+  test_nr     = 1:n_tests,
+  p_value     = p_values_random,
+  significant = p_values_random < 0.05
+) %>%
+  ggplot(aes(x = p_value, fill = significant)) +
+  geom_histogram(bins = 20, color = "white", boundary = 0) +
+  geom_vline(xintercept = 0.05, color = "#D50006",
+             linetype = "dashed", linewidth = 1.2) +
+  annotate("text", x = 0.07, y = Inf, label = "α = 0.05",
+           hjust = 0, vjust = 1.5, color = "#D50006", size = 3.5) +
+  scale_fill_manual(
+    values = c("TRUE"  = "#D50006", "FALSE" = "#b3b2b2"),
+    labels = c("TRUE"  = glue::glue("p < 0.05 ({n_significant} falsely significant!)"),
+               "FALSE" = "p ≥ 0.05 (correctly not significant)")
+  ) +
+  labs(
+    x        = "p-value",
+    y        = "Number of tests",
+    fill     = NULL,
+    title    = glue::glue("100 tests with random variables — {n_significant} are p < 0.05"),
+    subtitle = "All variables are completely random — no real relationship exists"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Why Is the p-Value Distribution Uniform?
+Under $H_0$ (no real effect), p-values are **uniformly distributed** on [0, 1]. This means: in any interval of width 0.05, about 5% of all p-values fall — including the interval [0, 0.05]. That is why α = 0.05 produces exactly 5% false positives by design.
+:::
+
+---
+
+## Step 2: The Real Problem in the Bundesliga Dataset
+
+Now we test all numeric variables in the actual dataset against `log_value` — without any content-driven hypotheses. This is data mining in its rawest form.
+
+```{r many-tests}
+#| cache: true
+# prepare dataset for testing
+tbl_test <- tbl_buli_raw %>%
+              mutate(
+                log_value = log(player_market_value_euro),
+                age       = lubridate::year(Sys.Date()) -
+                            lubridate::year(player_dob)
+              ) %>%
+              select(log_value, where(is.numeric),
+                     -player_market_value_euro)
+
+# test all variables against log_value
+p_values_real <- tbl_test %>%
+  select(-log_value) %>%
+  names() %>%
+  map_dfr(function(var) {
+    tryCatch({
+      p <- lm(as.formula(glue::glue("log_value ~ `{var}`")),
+              data = tbl_test) %>%
+            broom::tidy() %>%
+            filter(term != "(Intercept)") %>%
+            pull(p.value)
+      tibble(variable = var, p_value = p[1])
+    }, error = function(e) {
+      tibble(variable = var, p_value = NA_real_)
+    })
+  }) %>%
+  filter(!is.na(p_value)) %>%
+  arrange(p_value)
+
+# top 10 — apparently significant variables
+p_values_real %>%
+  head(10) %>%
+  gt() %>%
+  fmt_number(columns = p_value, decimals = 4) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = p_value < 0.05)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Red = p < 0.05 without correction")
+```
+
+`r sum(p_values_real$p_value < 0.05, na.rm=TRUE)` of `r nrow(p_values_real)` variables are p < 0.05 without correction. But how many are real effects versus noise?
+
+---
+
+## Step 3: Benjamini-Hochberg — Controlling the FDR
+
+Instead of controlling each individual α (**FWER**, e.g. Bonferroni), the **False Discovery Rate** controls the *proportion* of false discoveries among all discoveries:
+
+$$\text{FDR} = \frac{\text{False Discoveries}}{\text{All Discoveries}}$$
+
+The **Benjamini-Hochberg procedure** works as follows:
+
+1. Sort p-values in ascending order: $p_{(1)} \leq p_{(2)} \leq \cdots \leq p_{(m)}$
+2. For desired FDR level $q$: find the largest $k$ with $p_{(k)} \leq \frac{k}{m} \cdot q$
+3. Declare tests $1, \ldots, k$ as significant
+
+In R: `p.adjust(p_values, method = "BH")`
+
+```{r bh}
+#| code-fold: false
+p_values_adjusted <- p_values_real %>%
+  mutate(
+    p_bonferroni   = p.adjust(p_value, method = "bonferroni"),
+    p_BH           = p.adjust(p_value, method = "BH"),
+    sig_raw        = p_value      < 0.05,
+    sig_bonferroni = p_bonferroni < 0.05,
+    sig_BH         = p_BH         < 0.05
+  )
+
+# comparison of methods
+p_values_adjusted %>%
+  summarise(
+    `No correction`   = sum(sig_raw,        na.rm = TRUE),
+    `Bonferroni`       = sum(sig_bonferroni, na.rm = TRUE),
+    `BH (FDR)`         = sum(sig_BH,         na.rm = TRUE)
+  ) %>%
+  pivot_longer(everything(),
+               names_to  = "Method",
+               values_to = "Significant") %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = Method == "BH (FDR)")
+  ) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("Green = recommended method for many simultaneous tests")
+```
+
+```{r bh-viz}
+p_values_adjusted %>%
+  slice_head(n = 20) %>%
+  mutate(variable = fct_reorder(variable, p_value)) %>%
+  ggplot(aes(y = variable)) +
+  geom_point(aes(x = p_value,      color = "Raw"),
+             size = 3, alpha = 0.8) +
+  geom_point(aes(x = p_BH,         color = "BH-adjusted"),
+             size = 3, alpha = 0.8, shape = 17) +
+  geom_point(aes(x = p_bonferroni, color = "Bonferroni"),
+             size = 3, alpha = 0.8, shape = 15) +
+  geom_vline(xintercept = 0.05, linetype = "dashed",
+             color = "#686868", linewidth = 0.8) +
+  scale_color_manual(
+    values = c("Raw"         = "#D50006",
+               "BH-adjusted" = "#502479",
+               "Bonferroni"  = "#686868")
+  ) +
+  labs(
+    x        = "p-value",
+    y        = "Variable (Top 20)",
+    color    = NULL,
+    title    = "Raw vs. corrected significance levels",
+    subtitle = "Dashed line: α = 0.05 | Triangle = BH | Square = Bonferroni"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+:::{.callout-note}
+## When to Use Which Method?
+
+| Situation | Method | Rationale |
+|-----------|--------|-----------|
+| 1 test, clear hypothesis | α = 0.05 classical | No multiplicity problem |
+| Few tests (5–20) | **Bonferroni** | Conservative, controls FWER |
+| Many tests (>50) | **BH (FDR)** | Less conservative, more power |
+| Data mining, exploratory | **BH (FDR)** | Standard in data science |
+:::
+
+---
+
+## Mandatory Tasks
+
+:::{.callout-important icon=false}
+## ⚠️ A1: Scaling the Simulation
+
+Run the simulation with `n_tests = 1000`.
+
+1. How many of 1,000 random tests are significant?
+2. Does this match the theoretical expectation ($1000 \times 0.05 = 50$)?
+3. What would happen if a researcher ran these 1,000 tests and published only the significant ones?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A2: Bonferroni vs. BH
+
+Interpret the comparison of the three methods in the table above.
+
+1. Which variables remain significant after BH correction?
+2. Do these variables make substantive sense as market-value predictors?
+3. Why is Bonferroni more conservative than BH here?
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A3: Break-Even Formula
+
+In the lecture we showed:
+
+$$p_{\text{A}} > \frac{c(\text{FP})}{c(\text{FP}) + c(\text{FN})}$$
+
+Suppose the FDR correction increases your confidence that a significant finding is real. How does this change your estimated $p_{\text{A}}$ for a Bundesliga transfer? Is the purchase more worthwhile with a BH-corrected result?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## 💡 B1: Reproduce p-Hacking
+
+Simulate the classic p-hacking scenario:
+
+```r
+# researcher tests 20 variables and reports only significant ones
+set.seed(1)
+results <- map_dfr(1:20, function(i) {
+  tbl_sim <- tbl_buli %>% mutate(x = rnorm(n()))
+  p <- lm(log_value ~ x, data = tbl_sim) %>%
+         broom::tidy() %>%
+         filter(term == "x") %>%
+         pull(p.value)
+  tibble(test = i, p_value = p, significant = p < 0.05)
+})
+filter(results, significant)
+```
+
+How many "discoveries" get published? What would be the correct conclusion?
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B2: xkcd Significant
+
+Read: [xkcd: Significant](https://xkcd.com/882/)
+
+Explain the joke with statistical precision — and name which p-hacking practice from this lab is depicted.
+:::
+
+:::{.callout-tip icon=false}
+## 💡 B3: FDR vs. FWER
+
+Research the difference between **FDR** (False Discovery Rate) and **FWER** (Family-Wise Error Rate).
+
+- In which context is FWER more important than FDR?
+- Give one medical and one data-science example where the choice of method would lead to a different decision.
+:::
+
+---
+
+## Summary
+
+```{r summary-table}
+#| echo: false
+tibble::tribble(
+  ~`Finding`,                  ~`Key Result`,                              ~`Implication for Session 2 Lecture`,
+  "Multiplicity problem",      "5% of random tests are falsely significant", "Cannot trust raw p-values in data mining",
+  "p-Hacking simulation",      paste0(n_significant, " of 100 random tests p < 0.05"),
+                                                                            "Selective reporting inflates false discovery rate",
+  "Bonferroni vs. BH",         "BH retains more true discoveries",          "BH is the standard for exploratory analysis",
+  "Business connection",       "FDR correction increases p_A confidence",   "Feeds into Expected Value Framework"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#fff8e1"), cells_body(rows = c(1, 2))) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = c(3, 4))) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## What Comes Next
+
+Even when a finding is **truly significant** (after FDR correction) — it does not mean it is **practically relevant**. That is the topic of the next block: effect sizes and the difference between statistical and practical significance.
+
+**Dataset used:** `buli_raw_2023-09-06.rds` (Bundesliga players, season 2022/23)
+:::

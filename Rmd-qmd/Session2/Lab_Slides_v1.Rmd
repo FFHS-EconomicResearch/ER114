@@ -1,0 +1,110 @@
+
+---
+class: left
+.blockquote[Population vs. Sample]
+## `r fa('flask', fill='#D50006')` Lab 1 
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 1: Only One Test — Bootstrap &amp; Permutation with infer
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Lernziel:</strong> Bootstrap confidence interval and permutation test for the
+regression coefficient in the Bundesliga model and compare with the
+traditional t-test.
+
+<br>
+
+<strong>Datasatz:</strong> <code>buli_raw_2023-09-06.rds</code>
+(Bundesliga players, season 2022/23) &nbsp;·&nbsp;
+<strong>Model:</strong> <code>log_value ~ age</code>
+
+<br>
+
+`r fa('clock')` <strong>40 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session 2_Lab1_InferenceResampling.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief: Critical Validator Building Blocks A+B</strong>]]
+
+???
+* Lab takes approx. 40 minutes
+* Required tasks: Bootstrap CI + permutation test + comparison t-test
+* Bonus tasks: interaction model, reps=100 vs. 1000, underpowered sample
+* Save results: obs_slope, boot_dist, ci_pct, ci_se, null_dist are not needed in Lab 2
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 1 + Critical Validator]
+
+## Debrief: Inference als Filter — Galaks Darts-Analogie
+
+.panelset[
+.panel[.panel-name[Darts Analogy]
+### The Darts Analogy (Galak)
+
+`r fa('bullseye')` **One throw** = one sample — does it hit the center by chance?
+
+`r fa('circle-right')` Only **many throws** reveal the true precision
+
+`r fa('circle-right')` Standard Error = durchschnittliche Streuung der Würfe
+
+`r fa('circle-right')` Confidence Interval = Bereich, der bei 95% aller Dartspiele die wahre Mitte enthält
+
+]
+.panel[.panel-name[Transfer Lab 1]
+
+### Transfer to Lab 1
+
+`r fa('circle-right')` Bootstrap-KI: Was passiert wenn wir 1000× neu aus den Buli-Data ziehen?
+
+`r fa('circle-right')` Does the CI contain zero? → Is the age effect significant?
+
+`r fa('circle-right')` Permutation test: simulate the null world — how extreme is our observed coefficient?
+]
+
+.panel[.panel-name[Critical Validator]
+### Critical Validator — Building Blocks A+B
+
+**Baustein A: Inference als Filter**
+.small[
+> "Statistische Inference filtert echtes Signal von zufälligem Rauschen — wie ein Dart-Spieler, der nach vielen Würfen beurteilt wird, nicht nach einem einzigen."
+]
+
+**Building Block B: Erroneous Decisions**
+.small[
+> Fire alarm model: alarm goes off (FP) vs. fire goes undetected (FN)
+>
+> In the Bundesliga context: buying a player who is not actually undervalued (FP) vs. missing a real arbitrage opportunity (FN)
+]
+
+`r fa('circle-right')` **Which error is more costly?** → That depends on the costs — not on the p-value!
+]
+
+]
+
+
+???
+* Discuss Critical Validator posting: What did the teams find for building blocks A+B?
+* Galak video was preparation — anchor it concretely here
+* Transition: how do we formalize the costs of erroneous decisions? → Expected Value Framework
+
+
+
+
+
+
