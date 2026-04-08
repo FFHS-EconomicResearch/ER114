@@ -1,0 +1,927 @@
+---
+title: "Session 1 · Lab 1: R Projects & Quarto"
+subtitle: "Project Structure, Data Import, and First Presentation"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: false
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(fontawesome)
+library(openintro)
+library(gt)
+data("ames", package = "openintro", envir = .GlobalEnv)
+```
+
+## Lab 1 · Overview
+
+### Learning Objectives
+
+- Create an `r fa('r-project')` project with a clean folder structure
+
+- Import data from packages and local files
+
+- Learn initial exploratory commands (`dim()`, `head()`, `glimpse()`)
+
+- Create and render a Quarto presentation
+
+- Use inline `r fa('r-project')` code in Quarto
+
+### Today's Roadmap
+
+| Phase      | Content                                        |
+|------------|------------------------------------------------|
+| 🔵 Concept | Project structure & data import                |
+| 🔵 Demo    | Explore `ames`, Quarto & inline code           |
+| 🟡 Task    | Import your own datasets                       |
+| 🟢 Task    | Create Quarto slides                           |
+
+<br> ⏱️ **Approx. 30 minutes** · 👤 **Individual work**
+
+::: {.callout-note appearance="minimal"}
+**Prerequisites:** `r fa('r-project')`, RStudio, and the packages `tidyverse`, `openintro`, and `gt` are installed.
+:::
+
+## Step 1 — Unzip the Template & Rename
+
+### Instructions
+
+1.  Download `R-Project_Template.zip`\
+    ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752746/mod_assign/introattachment/0/R-Project_Template.zip?forcedownload=1))
+2.  Unzip the archive
+3.  Rename the folder to `ER014-PVA1_XY`\
+    **X** = first letter of your last name\
+    **Y** = first letter of your first name\
+    *(Example: Maria Müller → `ER014-PVA1_MM`)*
+4.  Open the folder and check the structure
+
+::: {.callout-warning appearance="minimal"}
+No spaces or special characters in the folder name — this avoids path problems across all operating systems!
+:::
+
+### Expected Folder Structure
+
+``` text
+ER014-PVA1_XY/
+├── data/
+│   ├── raw/        ← Raw data (never modify!)
+│   └── tidy/       ← Cleaned data (tidy format)
+├── R/              ← R scripts
+├── qmd/            ← Quarto files
+├── figs/           ← Figures (created with R)
+├── img/            ← Image files (from web or graphics software)
+├── lit/            ← Literature (PDFs etc.) and bibliography (.bib, .json etc.)
+└── README.md       ← Project documentation (in the root directory)
+```
+
+💡 **Core principle:** Raw data always remains unchanged.\
+Everything else can be regenerated from raw data at any time.
+
+## Step 2 — Create an RStudio Project
+
+::: panel-tabset
+### Instructions
+
+1.  Open RStudio
+2.  **File → New Project → Existing Directory**
+3.  Navigate to your folder `ER014-PVA1_XY`
+4.  Click **Create Project**
+5.  RStudio restarts — the project name appears in the top right
+
+✅ **Success criterion:** The project name appears in the top right of RStudio.
+
+### Screenshot Note
+
+``` text
+┌─────────────────────────────────────────┐
+│ File  Edit  Code  View  ...             │
+├─────────────────────────────────────────┤
+│                    [ER014-PVA1_MM ▼]    │  ← Project name
+│                                         │
+│  Environment  History  ...              │
+│  ─────────────────────────              │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### What Happens in the Background?
+
+RStudio creates an `.Rproj` file in the folder:
+
+``` text
+ER014-PVA1_XY/
+├── ER014-PVA1_XY.Rproj   ← NEW
+├── data/
+│   ├── raw/
+│   └── tidy/
+...
+```
+
+**Why does this matter?**
+
+When opening the `.Rproj` file, RStudio automatically sets the working directory to this folder. Relative paths like `"data/raw/file.csv"` therefore work on **any computer** without `setwd()` — this is the foundation of reproducible analyses.
+:::
+
+## Step 3 — Importing Data: The Concept
+
+`r fa('r-project')` can load data from many sources. Here is an overview of the most important approaches:
+
+### Way 1: Data from a Package
+
+Many `r fa('r-project')` packages include datasets directly — **no file needed**.
+
+```{r}
+#| label: demo-import-package
+# Load package
+library(openintro)
+# Load dataset into the global environment
+data(ames)
+```
+
+::: {.callout-note appearance="minimal"}
+**Installing ≠ Loading**\
+`install.packages()` downloads the package **once** from the internet.\
+`library()` activates it for the **current `r fa('r-project')` session** — repeat after every restart.\
+`install.packages()` does **not** belong in a script — only run it once in the console.
+:::
+
+### Way 2: Local File
+
+```{r}
+#| eval: false
+# CSV (semicolon-separated, e.g. German Excel export)
+tbl_autos <- read_csv2(xfun::from_root(
+  "data/raw/autos.csv"))
+
+# R native binary format
+tbl_buli <- read_rds(xfun::from_root(
+  "data/raw/buli.rds"))
+```
+
+::: {.callout-note appearance="minimal"}
+**`read_csv` vs. `read_csv2`**\
+`,` as separator → `read_csv()` · `;` as separator → `read_csv2()`\
+If in doubt: open the file in a text editor and check.\
+Wrong separator → all values land in **one** column!
+:::
+
+### Way 3: File Directly from the Web
+
+```{r}
+#| eval: false
+# Pass URL directly
+url <- "https://example.org/data.csv"
+tbl <- read_csv(url)
+
+# Download and unzip an archive
+tmp <- tempfile(fileext = ".zip")
+download.file("https://example.org/data.zip", tmp)
+tbl <- read_csv(unzip(tmp, exdir = tempdir()))
+```
+
+Useful for publicly available datasets that are regularly updated.
+
+### Way 4: API (Application Programming Interface)
+
+Many institutions provide APIs — `r fa('r-project')` fetches data directly without manual downloading:
+
+```{r}
+#| eval: false
+# Example: Data from the Swiss Federal Statistical Office
+library(BFS)
+
+# Search catalogue and retrieve dataset
+bfs_get_data(number_bfs = "px-x-0102010000_101",
+             language = "de")
+```
+
+::: {.callout-note appearance="minimal"}
+**Outlook:** Web scraping and APIs will be used practically in **ER015** and **ER018**.\
+Curious? → [`BFS` package on CRAN](https://cran.r-project.org/package=BFS) · [Documentation](https://felixluginbuhl.com/BFS/)
+:::
+
+## Step 3 — Importing Data: Reproducibility
+
+### Why in a Script or Quarto Chunk?
+
+Importing data by clicking (e.g. via *Import Dataset* in RStudio) is tempting — but **not reproducible**: no one else can trace what steps were taken.
+
+✅ **Import code always belongs in an `r fa('r-project')` script or a Quarto chunk.**\
+That way, anyone — including your future self — can rerun the analysis from scratch.
+
+::: {.callout-tip appearance="minimal"}
+**Rule of thumb:** If you click something, document it as code afterwards.\
+If you have to make the same click twice, write it as a function.
+:::
+
+### Paths: The Most Common Stumbling Block
+
+```{r}
+#| eval: false
+# ❌ Absolute path — only works on THIS machine
+read_csv("C:/Users/Maria/Desktop/autos.csv")
+
+# ❌ Relative path without a project — depends on
+#    the current working directory
+read_csv("data/raw/autos.csv")   # only works if
+                                  # wd is set correctly
+
+# ✅ With xfun::from_root() — always relative to
+#    the .Rproj file, regardless of the subfolder
+library(xfun)
+read_csv2(from_root("data/raw/autos.csv"))
+```
+
+::: {.callout-note appearance="minimal"}
+`xfun::from_root()` searches for the `.Rproj` file in the current or parent directory and builds the path from there. This also works when the script is run from `R/` or the `.qmd` from `qmd/`.
+:::
+
+## Step 3 — Download Files
+
+Download these two files and save them in `data/raw/`:
+
+### Files
+
+1.  `autos_(StockerUIBK)_20240414.csv`\
+    ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/autos_%28StockerUIBK%29_20240414.csv?forcedownload=1))
+
+2.  `buli_raw_2023-09-06.rds`\
+    ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/buli_raw_2023-09-06.rds?forcedownload=1))
+
+::: {.callout-warning appearance="minimal"}
+Do **not** rename the files — the code references the original names exactly.
+:::
+
+### Verification
+
+``` text
+data/raw/
+├── autos_(StockerUIBK)_20240414.csv
+└── buli_raw_2023-09-06.rds
+```
+
+### Three Datasets — Three Import Methods
+
+| Dataset     | Import method       | Function                      |
+|-------------|---------------------|-------------------------------|
+| `ames`      | Package `openintro` | `data(..., envir=.GlobalEnv)` |
+| `tbl_autos` | File `.csv`         | `read_csv2()`                 |
+| `tbl_buli`  | File `.rds`         | `read_rds()`                  |
+
+<br>
+
+| Format | Separator        | Note                          |
+|--------|------------------|-------------------------------|
+| `.csv` | `;` (semicolon)  | Text format, readable anywhere|
+| `.rds` | —                | Compressed, `r fa('r-project')` only |
+
+## Step 4 — Create an `r fa('r-project')` Script
+
+**File → New File → R Script** → save as `R/EDA_IMS.R`
+
+```{r}
+#| eval: false
+# ============================================
+# EDA_IMS.R  —  Exploratory Data Analysis
+# PVA1 · Lab 1
+# ============================================
+
+# 1. Load packages --------------------------------
+#    (Packages must be installed once first:
+#     install.packages(c("tidyverse","openintro","gt","xfun")))
+library(tidyverse)
+library(openintro)
+library(gt)
+
+# 2. Load package data ----------------------------
+data("ames", package = "openintro", envir = .GlobalEnv)
+
+# 3. Import external files -----------------------
+my_in_file <- "data/raw/autos_(StockerUIBK)_20240414.csv"
+tbl_autos  <- read_csv2(xfun::from_root(my_in_file))
+
+my_in_file <- "data/raw/buli_raw_2023-09-06.rds"
+tbl_buli   <- read_rds(xfun::from_root(my_in_file))
+```
+
+::: {.callout-tip appearance="minimal"}
+**Running code:** Cursor on a line → **Ctrl+Enter** (Win) / **Cmd+Enter** (Mac) runs that line.\
+Select multiple lines → **Ctrl+Enter** runs all selected lines.\
+After import, the objects appear in the **Environment** panel in the top right.
+:::
+
+## 🔵 Demo — Exploring `ames`
+
+:::: panel-tabset
+### dim() / nrow() / ncol()
+
+```{r}
+dim(ames)    # Result: [rows, columns]
+nrow(ames)   # rows only
+ncol(ames)   # columns only
+```
+
+❓ What do these numbers mean in context?\
+→ *2930 rows = 2930 houses sold; 82 columns = 82 variables (price, area, location …)*
+
+### head()
+
+```{r}
+head(ames)   # first 6 rows (default)
+```
+
+❓ `head(ames, n = 10)` — what changes?
+
+### glimpse()
+
+```{r}
+glimpse(ames)
+```
+
+::: {.callout-note appearance="minimal"}
+**`head()` vs. `glimpse()`**\
+`head()` shows the first rows as a table — practical with few columns.\
+`glimpse()` flips the perspective: each **variable** becomes a row, including its data type (`<fct>`, `<int>`, `<dbl>`). Ideal for many columns or for a quick check of data types.
+:::
+::::
+
+## 🔵 Demo — Understanding Quarto
+
+### Why Quarto?
+
+Quarto combines **`r fa('r-project')` code, results, and text** in a single document. Instead of manually copying tables and figures into a Word document, they are generated directly during rendering — automatically, reproducibly, and always up to date. The same `.qmd` source document can be output in various formats:
+
+| Format                   | Use case                              |
+|--------------------------|---------------------------------------|
+| HTML                     | Interactive reports, websites         |
+| PDF                      | Submissions, publications             |
+| Word (`.docx`)           | Collaborative editing                 |
+| Presentation (Reveal.js) | Talks, these labs                     |
+
+
+
+### The Three Building Blocks of a Quarto File
+
+A `.qmd` file always consists of the same three elements:
+
+* YAML header (metadata & output format)
+* Code (`r fa('r-project')`, Python, Julia …)
+* Text and formatting (Markdown)
+
+
+#### YAML Header
+```         
+---                        ← YAML header starts with ---
+title: "My Report"
+format: html
+---                        ← and ends with ---
+```
+
+#### Code
+
+`r fa('r-project')` code can be embedded as **code chunks** or as **inline code**.
+
+* Code chunks: Insert with **Ctrl+Alt+I** (Win) or via *Insert → R*:
+
+[` ```{r} `]{.verbatim} R code [` ``` `]{.verbatim}
+
+
+::: {.callout-note appearance="minimal"}
+**Code chunk options:**
+Whether code chunks appear **in the output document** (usually not desired!) can be controlled with chunk options. They are typically set with `#|` (hash-pipe) directly above the code.
+:::
+
+To show both the result and the code block in the final document, use `#| echo: true` at the beginning of the chunk:
+
+```{r}
+#| echo: true # (= default — does not need to be stated explicitly)
+4 + 3
+```
+
+With `#| echo: false`, only the result is shown, the code is hidden — useful for presentations:
+
+```{r}
+#| echo: false
+4 + 3
+```
+
+
+With `#| eval: false`, the code is displayed but not executed — useful for example code:
+
+```{r}
+#| eval: false
+4 + 3
+```
+
+* Inline code (→ see [Demo section](@inline)).
+
+
+#### Text and Formatting
+
+Quarto uses **Markdown** for text formatting: `**bold**`, `*italic*`, `# Heading`, `- List item`. A compact reference: [Quarto Markdown Basics](https://quarto.org/docs/authoring/markdown-basics.html).
+
+### Excursus: Tables in Quarto Documents
+
+For structured data tables in the output document, the `gt` package works well:
+
+```{r}
+ames %>%
+  select(area, price, Neighborhood, Bedroom.AbvGr, Lot.Area) %>%
+  head(5) %>%
+  gt() %>%
+  tab_header(
+    title    = "Ames Housing — first 5 rows (selection)",
+    subtitle = "Source: openintro package"
+  )
+```
+
+::: {.callout-note appearance="minimal"}
+**Review from the preparatory material: tidyverse and the pipe**\
+The **magrittr** package introduced the idea of "piping" to `r fa('r-project')` in 2013. Since 2014, the **magrittr** operator `%>%` has been implemented in the **dplyr** package and can be used directly by loading the **tidyverse** meta-package.
+
+The pipe operator `%>%` makes it easy to chain a series of operations:
+
+`x %>% f()` means: take `x` and pass it as the **first** argument to `f()`.
+
+Due to the enormous success of the tidyverse, a native pipe was also added to base `r fa('r-project')` in version 4.1.0. This **native pipe** `|>` works identically for most use cases.
+
+`r fa('exclamation-circle')` We use `%>%` from `magrittr` because it offers a wider range of functionality, for example when used with the `lm()` function.
+:::
+
+## 🔵 Demo — Understanding Inline `r fa('r-project')` Code  {#inline} 
+
+### Syntax
+
+Inline `r fa('r-project')` code is introduced with a backtick (&#96;), the letter `r`, and a space — immediately before the `r fa('r-project')` expression — and closed with a backtick (&#96;). Quarto evaluates the expression during rendering and inserts the result directly into the running text.
+
+### Before: Hard-Coded Numbers
+
+In the source, numbers are typed in manually:
+
+``` markdown
+The Ames dataset contains 2930 rows and 82 columns.
+```
+
+Rendered result — numbers are fixed/immutable text in the document:
+
+> The Ames dataset contains 2930 rows and 82 columns.
+
+❌ If the data changes, the text is no longer correct — and you often don't notice. Also prone to typos.
+
+### After: Inline `r fa('r-project')` Code
+
+In the source, `r fa('r-project')` expressions replace the hard-coded numbers:
+
+The Ames dataset contains &#96;r nrow(ames)&#96; rows and &#96;r ncol(ames)&#96; columns.
+
+Rendered result — Quarto evaluates the expressions and inserts the values:
+
+> The Ames dataset contains **`r nrow(ames)`** rows and **`r ncol(ames)`** columns.
+
+✅ The numbers update automatically — computed from the data at every render. No more typos either!
+
+### Further Examples
+
+| Source                               | Rendered result                |
+|--------------------------------------|--------------------------------|
+| `` `r nrow(ames)` ``                 | `r nrow(ames)`                 |
+| `` `r ncol(ames)` ``                 | `r ncol(ames)`                 |
+| `` `r round(mean(ames$price), 0)` `` | `r round(mean(ames$price), 0)` |
+| `` `r Sys.Date()` ``                 | `r Sys.Date()`                 |
+
+::: {.callout-tip appearance="minimal"}
+**When inline code, when a chunk?**\
+Inline code is suited for **single values** in running text (count, mean, date).\
+For tables and figures → code chunk.
+:::
+
+## 🟡 Task — Import & Explore Datasets
+
+Run the import commands for `tbl_autos` and `tbl_buli` in `R/EDA_IMS.R` and explore the datasets **analogously to the `ames` demo**:
+
+### A: Check Dimensions
+
+```{r}
+#| eval: false
+dim(tbl_autos)
+nrow(tbl_autos)
+ncol(tbl_autos)
+
+dim(tbl_buli)
+nrow(tbl_buli)
+ncol(tbl_buli)
+```
+
+❓ What does one row represent in each case?\
+*(One car? One match? One matchday?)*
+
+### B: Explore Structure
+
+```{r}
+#| eval: false
+glimpse(tbl_autos)
+glimpse(tbl_buli)
+```
+
+❓ What variable types appear?\
+*(`<chr>`, `<dbl>`, `<date>`, `<fct>` …)*
+
+### C: Display First Rows
+
+```{r}
+#| eval: false
+head(tbl_autos)
+head(tbl_buli)
+```
+
+### D: Document Findings
+
+Record your observations as comments in the script:
+
+```{r}
+#| eval: false
+# tbl_autos: ___ rows, ___ columns
+# One row = one ________________
+# Variable types: ___________________
+
+# tbl_buli:  ___ rows, ___ columns
+# One row = one ________________
+# Variable types: ___________________
+```
+
+::: {.callout-tip appearance="minimal"}
+These notes form the basis for the Quarto slides in the next step.
+:::
+
+## 🟢 Task — Create a Quarto Presentation
+
+::::::: panel-tabset
+### 1. Create File
+
+1.  **File → New File → Quarto Presentation → Reveal.js**
+2.  Save as `qmd/DataOverview.qmd`
+3.  Delete all example content
+4.  Insert YAML header:
+
+``` yaml
+---
+title: "Data Overview"
+subtitle: "PVA1 · Lab 1"
+author: "Your Name"
+date: today
+format:
+  revealjs:
+    theme: default
+    slide-number: true
+execute:
+  echo: true
+  warning: false
+---
+```
+
+### 2. Setup Chunk
+
+Directly after the YAML header — loads all objects **invisibly**:
+
+```` markdown
+```{{r}}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(openintro)
+library(gt)
+data("ames", package = "openintro", envir = .GlobalEnv)
+
+my_in_file <- "data/raw/autos_(StockerUIBK)_20240414.csv"
+tbl_autos  <- read_csv2(xfun::from_root(my_in_file))
+
+my_in_file <- "data/raw/buli_raw_2023-09-06.rds"
+tbl_buli   <- read_rds(xfun::from_root(my_in_file))
+```
+````
+
+::: {.callout-important appearance="minimal"}
+`#| include: false` — code runs during rendering but does **not** appear in the rendered document.\
+All three objects are then available on every slide.
+:::
+
+### 3. Slide: Cars
+
+Refer to the `ames` demo:
+
+```` markdown
+## Cars Dataset
+
+The dataset contains **`nrow(tbl_autos)`** observations
+and **`ncol(tbl_autos)`** variables.
+
+```{{r}}
+tbl_autos %>%
+  head(5) %>%
+  gt() %>%
+  tab_header(title = "First 5 rows: Cars")
+```
+````
+
+::: {.callout-note appearance="minimal"}
+`` `{{r}} nrow(tbl_autos)` `` works here because `tbl_autos` was loaded in the setup chunk — just like `ames` in the demo.
+:::
+
+### 4. Slide: Bundesliga
+
+```` markdown
+## Bundesliga Dataset
+
+The dataset contains **`nrow(tbl_buli)`** observations
+and **`ncol(tbl_buli)`** variables.
+
+```{{r}}
+tbl_buli %>%
+  head(5) %>%
+  select(1:6) %>%
+  gt() %>%
+  tab_header(title = "First 5 rows: Bundesliga (selection)")
+```
+````
+
+::: {.callout-note appearance="minimal"}
+`select(1:6)` selects the first 6 columns — for wide datasets this prevents overfull slides.
+:::
+
+### 5. Slide: Comparison
+
+``` markdown
+## Dataset Overview
+
+| Dataset    | Rows                | Columns             |
+|------------|---------------------|---------------------|
+| ames       | `nrow(ames)`        | `ncol(ames)`        |
+| Cars       | `nrow(tbl_autos)` | `ncol(tbl_autos)` |
+| Bundesliga | `nrow(tbl_buli)`  | `ncol(tbl_buli)`  |
+
+Values are inserted automatically during rendering.
+```
+
+### 6. Render & Check
+
+1.  **Ctrl+S** — save file
+2.  **Render** (or **Ctrl+Shift+K**)
+3.  Presentation opens in the browser
+
+✅ **Success criterion:** All three slides show correct dimensions and tables.
+
+::: {.callout-tip appearance="minimal"}
+Render error? → Read the line number in the error message, isolate the affected chunk in the console and test it.
+:::
+:::::::
+
+## Bonus Tasks
+
+### B1: Variable Types as a Table
+
+Create a slide with variable names and data types:
+
+```{r}
+#| eval: false
+tibble(
+  Variable = names(tbl_autos),
+  Type     = map_chr(tbl_autos, class)
+) %>%
+  gt() %>%
+  tab_header(title = "Variables: Cars")
+```
+
+### B2: Missing Values
+
+Show only columns with at least one NA:
+
+```{r}
+#| eval: false
+tbl_autos %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(),
+               names_to  = "Variable",
+               values_to = "Missing") %>%
+  filter(Missing > 0) %>%
+  gt() %>%
+  tab_header(title = "Missing values: Cars")
+```
+
+### B3: Visualisation with `ames`
+
+```{r}
+#| eval: false
+ames %>%
+  ggplot(aes(x = area, y = price)) +
+  geom_point(alpha = 0.3, color = "steelblue") +
+  scale_y_continuous(labels = scales::dollar) +
+  labs(
+    title    = "Living Area vs. Sale Price",
+    subtitle = "Ames, Iowa 2006–2010",
+    x        = "Living area (sqft)",
+    y        = "Sale price (USD)"
+  ) +
+  theme_minimal()
+```
+
+### B4: Change the Presentation Theme
+
+Experiment with the `theme` parameter in the YAML of `DataOverview.qmd`:
+
+``` yaml
+format:
+  revealjs:
+    theme: moon
+```
+
+Options: `sky` · `beige` · `serif` · `simple` · `night` · `moon`
+
+❓ Which theme looks appropriate for an academic presentation?
+
+## Common Errors & Solutions
+
+::: callout-warning
+#### ❌ File Not Found
+
+```         
+Error: cannot open file 'data/raw/...'
+```
+
+**Cause:** No `r fa('r-project')` project open, or a typo in the path.
+
+**Solution:**\
+1. Is the project name visible in the top right of RStudio?\
+2. Is the file really in `data/raw/`?\
+3. Use `xfun::from_root()`
+:::
+
+::: callout-warning
+#### ❌ All Data in One Column
+
+Dataset has only one column, although several are expected.
+
+**Cause:** Wrong separator — `read_csv()` instead of `read_csv2()` (or vice versa).
+
+**Solution:** Open the file in a text editor and check: comma or semicolon as separator?
+:::
+
+::: callout-warning
+#### ❌ Package Not Installed
+
+```         
+Error: there is no package called 'gt'
+```
+
+**Solution:** Install once, then load:
+
+``` r
+install.packages("gt")
+library(gt)
+```
+
+Never write `install.packages()` in a script — only run it in the console!
+:::
+
+::: callout-warning
+#### ❌ Object Not Found
+
+```         
+Error: object 'tbl_autos' not found
+```
+
+**Cause:** Import code was not executed.
+
+**Solution:**\
+- In the script: run import lines first\
+- In Quarto: is the setup chunk with `#| include: false` present?\
+- Did you forget `data("ames", package = "openintro", envir = .GlobalEnv)` after `library(openintro)`?
+:::
+
+## Lab 1 · Summary
+
+::: callout-tip
+#### What We Have Learned
+
+✅ R projects guarantee reproducible, machine-independent paths
+
+✅ **Two import methods:** `data(..., envir=.GlobalEnv)` for package data · `read_csv2()`/`read_rds()` for files
+
+✅ `xfun::from_root()` — paths always relative to the `.Rproj` file
+
+✅ `dim()`, `head()`, `glimpse()` for a first overview of any dataset
+
+✅ `%>%` — the magrittr pipe chains analysis steps readably
+
+✅ Inline R code keeps documents automatically consistent
+:::
+
+::: callout-important
+#### Checklist Before Submission
+
+☐ Folder named correctly (`ER014-PVA1_XY`)
+
+☐ `.Rproj` file present and open
+
+☐ Both files in `data/raw/` (unchanged)
+
+☐ Script `R/EDA_IMS.R` runs **without errors** from top to bottom
+
+☐ `qmd/DataOverview.qmd` renders without errors
+
+☐ All three datasets shown in the presentation with correct dimensions
+
+☐ Comparison slide: inline code shows correct values
+:::
+
+## Appendix: Integrating Reference Management Software
+
+Various reference management tools are available, including free options. This brief introduction focuses on Zotero, a free application available for Windows, macOS, and Linux. Zotero integrates with web browsers (as an extension), Microsoft Word, and RStudio (in combination with Quarto/RMarkdown).
+
+If you already use other software (e.g. Mendeley, Citavi), you have two options:
+
+* Integrate that software into RStudio (guides are available online), or
+* Migrate your library to Zotero.
+
+### Installing Zotero and Integrating with RStudio
+
+#### Installing Zotero and Useful Add-ons
+
+Steps to install Zotero:
+
+* Download the installer from the [Zotero website](www.zotero.org)
+* Create a free account
+
+Useful add-ons:
+
+* Install **Better BibTeX for Zotero** in the Zotero desktop app. Follow the instructions on the [BetterBibTeX website](https://retorque.re/zotero-better-bibtex/installation/).
+* Install the [Zotero Connector](http://www.zotero.org/download/connectors) for your browser (Chrome, Edge, Safari, or Firefox) to import references directly from the browser into your library.
+
+* Note: Zotero also integrates directly with MS Word. After installing Zotero, a "Zotero" tab appears automatically in Word.
+
+#### Integration with RStudio
+
+To embed Zotero in RStudio:
+
+1. Run the following command in the console:
+
+> `remotes::install_github("paleolimbot/rbbt")`
+
+2. After installation, close and restart RStudio.
+
+3. Zotero should now appear in the RStudio Addins menu.
+
+Always make sure all files (.R, .qmd, etc.) are created with UTF-8 encoding to avoid compatibility issues.
+
+
+### Creating a Bibliography in Quarto/RMarkdown {#zotero}
+
+* First, create a bibliography file. In Zotero:
+
+> `File > Export Library`
+
+* Choose the format CSL JSON (other formats such as BibLaTeX are also supported, but CSL JSON is increasingly standard)
+
+* Save the file in the `lit/` folder of your R project, e.g. as `my_bib.json`
+
+* Add the following two lines to the YAML header to automatically generate the bibliography:
+
+> `bibliography: my_bib.json`\
+> `reference-section-title: References`
+
+Note: `reference-section-title` specifies the heading for the bibliography section (here: "References"). Alternatives include "Literature" or "Sources".
+
+If the output is in MS Word format, a Word template can be created to apply the correct formatting automatically. Guidance is available on the [RStudio website](https://rmarkdown.rstudio.com/articles_docx.html).
+
+## Resources
+
+📖 [r4ds.hadley.nz](https://r4ds.hadley.nz) — Ch. 6 & 7\
+*(Workflow: scripts & projects)*
+
+📖 [quarto.org/docs/output-formats](https://quarto.org/docs/output-formats/html-basics.html)\
+*(HTML documents in Quarto)*
+
+📖 [xfun documentation](https://yihui.org/xfun/)\
+*(from_root())*
+
+📺 RStudio: *"Project-oriented workflow"* (Webinar)
+
+<br> **Questions? → Lab 1 Debrief**

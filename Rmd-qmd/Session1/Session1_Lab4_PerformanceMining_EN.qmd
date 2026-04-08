@@ -1,0 +1,823 @@
+---
+title: "Lab 4: Performance Mining & Managerial Memo"
+subtitle: "CRISP-DM Phase 5 & 6 — Evaluation & Deployment"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(moderndive)
+library(broom)
+library(gt)
+library(patchwork)
+library(GGally)
+library(gapminder)
+library(ISLR2)
+
+tbl_carseats <- tibble(Carseats)
+
+# Multiple model from the live demo — available directly
+mod_multipel <- tbl_carseats %>%
+  lm(Sales ~ Price + Advertising + ShelveLoc, data = .)
+```
+
+## Learning Objectives and Overview
+
+:::{.callout-note}
+## Learning Objectives of This Lab
+
+- Use the multiple regression model as a **scoring tool**
+- Calculate and rank **residuals** as a quantitative measure of underperformance
+- Communicate results in a **managerial memo** that is suitable for management (translator role)
+- Critically reflect on the model's limitations: R², OVB, **data drought**, make-or-buy
+:::
+
+**Scenario:** The live demo showed that the multiple model
+`Sales ~ Price + Advertising + ShelveLoc` explains approximately 54% of the variance in sales.
+Now we use the **residuals** as a performance score and generate the list of underperformers —
+this corresponds to CRISP-DM Phase 5 (Evaluation) and Phase 6 (Deployment).
+
+:::{.callout-tip}
+## Schedule
+⏱ **15 min.** Required tasks A1–A3 | **15 min.** Group work: Managerial Memo
+:::
+
+---
+
+## Background Material: An In-Depth Look at Multiple Regression
+
+This section contains supplementary background material that you can read before or after
+the lab. It explores the concepts from the live demo in greater depth using
+additional datasets.
+
+::: {.panel-tabset}
+
+### Simpson's Paradox
+
+**The problem:** An aggregated trend may be opposite to the trend within
+subgroups — if a confounder influences both.
+
+In the car-seat dataset: stores with good shelf placement (Good) can charge higher prices
+**and** have higher sales. This masks the negative price effect in the simple model.
+
+```{r}
+#| label: simpson-viz
+#| message: false
+p_agg <- tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales)) +
+  geom_point(alpha = 0.3, color = "#686868", size = 1.5) +
+  geom_smooth(method = "lm", color = "#D50006",
+              se = FALSE, linewidth = 1.3) +
+  annotate("text", x = 70, y = 16,
+           label = paste0("Overall: r = ",
+                          round(cor(tbl_carseats$Price,
+                                    tbl_carseats$Sales), 3)),
+           color = "#D50006", size = 3.5, hjust = 0) +
+  labs(title = "Aggregated (without groups)",
+       x = "Price (USD)", y = "Sales (thousands)") +
+  theme_minimal(base_size = 10)
+
+p_grp <- tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.35, size = 1.3) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = c("Bad"    = "#D50006",
+                                "Medium" = "#686868",
+                                "Good"   = "#502479")) +
+  labs(title = "By shelf location (ShelveLoc)",
+       subtitle = "Within each group: same negative trend",
+       x = "Price (USD)", y = "Sales (thousands)",
+       color = "ShelveLoc") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom")
+
+(p_agg + p_grp) +
+  plot_annotation(
+    title    = "Simpson's Paradox: Aggregate vs. Subgroups",
+    subtitle = "Same data — but two very different pictures"
+  )
+```
+
+**Takeaway:** Always look for confounders and perform subgroup analyses
+before interpreting aggregate results. The multiple model solves this problem
+by controlling for ShelveLoc.
+
+### Categorical Regression (Gapminder)
+
+**How are dummy variables interpreted?**
+The following example using the Gapminder dataset illustrates the logic
+using continents — directly applicable to `ShelveLoc`.
+
+```{r gapminder-setup}
+gapminder2007 <- gapminder %>%
+  filter(year == 2007) %>%
+  select(country, continent, lifeExp, gdpPercap)
+
+# Descriptive statistics
+gapminder2007 %>%
+  group_by(continent) %>%
+  summarise(
+    n            = n(),
+    mean_lifeExp = round(mean(lifeExp), 1),
+    sd_lifeExp   = round(sd(lifeExp),   1)
+  ) %>%
+  arrange(mean_lifeExp) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = continent == "Africa")
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Yellow = Reference group (alphabetical order)")
+```
+
+```{r gapminder-boxplot}
+gapminder2007 %>%
+  ggplot(aes(x = reorder(continent, lifeExp),
+             y = lifeExp, fill = continent)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +
+  stat_summary(fun = mean, geom = "point",
+               shape = 23, size = 3, fill = "white") +
+  scale_fill_manual(values = c(
+    "Africa"   = "#D50006", "Americas" = "#7d0a52",
+    "Asia"     = "#502479", "Europe"   = "#686868",
+    "Oceania"  = "#b3b2b2"
+  )) +
+  labs(title   = "Life Expectancy 2007 by Continent",
+       subtitle = "Diamond = Mean | Sorted by average life expectancy",
+       x = NULL, y = "Life Expectancy (years)") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
+```
+
+```{r gapminder-model}
+mod_lifeexp <- gapminder2007 %>%
+  lm(lifeExp ~ continent, data = .)
+
+mod_lifeexp %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error,
+                         statistic, p_value,
+                         lower_ci, upper_ci),
+             decimals = 2) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = term == "(Intercept)")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_body(rows = term != "(Intercept)")
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Regression: lifeExp ~ continent",
+    subtitle = "Intercept = Average Africa | All others = Difference from Africa"
+  )
+```
+
+**Interpretation of coefficients (directly applicable to Carseats):**
+
+| Gapminder | Carseats |
+|-----------|---------| 
+| Intercept = Average life expectancy in Africa (reference) | Intercept = Average sales at Bad (reference) |
+| `continentAmericas` = Difference between Americas and Africa | `ShelveLocGood` = Difference between Good and Bad |
+| Reference comes first alphabetically | Reference comes first alphabetically |
+
+**Verify numerically:**
+
+```{r gapminder-check}
+# Intercept = average lifeExp in Africa
+gapminder2007 %>%
+  filter(continent == "Africa") %>%
+  summarise(mean_africa = round(mean(lifeExp), 2))
+
+# Intercept + continentAmericas = average Americas
+coef(mod_lifeexp)["(Intercept)"] +
+  coef(mod_lifeexp)["continentAmericas"]
+
+gapminder2007 %>%
+  filter(continent == "Americas") %>%
+  summarise(mean_americas = round(mean(lifeExp), 2))
+```
+
+### Multiple Regression: 2 Numerical Regressors
+
+**Concept:** When there are two numerical regressors, OLS does not estimate a straight line,
+but rather a **plane** in three-dimensional space.
+
+The following example uses credit card data from ISLR2.
+
+```{r credit-eda}
+tbl_credit <- tibble(Credit) %>%
+  select(Balance, Income, Limit, Rating, Age)
+
+# Scatterplot matrix
+tbl_credit %>%
+  select(Balance, Income, Limit) %>%
+  ggpairs(
+    upper    = list(continuous = wrap("cor", size = 4)),
+    lower    = list(continuous = wrap("points",
+                                      alpha = 0.3, size = 0.8)),
+    diag     = list(continuous = wrap("densityDiag", alpha = 0.6)),
+    progress = FALSE
+  ) +
+  theme_minimal(base_size = 9) +
+  labs(title = "Credit card data: Balance, Income, Limit")
+```
+
+```{r credit-model}
+mod_credit <- tbl_credit %>%
+  lm(Balance ~ Income + Limit, data = .)
+
+mod_credit %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error,
+                         statistic, p_value,
+                         lower_ci, upper_ci),
+             decimals = 4) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = term != "(Intercept)")
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Multiple Regression: Balance ~ Income + Limit",
+    subtitle = "Both coefficients: ceteris paribus"
+  )
+```
+
+**Interpretation of the coefficients:**
+
+- **Income** (`r round(coef(mod_credit)["Income"], 4)`):
+  $1,000 more income → credit card balance changes by
+  `r round(coef(mod_credit)["Income"], 2)` USD, **ceteris paribus** (limit constant).
+- **Limit** (`r round(coef(mod_credit)["Limit"], 4)`):
+  $1 more credit limit → balance changes by
+  `r round(coef(mod_credit)["Limit"], 4)` USD, **ceteris paribus** (income constant).
+
+```{r credit-r2}
+mod_credit %>%
+  get_regression_summaries() %>%
+  select(r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(decimals = 4) %>%
+  tab_options(table.font.size = "13px")
+```
+
+**Application to Carseats:** The Carseats model combines
+*numeric* predictors (Price, Advertising) with a
+*categorical* predictor (ShelveLoc) — this is the general case
+of multiple regression.
+
+:::
+
+---
+
+## Tasks: Performance Mining
+
+### Step 1 — Review the Model
+
+The multiple model from the live demo:
+
+```{r model-recap}
+#| code-fold: false
+# Model identical to the demo
+mod_multipel <- tbl_carseats %>%
+  lm(Sales ~ Price + Advertising + ShelveLoc, data = .)
+
+# Model quality
+mod_multipel %>%
+  get_regression_summaries() %>%
+  select(r_squared, adj_r_squared, rmse, sigma, nobs) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse, sigma),
+             decimals = 4) %>%
+  tab_options(table.font.size = "14px")
+```
+
+```{r model-coefs}
+# Coefficients
+mod_multipel %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error,
+                         statistic, p_value,
+                         lower_ci, upper_ci),
+             decimals = 4) %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_body(rows = str_detect(term, "ShelveLoc"))
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+### Step 2 — Compute Performance Scores
+
+```{r scores}
+#| code-fold: false
+store_scored <- mod_multipel %>%
+  get_regression_points() %>%
+  mutate(
+    performance_gap = residual,
+    performance_cat = case_when(
+      residual < -2 ~ "Underperformer",
+      residual >  2 ~ "Outperformer",
+      TRUE          ~ "Normal"
+    )
+  )
+
+# Overview
+store_scored %>%
+  count(performance_cat) %>%
+  mutate(share = scales::percent(n / sum(n), accuracy = 0.1)) %>%
+  arrange(desc(n)) %>%
+  gt() %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## Residual = Measure for Underperformance
+
+$$e_i = \text{Sales}_i - \widehat{\text{Sales}}_i$$
+
+- $e_i \ll 0$: Store sells **significantly less** than the benchmark → **underperformer**
+- $e_i \approx 0$: Store is at the market average
+- $e_i \gg 0$: Store sells **more** than expected → **outperformer**
+
+**Important:** The benchmark is already *adjusted* for price, advertising, and shelf space
+— so an underperformer is truly worse than
+stores with comparable starting conditions.
+:::
+
+### Step 3 — Top-10 Ranking of Underperformers
+
+```{r top10}
+# Add contextual store metadata
+store_scored %>%
+  arrange(performance_gap) %>%
+  head(10) %>%
+  left_join(
+    tbl_carseats %>%
+      mutate(ID = row_number()) %>%
+      select(ID, ShelveLoc, Urban, US, Income, Age),
+    by = "ID"
+  ) %>%
+  select(ID, Sales, Sales_hat, performance_gap,
+         ShelveLoc.x, Urban, US, Income, Age) %>%
+  rename(ShelveLoc = ShelveLoc.x) %>%
+  gt() %>%
+  fmt_number(columns = c(Sales, Sales_hat, performance_gap),
+             decimals = 2) %>%
+  fmt_number(columns = c(Income, Age), decimals = 0) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = performance_gap < -3)
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = performance_gap >= -3 &
+                             performance_gap < -2)
+  ) %>%
+  tab_options(table.font.size = "12px") %>%
+  tab_header(
+    "Top-10 Underperformers",
+    subtitle = "Dark red: gap < −3 | Yellow: gap between −3 and −2"
+  )
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A1 — Analyse Underperformers
+
+**1.** Which **ShelveLoc category** dominates the top 10 underperformers?
+Test this empirically:
+
+```r
+store_scored %>%
+  left_join(
+    tbl_carseats %>% mutate(ID = row_number()) %>%
+      select(ID, ShelveLoc),
+    by = "ID"
+  ) %>%
+  filter(performance_cat == "Underperformer") %>%
+  count(ShelveLoc) %>%
+  mutate(share = scales::percent(n / sum(n)))
+```
+
+**2.** Is there a **store with prime shelf space** among the top 10 underperformers?
+If so, why is this particularly interesting for management?
+
+**3.** What do the **top 3 underperformers** have in common?
+Compare income, age, and urban/rural location.
+:::
+
+### Step 4 — Visualise the Performance Gap
+
+```{r performance-plot}
+#| fig-height: 5
+# Plot 1: Scatter Performance Gap vs. Predicted
+p1 <- store_scored %>%
+  ggplot(aes(x = Sales_hat, y = performance_gap,
+             color = performance_cat)) +
+  geom_point(alpha = 0.6, size = 1.8) +
+  geom_hline(yintercept = 0, color = "#333",
+             linewidth = 0.8, linetype = "dashed") +
+  geom_hline(yintercept = c(-2, 2), color = "#b3b2b2",
+             linewidth = 0.5, linetype = "dotted") +
+  scale_color_manual(
+    values = c("Underperformer" = "#D50006",
+               "Normal"         = "#b3b2b2",
+               "Outperformer"   = "#502479")
+  ) +
+  labs(
+    title    = "Performance Gap by Predicted Sales",
+    subtitle = "Threshold: ±2k units",
+    x        = "Predicted Ŝales",
+    y        = "Performance Gap (Residual)",
+    color    = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom")
+
+# Plot 2: Top/Bottom 10 as horizontal bar chart
+p2 <- bind_rows(
+  store_scored %>% arrange(performance_gap) %>%
+    head(10) %>% mutate(group = "Underperformer"),
+  store_scored %>% arrange(desc(performance_gap)) %>%
+    head(10) %>% mutate(group = "Outperformer")
+) %>%
+  ggplot(aes(x = reorder(factor(ID), performance_gap),
+             y = performance_gap, fill = group)) +
+  geom_col(alpha = 0.85) +
+  geom_hline(yintercept = 0, color = "#333",
+             linewidth = 0.5) +
+  scale_fill_manual(values = c("Underperformer" = "#D50006",
+                               "Outperformer"   = "#502479")) +
+  coord_flip() +
+  labs(
+    title = "Top-10 Under- and Outperformers",
+    x     = "Store ID",
+    y     = "Performance Gap (in thousands)",
+    fill  = NULL
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(legend.position = "bottom")
+
+p1 + p2
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A2 — Interpreting the Visualisation
+
+**1.** Is there a **pattern**: are stores with high predicted sales
+more likely to be outperformers, or is the distribution even?
+
+**2.** Calculate performance scores **separately by ShelveLoc**:
+
+```r
+store_scored %>%
+  left_join(
+    tbl_carseats %>% mutate(ID = row_number()) %>%
+      select(ID, ShelveLoc),
+    by = "ID"
+  ) %>%
+  group_by(ShelveLoc) %>%
+  summarise(
+    mean_gap = round(mean(performance_gap), 3),
+    sd_gap   = round(sd(performance_gap),   3),
+    n_under  = sum(performance_cat == "Underperformer"),
+    n_over   = sum(performance_cat == "Outperformer"),
+    n_total  = n()
+  )
+```
+
+**3.** A **store that is outperforming despite having a prime shelf position** might be worth investigating:
+Why? What would management do with this information?
+:::
+
+### Step 5 — Model Evaluation
+
+```{r}
+#| label: model-eval-plots
+#| message: false
+pts <- augment(mod_multipel, data = tbl_carseats)
+
+# Residual plot
+p_res <- pts %>%
+  ggplot(aes(.fitted, .resid)) +
+  geom_point(alpha = 0.4, color = "#7d0a52", size = 1.5) +
+  geom_hline(yintercept = 0, color = "#D50006",
+             linewidth = 1, linetype = "dashed") +
+  geom_smooth(method = "loess", color = "#502479",
+              se = FALSE, linewidth = 0.8) +
+  labs(title = "Residual Plot: Multiple Model",
+       subtitle = "No clear systematic pattern — but remaining scatter",
+       x = "Predicted value", y = "Residual") +
+  theme_minimal(base_size = 10)
+
+# QQ plot
+p_qq <- pts %>%
+  ggplot(aes(sample = .resid)) +
+  stat_qq(color = "#7d0a52", alpha = 0.6) +
+  stat_qq_line(color = "#D50006", linewidth = 0.8) +
+  labs(title = "QQ Plot of Residuals",
+       subtitle = "Approximately normal → important for inference in PVA2",
+       x = "Theoretical quantiles", y = "Observed quantiles") +
+  theme_minimal(base_size = 10)
+
+p_res + p_qq
+```
+
+```{r r2-comparison}
+# Three-model comparison
+mod_basis <- lm(Sales ~ Price, data = tbl_carseats)
+mod_adv   <- lm(Sales ~ Price + Advertising, data = tbl_carseats)
+
+bind_rows(
+  get_regression_summaries(mod_basis) %>%
+    mutate(model = "① Sales ~ Price"),
+  get_regression_summaries(mod_adv) %>%
+    mutate(model = "② Sales ~ Price + Advertising"),
+  get_regression_summaries(mod_multipel) %>%
+    mutate(model = "③ Sales ~ Price + Advertising + ShelveLoc")
+) %>%
+  select(model, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse),
+             decimals = 4) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = 2)
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = 3)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Model Comparison: R² Progression")
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A3 — Model Evaluation
+
+**1. Residual plot:** Has the ShelveLoc pattern from Lab 3 disappeared?
+What residual scatter do you still see?
+
+**2. R² ≈ 0.54:** For which decisions is this explanatory power sufficient?
+Based on this model alone, would you recommend closing a store?
+
+**3. Data Drought:** Which variables are missing from the model?
+Classify according to data strategy:
+
+| Category | Examples |
+|-----------|----------|
+| Present in the dataset, not yet in the model | ? |
+| Externally obtainable (commodity data) | ? |
+| Can only be collected internally (proprietary data) | ? |
+:::
+
+---
+
+## Group Assignment: Managerial Memo
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("users")` Group assignment (3–4 persons, 15 minutes)
+
+### Task
+
+Write a short **memo to the CEO** (max. 300 words).
+You are the data science team — the CEO is not a statistician.
+
+Answer all three questions clearly, concisely, and in a way that is suitable for management.
+
+---
+
+### Question 1 — Model Evaluation: Is R² Sufficient?
+
+> *"Our model explains R² ≈ 54% of the variance in sales.
+> Would you recommend that management close stores based on this model?
+> Explain your recommendation."*
+
+**What makes for a strong answer?**
+
+<table style="font-size:0.84em; border-collapse:collapse; width:100%;">
+<thead>
+<tr>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Weak answer</th>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Strong answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "R² = 0.54. More than 50% is good enough."
+  </td>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "R² = 0.54 means that 46% of the variance in revenue is attributable to unknown factors.
+    A decision to close a location based on this information carries a significant risk of error —
+    we recommend first supplementing the data in a targeted manner before taking irreversible
+    action."
+  </td>
+</tr>
+</tbody>
+</table>
+
+---
+
+### Question 2 — OVB: What Variables Are Missing?
+
+> *"What factors are missing from our data that could explain
+> why a store is underperforming?
+> Give three specific examples and explain why."*
+
+**What makes for a strong answer?**
+
+<table style="font-size:0.84em; border-collapse:collapse; width:100%;">
+<thead>
+<tr>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Weak answer</th>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Strong answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "We need more data about our clients."
+  </td>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "Population density within a 5-km radius: stores in sparsely populated regions have
+    structurally lower sales — regardless of price, advertising, and shelf space.
+    This factor is missing and systematically skews the score for rural stores downward."
+  </td>
+</tr>
+</tbody>
+</table>
+
+---
+
+### Question 3 — Data Strategy: Make or Buy?
+
+> *"Should we purchase external geodata and demographic data from a data vendor
+> (Commodity Data) or build our own customer survey (Proprietary Data)?
+> Argue using the AI Value Creator concept from Thomas et al. (2025)."*
+
+**What makes for a strong answer?**
+
+<table style="font-size:0.84em; border-collapse:collapse; width:100%;">
+<thead>
+<tr>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Weak answer</th>
+  <th style="padding:5px 10px; background:#f5f5f5; border:1px solid #ddd; width:50%;">Strong answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "We should buy data — it is faster and cheaper."
+  </td>
+  <td style="padding:5px 10px; border:1px solid #ddd; vertical-align:top;">
+    "Geodata (Commodity Data) is available to all competitors —
+    no sustainable advantage. An own loyalty card with purchase history
+    (Proprietary Data) creates a data moat.
+    Recommendation: buy commodity data short-term (pilot project), build
+    a loyalty programme long-term for a lasting competitive advantage
+    (Thomas et al., 2025: AI Value Creator)."
+  </td>
+</tr>
+</tbody>
+</table>
+:::
+
+---
+
+## Debrief: Make-or-Buy and Expected Value Framework
+
+### When Does Purchasing Data Pay Off?
+
+$$\underbrace{E[\Delta\text{Profit}]}_{\text{Value of better decisions}} > \underbrace{C_{\text{Data}}}_{\text{Acquisition cost}}$$
+
+```{r ev-table}
+#| echo: false
+tibble(
+  Parameter = c(
+    "Cost of demographic data (commodity)",
+    "Cost of a wrong store closure",
+    "P(Wrong decision without data)",
+    "P(Wrong decision with data)",
+    "E[Δ Profit]",
+    "Decision"
+  ),
+  Value = c(
+    "EUR 50,000/year",
+    "EUR 500,000",
+    "30%",
+    "10%",
+    "(0.30 − 0.10) × 500,000 = **EUR 100,000**",
+    "✅ Purchasing data pays off — 100,000 > 50,000"
+  )
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = Parameter == "Decision")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = Parameter == "E[Δ Profit]")
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## From AI User to AI Value Creator
+
+The pilot project (today) has shown: **Commodity Data** (the public Carseats dataset)
+is sufficient for a proof of concept — but not for sustainable competitive advantages.
+
+The path to becoming an **AI Value Creator** (Thomas et al., 2025):
+
+1. **Short-term:** Purchase external geodata (commodity) → improve the model
+2. **Medium-term:** Build a loyalty programme → own transaction data
+3. **Long-term:** Train models with proprietary data → not replicable by competitors
+:::
+
+---
+
+## CRISP-DM: Wrap-Up
+
+```{r crisp-summary}
+#| echo: false
+tibble::tribble(
+  ~Phase,                       ~Result,
+  "① Business Understanding",   "Underperformer = store with a strongly negative residual",
+  "② Data Understanding",       "EDA: Sales slightly right-skewed, ShelveLoc as confounder",
+  "③ Data Preparation",         "ShelveLoc as dummy variable, Advertising included",
+  "④ Modeling",                 paste0("Multiple model: R² ≈ ",
+                                       round(summary(mod_multipel)$r.squared, 2),
+                                       " | three predictors"),
+  "⑤ Evaluation",               "Residual plot: OVB resolved, no ShelveLoc pattern remaining",
+  "⑥ Deployment",               "Underperformer ranking + Managerial Memo + Make-or-Buy"
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = Phase == "⑥ Deployment")
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important}
+## Key Messages of This Lab
+
+1. **Residual = Performance Score:** The multiple model provides a price-,
+   advertising-, and shelf-location-adjusted benchmark for every store.
+
+2. **R² ≈ 0.54** is a starting point — 46% unexplained variance motivates
+   targeted data enrichment, not immediate store closures.
+
+3. **Translator role:** Not the model, but the actionable recommendation is the value —
+   translating statistical findings into decision logic.
+
+4. **Make or Buy:** Commodity data for immediate improvement,
+   proprietary data for lasting competitive advantage.
+:::
+
+:::{.callout-note}
+## Outlook: What Comes in PVA2?
+
+Today we worked **descriptively**: all 400 stores = population.
+
+**Open question:** What if the 400 stores were only a **sample**?
+How certain are our coefficients? Would we have obtained the same results in a different season?
+And how likely is it that the measured advertising effect is purely coincidental?
+
+These are the questions of **statistical inference** — the topic of PVA2:
+Bootstrap, confidence intervals, p-hacking, FDR, and the Expected Value Framework
+for managers.
+:::
+
+## References {.unnumbered}

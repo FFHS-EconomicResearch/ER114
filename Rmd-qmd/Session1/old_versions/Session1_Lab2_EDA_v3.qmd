@@ -1,0 +1,721 @@
+---
+title: "Lab 2: Data Understanding & Exploratory Data Analysis"
+subtitle: "CRISP-DM Phase 2 --- Carseats Case"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(moderndive)
+library(skimr)
+library(gt)
+library(GGally)
+library(patchwork)
+library(moments)
+
+library(ISLR2)
+tbl_carseats <- tibble(Carseats)
+```
+
+## Learning Objectives and Overview
+
+:::{.callout-note}
+## Learning Objectives
+
+- Establish EDA as a mandatory first *step to understand the data* before modelling (e.g. regression analysis)
+- Explore the Carseats dataset: structure, variable types, distributions
+- Understand what EDA is (**descriptive** and **inductive**)...
+- ...and, equally importantly, what it is *not* (confirmatory, predictive, inferential)
+- Therefore know why EDA-derived hypotheses cannot be tested on the same data
+- Visualise bivariate relationships and formulate hypotheses for modelling
+:::
+
+**Scenario:** You are a data scientist at a retail chain with 400 stores.
+Before building a model, you need to understand the data ---
+this is CRISP-DM Phase 2: **Data Understanding**.
+
+:::{.callout-tip}
+## Schedule
+⏱ **20 minutes** --- Mandatory tasks (A1--A4) first, bonus tasks if time permits.
+:::
+
+---
+
+## Background: EDA and Its Boundaries
+
+### Focus of This Lab
+
+The primary goal of this lab is **Exploratory Data Analysis (EDA)** of the Carseats
+dataset. EDA and the closely related field of **Data Mining (DM)** are frequently
+conflated in practice --- and understandably so: the tools overlap, and the boundary is
+genuinely blurry in places. Rather than ignoring this, we address it head-on with a compact comparison before diving into the data.
+
+A concrete example of the grey zone: when we fit a regression line to a scatter plot
+in EDA, we are already doing something model-like. Is that still EDA or already Data Mining?
+The answer depends less on the technique than on the *purpose and epistemic status* of
+what we are doing. In EDA, the line is a visual summary to help us see a pattern.
+In DM, the model is a deployable artefact evaluated against performance metrics.
+Same tool, different frame.
+
+### EDA Is Descriptive --- and Treats the Data as a Population
+
+**Exploratory Data Analysis is purely descriptive.**
+
+When we compute means, standard deviations, or correlations for the 400 Carseats stores,
+we are not estimating population parameters from a sample --- we are *describing the data
+we have in full*. The 400 stores **are** the population of interest. As a result:
+
+- Summary statistics are **parameters** of this dataset, not estimates subject to
+  sampling error.
+- There is no sampling variability --- no standard errors, no p-values, no
+  confidence intervals are conceptually meaningful at this stage.
+- The goal is **understanding and pattern discovery**, not inference or prediction.
+
+We will return to this in Lab 3 when we examine the regression output table critically.
+
+### EDA and Data Mining: What They Share, Where They Differ
+
+Both EDA and Data Mining are **data-driven and inductive**: they do not wait for
+a theory to confirm, but search for structure in the data itself.
+This distinguishes them from classical confirmatory statistics, which starts from
+a hypothesis and asks whether the data are consistent with it.
+
+**What they share:**
+
+- Both use statistical summaries and algorithms to separate signal from noise.
+- Both are iterative: findings in one step shape the next question.
+- Both are empirical: the data, not prior theory, drive the process.
+
+**Where they diverge** is primarily in *purpose*, *dimensionality*, and *what counts
+as success*. The following two tables lay this out systematically.
+
+#### Dimension-by-Dimension Comparison
+
+| Dimension | EDA | Data Mining (DM) |
+|-----------|-----|-----------------|
+| **Goal** | Data understanding, intuition, uncovering errors and structures | Extraction of stable patterns for commercial use or decision support |
+| **Dimensionality** | Low-dimensional: focus on 2D/3D visualisations and descriptive statistics | High-dimensional (Big Data): processes hundreds of variables simultaneously, where visualisation breaks down |
+| **Type of insight** | Phenomenological: "What do the data show?" (descriptive) | Pragmatic/functional: "Which patterns are stable enough for profit or prediction?" (correlation > causation) |
+| **Methods** | Inspection, plotting, transformation, outlier identification | Algorithmic modelling (associations, clusters, classification) |
+| **Human involvement** | Interactive and manual: the analyst is central to the feedback loop | Automated and scalable: algorithms search mass data for significant structures |
+| **Validation** | Plausibility checks and visual confirmation | Performance metrics (lift, accuracy, profit); focus on pattern stability |
+| **Causality** | Seeks hints at logical relationships --- generates hypotheses | Uses sufficiently stable correlations ("black box" approach often acceptable if profitable) |
+
+#### Focus, Scale, and Success Criteria
+
+| Aspect | EDA (focus of this lab) | Data Mining (DM) |
+|--------|------------------------|-----------------|
+| **Central actor** | The human: visualisation serves cognitive understanding | The algorithm: detects patterns in dimensions we can no longer see |
+| **Dimensionality** | Low: usually 2D to 3D (scatter plots, matrices) | High: linking hundreds of variables ("Big Data") |
+| **Goal** | Understanding and hypotheses: "Why do the data behave this way?" | Exploitation: "How do I use this pattern commercially?" |
+| **Measure of success** | Insight: are new questions being generated? | Performance: ROI, accuracy, lift, stability of predictions |
+
+:::{.callout-note}
+## Where the Boundary Gets Blurry
+
+The grey zone is real and worth naming explicitly:
+
+- **Regression line in a scatter plot:** In EDA, this is a visual aid --- a conditional
+  mean drawn to reveal a trend. In DM, the same line is a predictive model evaluated
+  by RMSE on held-out data. Same technique, different purpose.
+- **Correlation matrix:** In EDA, it flags potentially interesting variable pairs for
+  further inspection. In DM, it feeds feature selection algorithms.
+- **Outlier detection:** In EDA, an outlier is something the analyst *examines* to
+  understand the data better. In DM, it may be automatically flagged and removed or
+  modelled separately.
+
+The practical distinction: **EDA ends when the analyst has formed a question or hypothesis
+that is worth testing. DM begins when that question is operationalised into a model
+evaluated on new data.**
+:::
+
+### The Induction Trap: Why EDA-Derived Hypotheses Need New Data
+
+Both EDA and DM are inductive --- they derive conclusions from observed patterns rather
+than testing pre-specified hypotheses. This creates a critical constraint.
+
+:::{.callout-warning}
+## The Induction Trap
+
+**The critical rule:** A hypothesis generated inductively from a dataset cannot be
+validly tested on that same dataset.
+
+Any pattern you discover in a dataset will --- by construction --- appear confirmed when
+you apply a statistical test to those same observations. The p-value will be misleadingly
+small, the result will look significant, but you have learned nothing new: you are
+re-describing what you already saw. This is **circular inference** (or, less charitably,
+**data dredging**).
+
+> *Example:* You explore the 400 Carseats stores, observe that `ShelveLoc` appears
+> associated with `Sales`, and then run a t-test on the same 400 stores.
+> The test will almost certainly be significant --- but only because the same data
+> generated both the hypothesis and the "confirmation".
+
+**What to do instead:**
+
+- **Split the data upfront** --- before any exploration --- into an exploration set and a
+  confirmation set. This is the logic behind train/test splits and **A/B testing**
+  (→ Session 3).
+- Or: formulate hypotheses *a priori* from theory and test them on independent data.
+
+In **PVA2** we examine what p-values and confidence intervals actually measure and when
+they are valid. For now: **EDA generates questions. It does not answer them.**
+:::
+
+### Why Visualisation Is Non-Negotiable: Anscombe's Quartet
+
+The classic demonstration that summary statistics alone are deeply misleading comes from
+**Anscombe (1973)**. He hand-constructed four small datasets with *virtually identical*
+summary statistics --- yet with fundamentally different structures.
+
+Read the table first. Then examine the plots carefully. Compare panel by panel.
+
+```{r anscombe-stats}
+#| code-fold: false
+anscombe_long <- anscombe |>
+  pivot_longer(
+    everything(),
+    names_to  = c(".value", "dataset"),
+    names_pattern = "(.)(.)"
+  ) |>
+  mutate(dataset = paste("Dataset", dataset))
+
+anscombe_long |>
+  group_by(dataset) |>
+  summarise(
+    n      = n(),
+    mean_x = round(mean(x), 2),
+    mean_y = round(mean(y), 2),
+    sd_x   = round(sd(x),   2),
+    sd_y   = round(sd(y),   2),
+    r_xy   = round(cor(x, y), 3)
+  ) |>
+  gt() |>
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) |>
+  tab_options(table.font.size = "13px") |>
+  tab_footnote(
+    "All four datasets have (almost) identical summary statistics -- the plots below tell four different stories."
+  )
+```
+
+```{r anscombe-plots}
+#| fig-height: 5
+#| fig-cap: "Anscombe's Quartet: identical statistics, four fundamentally different structures."
+anscombe_long |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point(color = "#502479", size = 2.5, alpha = 0.85) +
+  geom_smooth(method = "lm", color = "#D50006",
+              se = TRUE, linewidth = 1) +
+  facet_wrap(~dataset, nrow = 2) +
+  labs(
+    title    = "Anscombe's Quartet",
+    subtitle = "Identical n, mean, sd, and correlation -- four entirely different stories",
+    x = "x", y = "y"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+:::{.callout-important}
+## What Each Panel Teaches --- and Why It Matters for Regression Diagnostics
+
+| Panel | Structure | What the OLS line misses | Detected by |
+|-------|-----------|--------------------------|-------------|
+| **I** | Linear, roughly homoscedastic | Nothing --- OLS is appropriate here | Residual plot: random scatter ✓ |
+| **II** | Curved (quadratic) relationship | Non-linearity --- a linear model is structurally wrong | Residual plot: curved pattern |
+| **III** | One outlier in *y* | Outlier distorts intercept and slope | Residual plot: one extreme point |
+| **IV** | One leverage point (*x* = 19) | Single extreme *x*-value pulls entire line | Residual plot: gap in x-values |
+
+All four problems are diagnosed by the **residual plot** --- which you will use in
+Lab 3 to detect Omitted Variable Bias.
+
+Note that the regression line in all four panels is an EDA tool here:
+it makes the trend visible, but we do not yet evaluate it as a predictive model.
+That shift in perspective is what distinguishes EDA from Data Mining.
+
+*The Datasaurus Dozen* (Matejka & Fitzmaurice, 2017) makes the same point with 13
+algorithmically generated datasets (including a dinosaur). Anscombe is more instructive
+for a regression course because each panel encodes a *different* diagnostic problem.
+:::
+
+### Elements of Exploratory Data Analysis
+
+According to @stoetzer_regressionsanalyse_2020, EDA follows four guiding principles:
+
+1. **Substantive meaning** --- The primary goal is understanding variables and their
+   plausible relationships, not running formal tests.
+2. **Graphical representation** --- Visual inspection is the primary means of gaining insight.
+3. **Iterative model building** --- Tentative hypothesis generation in an iterative process
+   of model specification and re-specification.
+4. **Scepticism and parsimony** --- Scepticism, flexibility, and restraint regarding
+   which statistical methods to apply.
+
+:::{.callout-note}
+## EDA as CRISP-DM Phase 2
+
+In our Carseats project, EDA (Phase 2: Data Understanding) generates **hypotheses**
+for the modelling phase (Phase 4): Which variables explain sales differences?
+Which transformations are necessary? Are there outliers or systematic patterns?
+:::
+
+---
+
+## Step 1: Getting to Know the Dataset
+
+### Overview: Structure and Variables
+
+```{r glimpse}
+#| code-fold: false
+glimpse(tbl_carseats)
+```
+
+:::{.callout-tip}
+## Interpretation
+- How many observations (stores) and variables does the dataset contain?
+- Which variables are numeric (`dbl`), which are categorical (`chr`/`fct`)?
+- What exactly does `Sales` measure? (Pay attention to the unit!)
+:::
+
+### Summary Statistics
+
+```{r skim}
+tbl_carseats |>
+  select(Sales, Price, Advertising, Income, Age, ShelveLoc, Urban, US) |>
+  skim() |>
+  yank("numeric") |>
+  gt() |>
+  fmt_number(columns = where(is.numeric), decimals = 2) |>
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A1: Explore the Dataset
+
+1. How many stores (`n`) does the dataset contain?
+2. What is the **range** of `Sales` (Min, Max)? What does this mean in practice?
+3. What is the **range** of `Price`? Is the car-seat market price-elastic?
+4. What does the variable `ShelveLoc` represent? What categories does it have?
+
+```r
+tbl_carseats |> count(ShelveLoc)
+tbl_carseats |> count(Urban)
+tbl_carseats |> count(US)
+```
+:::
+
+---
+
+## Step 2: Distribution of the Target Variable Sales
+
+### Check Before You Transform
+
+A common reflex is to log-transform sales data "because sales are always skewed."
+**This is wrong as a default.** Whether a transformation is appropriate must be
+determined from the data --- not assumed in advance. That is exactly what EDA is for.
+
+```{r sales-distribution}
+#| code-fold: false
+skew_raw <- round(skewness(tbl_carseats$Sales), 3)
+skew_log <- round(skewness(log(tbl_carseats$Sales)), 3)
+
+p1 <- tbl_carseats |>
+  ggplot(aes(x = Sales)) +
+  geom_histogram(bins = 30, fill = "#D50006", color = "white", alpha = 0.85) +
+  geom_vline(xintercept = mean(tbl_carseats$Sales),
+             color = "#502479", linewidth = 1.2, linetype = "dashed") +
+  geom_vline(xintercept = median(tbl_carseats$Sales),
+             color = "#502479", linewidth = 1.2, linetype = "dotted") +
+  annotate("text", x = mean(tbl_carseats$Sales) + 0.4, y = 38,
+           label = "Mean", color = "#502479", size = 3.2, hjust = 0) +
+  annotate("text", x = median(tbl_carseats$Sales) - 0.4, y = 33,
+           label = "Median", color = "#502479", size = 3.2, hjust = 1) +
+  labs(
+    title    = "Sales -- raw data",
+    subtitle = paste0("Skewness = ", skew_raw,
+                      "  |  Mean = ", round(mean(tbl_carseats$Sales), 2),
+                      "  |  Median = ", round(median(tbl_carseats$Sales), 2)),
+    x = "Sales (thousands of units)", y = "Count"
+  ) +
+  theme_minimal(base_size = 11)
+
+p2 <- tbl_carseats |>
+  ggplot(aes(x = log(Sales))) +
+  geom_histogram(bins = 30, fill = "#686868", color = "white", alpha = 0.85) +
+  geom_vline(xintercept = mean(log(tbl_carseats$Sales)),
+             color = "#D50006", linewidth = 1.2, linetype = "dashed") +
+  labs(
+    title    = "log(Sales) -- after transformation",
+    subtitle = paste0("Skewness = ", skew_log,
+                      "  |  Mean = ", round(mean(log(tbl_carseats$Sales)), 3)),
+    x = "log(Sales)", y = "Count"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(color = "#686868"))
+
+p1 + p2
+```
+
+:::{.callout-important}
+## Result: The Log Transformation Makes Things Worse Here
+
+The raw `Sales` data are already **approximately symmetric**:
+
+- Skewness of `Sales`: `r skew_raw` --- close to zero.
+- Mean (`r round(mean(tbl_carseats$Sales), 2)`) and Median
+  (`r round(median(tbl_carseats$Sales), 2)`) are nearly identical.
+
+After the log transformation, skewness becomes `r skew_log` --- **more negative**,
+meaning the transformation *introduces* left-skewness rather than removing right-skewness.
+This is the opposite of what log transformation is designed to achieve.
+
+**Lesson: EDA before transformation --- always.**
+We will work with **untransformed Sales** throughout this course.
+:::
+
+:::{.callout-note}
+## When Is a Log Transformation Appropriate?
+
+The log transformation is motivated by a **multiplicative generating process**:
+
+$$\text{Sales}_i = \alpha \cdot \text{Price}_i^{\beta_1} \cdot \text{Adv}_i^{\beta_2} \cdot \varepsilon_i$$
+
+Taking logs converts this into an additive, OLS-compatible model whose coefficients
+become **elasticities**. But the precondition --- a right-skewed raw distribution ---
+must first be verified empirically.
+
+Contrast: `Advertising` *is* right-skewed (many stores spend nothing; a few spend a lot).
+A log transformation of `Advertising` would be more defensible. Check this in task A2.
+:::
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A2: Assess the Distribution
+
+1. Describe the distribution of `Sales` in your own words.
+   Is it symmetric, right-skewed, or left-skewed? How close are mean and median?
+
+2. Compute skewness for `Sales`, `log(Sales)`, and `Advertising` for comparison:
+
+```r
+library(moments)
+skewness(tbl_carseats$Sales)
+skewness(log(tbl_carseats$Sales))
+skewness(tbl_carseats$Advertising)   # contrast: this one IS right-skewed
+```
+
+3. For which variable is a log transformation more justified: `Sales` or `Advertising`?
+   Justify your answer based on skewness values and the histograms.
+:::
+
+---
+
+## Step 3: Bivariate Relationships
+
+### Price vs. Sales
+
+```{r scatter-price-sales}
+#| code-fold: false
+tbl_carseats |>
+  ggplot(aes(x = Price, y = Sales)) +
+  geom_point(alpha = 0.4, color = "#7d0a52", size = 1.8) +
+  geom_smooth(method = "lm", color = "#D50006",
+              se = TRUE, linewidth = 1.2) +
+  geom_smooth(method = "loess", color = "#502479",
+              se = FALSE, linewidth = 1, linetype = "dashed") +
+  labs(
+    title    = "Scatterplot: Price vs. Sales",
+    subtitle = paste0("Correlation r = ",
+                      round(cor(tbl_carseats$Price, tbl_carseats$Sales), 3),
+                      "  |  Red = OLS line (visual summary)  |  Purple dashed = LOESS"),
+    x = "Price (USD)", y = "Sales (thousands of units)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+:::{.callout-tip}
+## Interpretation
+- What does the correlation say? Is it strong or weak?
+- The OLS line here is an **EDA tool** (visual summary of the trend), not a
+  deployed predictive model. Does it agree with the LOESS curve? What does that indicate?
+- Why is the scatter around the line so high? What might be missing?
+:::
+
+### Scatterplot Matrix: All Variables at Once
+
+```{r ggpairs}
+#| fig-height: 8
+tbl_carseats |>
+  select(Sales, Price, Advertising, Income, Age, ShelveLoc) |>
+  ggpairs(
+    aes(color = ShelveLoc, alpha = 0.5),
+    upper = list(continuous = wrap("cor", size = 3)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag  = list(continuous = wrap("densityDiag", alpha = 0.6))
+  ) +
+  scale_color_manual(values = c(
+    "Bad"    = "#D50006",
+    "Medium" = "#686868",
+    "Good"   = "#502479"
+  )) +
+  scale_fill_manual(values = c(
+    "Bad"    = "#D50006",
+    "Medium" = "#686868",
+    "Good"   = "#502479"
+  )) +
+  theme_minimal(base_size = 9) +
+  labs(title    = "Scatterplot matrix: Carseats variables",
+       subtitle = "Coloured by shelf location (ShelveLoc)")
+```
+
+:::{.callout-note}
+## GGally::ggpairs() --- EDA in One Line of Code
+
+`ggpairs()` from the `GGally` package produces in a single call:
+
+- **Diagonal:** Distributions of individual variables
+- **Upper triangle:** Correlation coefficients
+- **Lower triangle:** Scatterplots of all variable pairs
+
+The correlation numbers in the upper triangle are summary statistics --- and as
+Anscombe showed, summary statistics alone are insufficient. Always cross-check with
+the scatter plots in the lower triangle, which can reveal non-linearities, outliers,
+or subgroup structure that a single number cannot capture.
+:::
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A3: Bivariate Analysis
+
+1. Which variables correlate **most strongly** with `Sales`? Create a ranked list:
+
+```r
+tbl_carseats |>
+  select(where(is.numeric)) |>
+  cor() |>
+  as_tibble(rownames = "variable") |>
+  select(variable, Sales) |>
+  arrange(desc(abs(Sales)))
+```
+
+2. Are there variables strongly correlated **with each other** (multicollinearity risk)?
+   What could this mean for a multiple regression?
+
+3. Describe the relationship between `ShelveLoc` and `Sales` in words.
+   Which category has the highest average sales?
+
+```r
+tbl_carseats |>
+  group_by(ShelveLoc) |>
+  summarise(mean_sales = mean(Sales),
+            sd_sales   = sd(Sales),
+            n          = n())
+```
+:::
+
+---
+
+## Step 4: Formulating Hypotheses
+
+```{r hypotheses-viz}
+#| fig-height: 4
+p_shelf <- tbl_carseats |>
+  ggplot(aes(x = ShelveLoc, y = Sales, fill = ShelveLoc)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +
+  scale_fill_manual(values = c("Bad"    = "#D50006",
+                               "Medium" = "#686868",
+                               "Good"   = "#502479")) +
+  labs(title = "Sales by shelf location",
+       x = "Shelf location", y = "Sales (thousands)") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
+
+p_adv <- tbl_carseats |>
+  ggplot(aes(x = Advertising, y = Sales)) +
+  geom_point(alpha = 0.3, color = "#7d0a52", size = 1.5) +
+  geom_smooth(method = "lm", color = "#D50006", se = FALSE) +
+  labs(title = "Advertising vs. Sales",
+       subtitle = paste0("r = ",
+                         round(cor(tbl_carseats$Advertising,
+                                   tbl_carseats$Sales), 3)),
+       x = "Advertising budget (thousands USD)", y = "Sales (thousands)") +
+  theme_minimal(base_size = 11)
+
+p_shelf + p_adv
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A4: Hypotheses for Modelling
+
+Based on your EDA, formulate **two hypotheses** for the goal
+"Identification of underperforming stores".
+
+**Example structure:**
+> *"I expect that [variable X] has a [positive/negative] relationship with Sales,
+> because [substantive justification]."*
+
+Additionally:
+
+1. For which variable might a **non-linear effect** be plausible?
+
+2. Which variables should **definitely** be included in the regression model?
+   Which probably not --- and why?
+
+3. Which variables are **missing** that would be important for explaining sales differences?
+   (Keyword: *Data Drought*, @thomasAIValueCreators2025)
+
+4. **Critical reflection (induction trap):** You have now used all 400 stores to
+   generate these hypotheses inductively. What would need to happen *before exploration*
+   if you wanted to run valid statistical tests afterwards?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B1: Estimate Price Elasticity
+
+Fit a simple log-log regression for exploratory purposes. This is an EDA exercise ---
+the regression line is a visual-analytic tool, not a deployed model. Since the hypothesis
+was generated from the same data, the result is descriptive only, not a valid
+confirmatory test.
+
+```r
+mod_loglog <- tbl_carseats |>
+  mutate(log_sales = log(Sales),
+         log_price = log(Price)) |>
+  lm(log_sales ~ log_price, data = _)
+
+get_regression_table(mod_loglog)
+```
+
+- What does the coefficient for `log_price` mean as a price elasticity?
+- Compare $R^2$ with the linear model `Sales ~ Price`. What changes?
+- Given that `Sales` is not right-skewed: does the log-log specification add value here?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B2: Outlier Analysis
+
+```r
+tbl_carseats |>
+  mutate(rank = dense_rank(desc(Sales))) |>
+  filter(rank <= 5 | rank >= (n() - 4)) |>
+  select(Sales, Price, Advertising, ShelveLoc, Income, rank) |>
+  arrange(rank)
+```
+
+Are there stores with extreme price-sales combinations (high price, high sales --- or vice versa)?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B3: Segmented EDA
+
+```r
+tbl_carseats |>
+  ggplot(aes(x = Price, y = Sales, color = Urban)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  scale_color_manual(values = c("Yes" = "#502479", "No" = "#D50006")) +
+  facet_wrap(~US) +
+  labs(title = "Price vs. Sales by location (Urban) and region (US)",
+       x = "Price (USD)", y = "Sales (thousands)") +
+  theme_minimal()
+```
+
+Any indications of interaction effects between Urban status and US region?
+:::
+
+---
+
+## Summary
+
+```{r summary-table}
+#| echo: false
+tibble::tribble(
+  ~`EDA Step`,           ~`Finding`,                                         ~`Consequence for Modelling`,
+  "Structure",           "400 stores, 11 variables, no NAs",                 "Clean dataset, ready to use",
+  "Sales distribution",  "Approximately symmetric (skewness ~ 0.18)",        "No log transformation needed",
+  "Price effect",        "r ~ -0.44, negative linear trend",                 "Include Price as regressor",
+  "ShelveLoc",           "Good > Medium > Bad (marked difference)",          "Include as categorical variable",
+  "Advertising",         "r ~ +0.58, strongest positive predictor",          "Include Advertising in the model",
+  "Missing variables",   "No competition, no demographics, no location",     "Data Drought -> pilot project"
+) |>
+  gt() |>
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = `EDA Step` == "Sales distribution")
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = `EDA Step` == "Missing variables")
+  ) |>
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important}
+## Key Messages of This Lab
+
+1. **EDA first --- always.** Summary statistics without visualisation are insufficient.
+   Anscombe's quartet: four datasets, identical numbers, four completely different
+   structures and regression diagnostics.
+
+2. **EDA and DM are both inductive.** Neither starts from a pre-specified hypothesis.
+   They differ in purpose (understanding vs. exploitation), dimensionality (low vs. high),
+   and success criteria (insight vs. performance metrics).
+
+3. **The EDA/DM boundary is real but blurry.** A regression line in a scatter plot is
+   still EDA if the purpose is visual understanding; it becomes DM when it is a deployed
+   model evaluated on held-out data. Purpose, not technique, draws the line.
+
+4. **The induction trap.** Hypotheses discovered by looking at data cannot be tested on
+   those same data. If confirmatory testing is intended, split the data *before*
+   exploration (-> A/B testing, Session 3).
+
+5. **Check before transforming.** `Sales` is already approximately symmetric.
+   The log transformation introduces left-skewness here --- the opposite of its intended
+   effect. Always verify empirically.
+
+6. **ShelveLoc and Advertising** are the strongest predictors --- both absent from
+   the baseline model (-> Lab 3).
+
+7. **Data Drought.** Important explanatory variables (location, competition, demographics)
+   are missing --- motivating the Make-or-Buy question in Lab 4.
+:::
+
+:::{.callout-note}
+## Transition to Lab 3
+
+In Lab 3 we fit the **baseline model** `Sales ~ Price` and examine it critically.
+A low $R^2$ and a systematic pattern in the residual plot point to
+**Omitted Variable Bias** caused by ShelveLoc.
+
+We also revisit the regression output table: since we are working with a population,
+what do "estimate", "std_error", and "p_value" actually mean?
+:::
+
+## References {.unnumbered}

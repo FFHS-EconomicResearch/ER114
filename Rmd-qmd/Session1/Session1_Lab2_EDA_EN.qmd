@@ -1,0 +1,1956 @@
+---
+title: "Lab 2: Data Understanding & Exploratory Data Analysis"
+subtitle: "CRISP-DM Phase 2 --- Carseats Case"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+bibliography: ../../lit/my_bib.bib
+
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)    # data wrangling & ggplot2
+library(skimr)        # extended summary statistics
+library(gt)           # formatted tables
+library(GGally)       # scatterplot matrix (ggpairs)
+library(patchwork)    # combine ggplots
+library(moments)      # skewness(), kurtosis()
+library(datasauRus)   # Datasaurus Dozen dataset
+library(janitor)      # tabyl() frequency tables
+library(DataExplorer) # plot_intro(), plot_histogram()
+library(psych)        # describe() with skew & kurtosis
+library(corrr)        # tidy correlation analysis: correlate(), shave(), focus()
+
+library(ISLR2)
+tbl_carseats <- tibble(Carseats)   # convert to tibble for tidyverse compatibility
+```
+
+## Learning Objectives and Overview
+
+:::{.callout-note}
+## Learning Objectives
+
+- Establish EDA as a mandatory first *step to understand the data* before modelling (e.g. regression analysis)
+- Explore the Carseats dataset: structure, variable types, distributions
+- Understand what EDA is (**descriptive** and **inductive**)...
+- ...and, equally importantly, what it is *not* (confirmatory, predictive, inferential)
+- Recognise why EDA-derived hypotheses cannot be tested on the same data --- and know what to do instead
+- Visualise bivariate relationships and formulate hypotheses for modelling
+:::
+
+**Scenario:** You are the data scientist of a retail chain with 400 stores.
+The business goal (CRISP-DM Phase 1) is already defined: identify underperforming stores
+so that management can take targeted action.
+Before any model is built, the data must be understood.
+That is CRISP-DM Phase 2: **Data Understanding** --- the focus of this lab.
+
+## 🧭 How to Navigate This Lab
+
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|-------------|
+| ⚠️ | <span style="color:#e02424">**Red — Action Required**</span> | Run code, interpret output, answer questions | **Do this in the live session** |
+| 💡 | <span style="color:#2f9e44">**Green — Best Practice / Tip**</span> | Coding tips, R functions, shortcuts | Skim in the lab |
+| 📚 | <span style="color:#1c7ed6">**Blue, collapsed — Background Theory**</span> | Concepts, theory, context | Skip in the lab — read at home |
+| ℹ️ | <span style="color:#1c7ed6">**Blue, open — Note**</span> | Short clarifications and reminders | Read when you reach them |
+
+**Normal text** and code chunks are the **main content** --- work through them in order.
+**Background sections** are marked with a **collapsed blue box** and **can be expanded** at any time.
+
+⏱ **40 minutes** for mandatory tasks (A1--A5). Bonus tasks if time permits.
+
+---
+
+## Icebreaker: Never Trust a Statistic You Haven't Plotted
+
+Before we turn to the Carseats data, a quick thought experiment.
+The table below shows descriptive statistics for 13 different datasets:
+means, standard deviations, and the correlation between x and y.
+
+```{r datasaurus-stats}
+#| code-fold: true
+#| code-summary: "Show code: summary statistics"
+
+# Compute key descriptives for all 13 datasets
+datasaurus_dozen %>%
+  group_by(dataset) %>%                  # one row per dataset
+  summarise(
+    n      = n(),
+    mean_x = mean(x),
+    mean_y = mean(y),
+    sd_x   = sd(x),
+    sd_y   = sd(y),
+    cor_xy = cor(x, y)                   # Pearson correlation x-y
+  ) %>%
+  # --- table formatting ---
+  gt() %>%
+  fmt_number(columns = where(is.numeric), decimals = 2) %>%
+  tab_header(
+    title    = "Summary Statistics: Datasaurus Dozen",
+    subtitle = "Means, standard deviations, and correlations look virtually identical across all 13 datasets."
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = dataset == "dino")
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+Statistically, these 13 datasets are almost indistinguishable.
+An algorithm working from summary statistics alone would treat them identically.
+Now look at the actual data:
+
+```{r datasaurus-viz}
+#| code-fold: true
+#| code-summary: "Show code: scatter plots"
+#| fig-height: 8
+#| fig-width: 10
+#| out-width: "100%"
+
+datasaurus_dozen %>%
+  ggplot(aes(x = x, y = y, color = dataset)) +
+  geom_point(alpha = 0.8, size = 1.0) +        # one point per observation
+  facet_wrap(~dataset, ncol = 4) +             # one panel per dataset
+  # --- layout ---
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position  = "none",
+    strip.text       = element_text(face = "bold", size = 9),
+    panel.grid.minor = element_blank()
+  ) +
+  labs(
+    title    = "The Datasaurus Dozen",
+    subtitle = "Same summary statistics --- completely different structures.",
+    x = "x", y = "y"
+  )
+```
+
+:::{.callout-important}
+## The Central Lesson
+
+The numbers in the table are almost identical. The plots reveal a dinosaur, a star,
+a circle, an X, and several other completely different shapes --- all with the same mean,
+standard deviation, and correlation.
+
+**Conclusion: summary statistics are a necessary but not sufficient description of data.
+Visualisation is not optional --- it is the primary EDA tool.**
+
+This motivates everything we do in this lab.
+:::
+
+---
+
+## Background: Where We Are in CRISP-DM
+
+In the lecture, **Phase 1 (Business Understanding)** was introduced:
+the business goal is to identify underperforming stores. The question is now:
+do our data support this goal? What do they contain? What is their quality?
+These are Phase 2 questions.
+
+```{r crisp-overview}
+#| echo: false
+
+# CRISP-DM phase overview table (display only)
+tibble::tribble(
+  ~Phase, ~Name,                   ~Content,                                           ~Status,
+  "1",    "Business Understanding","Goal: identify underperforming stores",            "Done (lecture)",
+  "2",    "Data Understanding",    "EDA: structure, quality, distributions, patterns", "← This lab",
+  "3",    "Data Preparation",      "Cleaning, encoding, feature engineering",          "Lab 3",
+  "4",    "Modelling",             "Regression model: Sales ~ Price + ...",            "Lab 3 + Demo",
+  "5",    "Evaluation",            "R², residuals, OVB check",                        "Demo + Lab 4",
+  "6",    "Deployment",            "Performance ranking, managerial memo",             "Lab 4"
+) %>%
+  gt() %>%
+  # --- highlight current phase ---
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = Phase == "2")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note collapse="true"}
+## 📚 Background: EDA and Data Mining --- Orientation
+
+EDA and Data Mining (DM) are frequently used interchangeably in practice ---
+and there are genuine overlaps. Both are **data-driven and inductive**:
+they do not wait for a pre-specified hypothesis but search for structure in the data.
+This distinguishes both from classical confirmatory statistics, which starts from
+a hypothesis and asks whether the data are consistent with it.
+
+The differences lie in *purpose*, *scale*, and *success criteria*:
+
+**What they share:**
+Both use statistical summaries and algorithms to separate signal from noise.
+Both are iterative. Both treat the data as the source of new questions.
+
+**Where they diverge:**
+
+| Aspect | EDA | Data Mining (DM) |
+|--------|-----|-----------------|
+| **Central actor** | The human analyst: visualisation serves cognitive understanding | The algorithm: detects patterns at scales humans cannot see |
+| **Dimensionality** | Low: 2D/3D visualisations and descriptive statistics | High: hundreds of variables simultaneously ("Big Data") |
+| **Goal** | Understanding, intuition, error detection, hypothesis generation | Extraction of stable, commercially exploitable patterns |
+| **Type of insight** | Phenomenological --- "What do these data show?" | Pragmatic --- "Which patterns are stable enough for profit or prediction?" |
+| **Methods** | Plotting, transformation, outlier inspection, correlation | Association rules, clustering, classification, regression models |
+| **Human involvement** | Interactive and manual: analyst is in the feedback loop | Automated and scalable |
+| **Validation** | Plausibility and visual confirmation | Performance metrics: lift, accuracy, ROI |
+| **Causality** | Seeks logical-conceptual connections; generates hypotheses | Stable correlations are sufficient ("black box" acceptable if profitable) |
+| **Success** | New question generated; anomaly noticed; pattern understood | Prediction accurate; model deployable; ROI positive |
+
+:::{.callout-note}
+## The Grey Zone
+
+The boundary is genuinely blurry. When we fit a regression line to a scatter plot,
+are we doing EDA or Data Mining?
+
+- **In EDA:** the line is a *visual summary* --- a conditional mean drawn to make a trend
+  perceptible. We look at it, think about it, and decide what to ask next.
+- **In DM:** the same line is a *deployed model*, evaluated on held-out data by RMSE
+  and compared against alternatives.
+
+Same technique, different epistemic frame. In this lab, all models are EDA tools ---
+they serve understanding, not deployment. The shift to DM begins in →Lab 3.
+:::
+:::
+
+
+
+### The Induction Trap
+
+Both EDA and DM are inductive. This creates a constraint that is easy to overlook.
+
+:::{.callout-warning}
+## Hypotheses from EDA Cannot Be Tested on the Same Data
+
+**The rule:** A hypothesis generated by looking at a dataset cannot be validly tested
+on that same dataset.
+
+Any pattern you discover inductively will appear confirmed by a statistical test on
+the same observations --- by construction. The p-value will be small, the result will
+look significant, but you have learned nothing new. This is **circular inference**
+(or: data dredging, p-hacking).
+
+> *In our case:* After this lab you will have noticed that `ShelveLoc` seems associated
+> with `Sales`. Running a t-test on the same 400 stores to "confirm" this is circular.
+> The data have already been interrogated; they cannot serve as their own judge.
+
+**What to do:**
+Split the data *before* any exploration: one part for EDA, one part for testing.
+This is the logic behind train/test splits and **A/B testing** (→ Session 3).
+In PVA2 we examine what p-values and confidence intervals actually mean.
+**For now: EDA generates questions --- it does not answer them.**
+:::
+
+### Elements of Exploratory Data Analysis
+
+According to @stoetzer_regressionsanalyse_2020 [p. 3], EDA follows four guiding principles:
+
+1. **Substantive meaning** --- The primary goal is *understanding variables*
+   (→ Steps 1--3) and their plausible relationships (→ Steps 4--5),
+   not running formal tests (→ Session 2).
+
+2. **Graphical representation** --- Visual inspection of variables and distributions
+   is the primary means of gaining insight.
+
+3. **Exploratory Modelling** --- The focus is on tentative hypothesis generation within
+   an iterative process of model specification and re-specification.
+
+4. **Scepticism and parsimony** --- The starting points are scepticism, flexibility,
+   and restraint regarding which statistical methods to apply.
+
+
+
+---
+
+## Step 1: Getting to Know the Dataset
+
+### Structural Overview
+
+```{r glimpse}
+#| code-fold: false
+
+glimpse(tbl_carseats)   # rows, columns, data types, first values
+```
+
+:::{.callout-tip}
+## 💡 What to read from `glimpse()`
+- Number of rows (stores) and columns (variables)
+- Data types: `<dbl>` = numeric (double), `<int>` = integer, `<chr>` = character/text, `<fct>` = factor
+- First values: do they look plausible?
+:::
+
+:::{.callout-note collapse="true" #lego-metaphor}
+## 📚 Background: The R Universe in 4 Levels --- A Lego Metaphor
+
+To understand error messages in R and work confidently with data, you need to answer
+two questions: *What is my object made of?* (type) and *How is it packaged?* (structure).
+
+**Level 1: The Raw Material (Atomic Types)**
+
+These are the individual Lego bricks. Each brick can only have one property.
+
+- `numeric` (`double` or `integer`): Pure numbers (`138`, `9.50`). You can do arithmetic with them.
+  In `glimpse()` output: `<dbl>` (64-bit decimal) or `<int>` (32-bit whole number).
+- `character`: Text / strings (`"Bad"`, `"Zürich"`). Always in quotes. You cannot do arithmetic with them.
+- `logical`: Truth values (`TRUE` or `FALSE`). Usually produced by logical tests (e.g. `Sales > 10`).
+
+**Level 2: The Business Hybrid (`factor`)**
+
+One of the most important classes for EDA and modelling.
+
+- `factor`: Looks like text on screen (`"Bad"`, `"Medium"`, `"Good"`), but R stores it internally
+  as an integer with a label (1 = Bad, 2 = Medium, 3 = Good).
+- **Why it matters:** Models (regression) and plots (ggplot2) use factors to arrange categorical
+  groups in a meaningful order. A `character` column has no order; a `factor` does.
+
+**Level 3: The Containers (Data Structures)**
+
+How do we combine bricks?
+
+- `vector`: A sequence of bricks of *exactly the same type*. Every column in a dataset is a vector.
+  R enforces homogeneity: mix text and numbers in one vector and R silently converts everything to text.
+- `tibble` (or `data.frame`): The familiar "spreadsheet table". A `tibble` is a collection of
+  equal-length vectors (columns), where each column may have a different type:
+  column 1 is `numeric` (price), column 2 is `factor` (shelf location).
+
+**Level 4: Complex Special Objects**
+
+In R, everything is an object --- including the results of analysis.
+Under the hood, complex objects are usually nested lists (`list`).
+
+- `ggplot` object: When you build a plot, you create an object of class `gg`/`ggplot`.
+  It does not contain a table; it contains a *blueprint* (data + aesthetics + geometry)
+  from which R draws the image. Try `str(my_plot)` to see the structure.
+- `lm` object: The result of a linear regression (`lm()`). It contains not just the coefficients
+  but also residuals, fitted values, and model metadata --- all packaged as a named list.
+  Try `str(mod)` or `names(mod)` to explore it.
+
+**Practical rule:** When R gives you an unexpected result or error, ask:
+*What type is this object?* (`class()`) and *How is it structured?* (`str()`).
+:::
+
+### Comprehensive Summary with `skim()`
+
+`skim()` from the `skimr` package gives a structured, type-aware overview in one call:
+missing values, quantiles, mean, standard deviation, and a small inline histogram.
+
+```{r skim}
+#| code-fold: false
+
+tbl_carseats %>% skim()   # type-split summary: missings, quantiles, sparkline histograms
+```
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Reading a `skim()` output
+
+The output is split by data type. For numeric variables, pay attention to:
+
+- `n_missing`: missing values --- here 0 for all variables, so no imputation needed.
+- `mean` and `p50` (median): if they diverge noticeably, the distribution is skewed.
+- `hist`: the inline sparkline gives a first impression of shape.
+- `sd`, `p0`, `p100`: range and spread --- are there implausible extremes?
+:::
+
+### Frequency Tables for Categorical Variables
+
+For categorical variables, `count()` and `tabyl()` (from `janitor`) give
+counts and proportions in one step.
+
+```{r freq-tables}
+#| code-fold: false
+
+# Count observations per ShelveLoc category
+tbl_carseats %>% count(ShelveLoc, sort = TRUE)
+
+# Same with proportions using janitor::tabyl()
+tbl_carseats %>%
+  tabyl(ShelveLoc) %>%                   # frequency + proportion table
+  adorn_pct_formatting(digits = 1) %>%   # format % column
+  gt() %>%
+  tab_options(table.font.size = "13px")  # --- table size ---
+```
+
+```{r freq-urban-us}
+#| code-fold: true
+
+# Cross-tabulation: Urban × US (counts and proportions)
+tbl_carseats %>%
+  tabyl(Urban, US) %>%                   # 2-way frequency table
+  adorn_totals(c("row", "col")) %>%      # add row/column totals
+  adorn_percentages("all") %>%           # cell % of grand total
+  adorn_pct_formatting(digits = 1) %>%   # format % column
+  adorn_ns() %>%                         # append raw counts in parentheses
+  gt() %>%
+  tab_header(title = "Urban × US: counts (%) of all 400 stores") %>%
+  tab_options(table.font.size = "13px")  # --- table size ---
+```
+
+### Extended Descriptives with `psych::describe()`
+
+:::{.callout-note collapse="true"}
+## 📚 Background: What Does `package::function()` Mean?
+
+In R, `psych::describe()` means: call the function `describe()` from the package `psych`,
+*without* loading the entire package first with `library(psych)`.
+
+**When to use which:**
+
+| Syntax | Effect | When to use |
+|--------|--------|-------------|
+| `library(psych)` then `describe()` | Loads all of `psych` into your session | When you use many functions from a package |
+| `psych::describe()` | Uses only this one function, package not loaded | When you need just one function, or to avoid name conflicts |
+
+**Name conflicts** are the main reason for `::` notation. Both `psych` and `Hmisc` have a
+function called `describe()`. If both packages are loaded, R will use whichever was loaded
+last and silently ignore the other. Writing `psych::describe()` makes your intention
+unambiguous --- regardless of what else is loaded.
+
+You will also see `::` used in package documentation and error messages.
+`dplyr::filter()` means: the `filter()` function specifically from `dplyr`
+(not from `stats`, which also has a `filter()` function).
+:::
+
+`describe()` from the `psych` package adds skewness and kurtosis to the standard
+summary --- useful for assessing distributional shape before deciding on transformations.
+
+```{r psych-describe}
+#| code-fold: true
+
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  psych::describe() %>%                   # extended descriptives incl. skew & kurtosis
+  as_tibble(rownames = "variable") %>%
+  select(variable, n, mean, sd, median, min, max, skew, kurtosis) %>%
+  # --- table formatting ---
+  gt() %>%
+  fmt_number(columns = where(is.numeric), decimals = 2) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = variable == "Sales")   # highlight target variable
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Skew: |value| < 0.5 = approximately symmetric; > 1 = notably skewed")
+```
+
+### Quick Data Quality Overview with `DataExplorer`
+
+```{r dataexplorer-intro}
+#| code-fold: false
+
+plot_intro(tbl_carseats)   # types, missings, complete rows --- at a glance
+```
+
+`plot_intro()` summarises the entire dataset in a single figure: how many variables
+are continuous vs. discrete, whether any columns or rows are entirely empty, the
+overall share of missing values, and the proportion of complete rows. For the Carseats
+data the result is a clean bill of health --- no missings, types as expected. In
+practice this is the first thing to check after import, before any further analysis.
+
+:::{.callout-important icon=false}
+## ⚠️ A1: Explore the Dataset
+
+Using `glimpse()`, `skim()`, `tabyl()`, and `describe()`:
+
+1. How many stores and variables does the dataset contain?
+2. What is the **range** of `Sales`? What does one unit represent?
+3. What proportion of stores have "Good" shelf placement?
+4. Which numeric variable has the highest skewness? Does this surprise you?
+5. Are there any missing values?
+:::
+
+---
+
+## Step 2: Univariate Distributions
+
+Just as in the bivariate case (Step 4), the choice of visualisation depends on the
+scale level of the variable:
+
+- **Non-metric (nominal / ordinal):** bar charts show frequencies per category.
+- **Metric (interval / ratio):** histograms show the shape of the continuous
+  distribution; kernel density plots add a smooth curve that is independent of
+  bin width choices.
+
+### Non-Metric Variables: Bar Charts
+
+For categorical variables, the bar chart is the primary display.
+The height of each bar encodes the frequency (or proportion) of one category.
+
+```{r barplots-first}
+#| code-fold: true
+#| fig-height: 3
+
+# Bar chart: ShelveLoc (ordinal) --- default level order
+p_shelf <- tbl_carseats %>%
+  ggplot(aes(x = ShelveLoc, fill = ShelveLoc)) +
+  geom_bar() +                                          # height = frequency
+  scale_fill_manual(values = c("Bad"    = "#D50006",   # --- colour ---
+                               "Medium" = "#686868",
+                               "Good"   = "#502479")) +
+  labs(title = "ShelveLoc (default order)", x = NULL, y = "Count") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+
+# Bar chart: Urban (nominal) --- horizontal for readability
+p_urban <- tbl_carseats %>%
+  ggplot(aes(y = Urban, fill = Urban)) +
+  geom_bar() +                                          # horizontal bar
+  scale_fill_manual(values = c("Yes" = "#502479", "No" = "#686868")) +
+  labs(title = "Urban", x = "Count", y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+
+# Bar chart: US (nominal) --- horizontal
+p_us <- tbl_carseats %>%
+  ggplot(aes(y = US, fill = US)) +
+  geom_bar() +
+  scale_fill_manual(values = c("Yes" = "#502479", "No" = "#686868")) +
+  labs(title = "US", x = "Count", y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+
+p_shelf + p_urban + p_us
+```
+
+:::{.callout-tip}
+## 💡 Vertical vs. horizontal bar charts
+
+Use **vertical** bars (`geom_bar()` with `aes(x = ...)`) when category labels
+are short and fit below the bars. Use **horizontal** bars (`aes(y = ...)`)
+when labels are long or when the number of categories makes vertical labels
+hard to read. Both are produced by `geom_bar()` --- only the aesthetic mapping
+changes.
+:::
+
+Look at the left panel carefully. The bars are ordered **Bad --- Good --- Medium**.
+**Can you spot the problem?** Good shelf locations should rank higher than Medium ---
+alphabetical ordering does not reflect the natural rank Bad < Medium < Good.
+
+```{r}
+#| label: shelveloc-check
+#| code-fold: false
+# Check: what class and level order does ShelveLoc have?
+class(tbl_carseats$ShelveLoc)
+levels(tbl_carseats$ShelveLoc)
+```
+
+`ShelveLoc` is already a **factor**  --- so the object class is correct.
+The issue is that R sorts factor levels **alphabetically by default**. Here, this does not reflect the natural ordinal rank Bad < Medium < Good.
+
+:::{.callout-note collapse="true"}
+## 📚 character vs. factor vs. ordered factor
+
+| Class | Ordering | Typical use |
+|-------|----------|-------------|
+| `character` | None --- alphabetical by default | Raw text, free-form labels |
+| `factor` | Fixed levels, alphabetical by default if not specified | Nominal categories (Urban, US) |
+| `ordered factor` | Levels have a meaningful rank | Ordinal categories (education level, satisfaction) |
+
+The general principle: **scale level determines variable class.**
+Nominal → `factor`, ordinal → `ordered factor`, metric → `numeric`.
+
+For `ShelveLoc`, a plain `factor` with correctly specified levels is sufficient
+for EDA and regression. An `ordered factor` would additionally signal the rank
+Bad < Medium < Good to R's modelling functions, but is not required here.
+
+Mismatches between content and class are a common source of subtle errors ---
+exactly the kind of thing EDA is designed to catch (→ for background information on other R object classes expand the box [📚 The R Universe in 4 Levels](#lego-metaphor)).
+:::
+
+Since `ShelveLoc` is an **ordinal variable**, we **prefer a level order that
+matches its scale level**.
+Fix it by specifying the correct level sequence:
+
+```{r shelveloc-recode}
+#| code-fold: false
+# Recode ShelveLoc with natural level order (Bad < Medium < Good)
+tbl_carseats <- tbl_carseats %>%
+  mutate(ShelveLoc = factor(ShelveLoc, levels = c("Bad", "Medium", "Good")))
+
+# Convenience alias used throughout Steps 4 and 5
+tbl_cs <- tbl_carseats
+
+# Define shared colour palette (reused in all subsequent plots)
+col_shelf <- c("Bad" = "#D50006", "Medium" = "#686868", "Good" = "#502479")
+```
+
+```{r barplot-shelveloc-fixed}
+#| code-fold: true
+#| fig-height: 2.5
+
+# Bar chart with corrected level order
+tbl_carseats %>%
+  ggplot(aes(x = ShelveLoc, fill = ShelveLoc)) +
+  geom_bar() +                                          # height = frequency
+  scale_fill_manual(values = col_shelf) +               # --- colour ---
+  labs(title = "ShelveLoc (corrected: Bad < Medium < Good)",
+       x = NULL, y = "Count") +                         # --- labels ---
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+```
+
+
+### Metric Variables: Histogram, Kernel Density, and Log Transformation
+
+#### Target Variable: `Sales`
+
+A natural first question for any outcome variable: is the distribution symmetric,
+or does it have a long tail? And --- given the standard textbook advice to
+log-transform business variables --- should we apply a log transformation here?
+
+:::{.callout-important icon=false}
+## ⚠️ A2a: First Impression
+
+Look at the histogram carefully before reading on.
+
+1. Describe the distribution of raw `Sales` in your own words.
+   Is it symmetric, right-skewed, or left-skewed? How close are mean and median?
+
+2. The standard textbook advice for business variables is to apply a log transformation.
+   Does the log-transformed version look better or worse? What do you observe visually?
+:::
+
+```{r sales-hist}
+#| code-fold: true
+#| code-summary: "Show code: Sales histogram"
+#| fig-height: 3.5
+
+# Pre-compute summary values for labels
+skew_sales <- tbl_carseats %>%
+  summarise(skew = round(skewness(Sales), 3)) %>% pull(skew)
+mean_sales  <- tbl_carseats %>% summarise(m = round(mean(Sales),   2)) %>% pull(m)
+med_sales   <- tbl_carseats %>% summarise(m = round(median(Sales), 2)) %>% pull(m)
+
+# Histogram of raw Sales
+tbl_carseats %>%
+  ggplot(aes(x = Sales)) +
+  geom_histogram(bins = 30, fill = "#D50006",              # bar fill
+                 color = "white", alpha = 0.85) +
+  geom_vline(xintercept = mean_sales,                      # mean line
+             color = "#502479", linewidth = 1.2, linetype = "dashed") +
+  geom_vline(xintercept = med_sales,                       # median line
+             color = "#502479", linewidth = 1.2, linetype = "dotted") +
+  annotate("text", x = mean_sales + 0.4, y = 37,          # mean label
+           label = "Mean",   color = "#502479", size = 3.2, hjust = 0) +
+  annotate("text", x = med_sales  - 0.4, y = 32,          # median label
+           label = "Median", color = "#502479", size = 3.2, hjust = 1) +
+  labs(                                                     # --- labels ---
+    title    = "Sales: raw distribution",
+    subtitle = paste0("Skewness = ", skew_sales,
+                      "  |  Mean = ", mean_sales,
+                      "  |  Median = ", med_sales),
+    x = "Sales (thousands of units)", y = "Count"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+The histogram gives a first impression of shape (variance, skewness, kurtosis). Alternatively **kernel density** plots offer a smooth, bin-width-independent summary of the same distribution:
+
+```{r sales-density}
+#| code-fold: true
+#| fig-height: 3.5
+
+# Kernel density plot of raw Sales
+tbl_carseats %>%
+  ggplot(aes(x = Sales)) +
+  geom_density(color = "#502479", fill = "#502479",        # kernel density curve
+               linewidth = 1.1, alpha = 0.5) +
+  geom_vline(xintercept = mean_sales,                      # mean line
+             color = "#686868", linewidth = 0.9, linetype = "dashed") +
+  labs(                                                     # --- labels ---
+    title    = "Sales: kernel density estimate",
+    subtitle = "Purple area = kernel density (bandwidth by Silverman's rule)",
+    x = "Sales (thousands of units)", y = "Density"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Kernel Density Estimation
+
+A **kernel density estimate (KDE)** places a small smooth curve (the *kernel*,
+typically a Gaussian) at each observation, then sums them up to produce a
+continuous density curve. It answers the same question as a histogram ---
+what is the shape of the distribution? --- but without the arbitrary choice of
+bin width and bin boundaries.
+
+`geom_density()` in ggplot2 computes the KDE automatically. The *bandwidth*
+(how wide each kernel is) is chosen by Silverman's rule by default. A narrower
+bandwidth reveals more local structure; a wider one produces a smoother curve.
+
+For large datasets, KDE and histogram typically agree. For small datasets,
+the KDE can smooth over genuine gaps or create artefacts. Both should be
+inspected together, as shown above.
+:::
+
+Raw `Sales` (skewness = `r skew_sales`) is only slightly positive, hence already
+approximately symmetric: mean and median are nearly identical and the distribution
+is bell-shaped. Given this, should we apply a log transformation?
+
+```{r sales-log-hist}
+#| code-fold: true
+#| code-summary: "Show code: log(Sales) histogram + density"
+#| fig-height: 3.5
+
+# Summary statistics for log(Sales) for plotting (or use in subtitle)
+stats_log <- tbl_carseats %>%
+  filter(Sales > 0) %>%
+  mutate(log_sales = log(Sales)) %>%
+  summarise(
+    skew   = round(skewness(log_sales), 3),
+    mean   = mean(log_sales),
+    median = median(log_sales),
+    n      = n()
+  )
+
+# Generating the plot-object (after filtering and transforming data)
+tbl_carseats %>%
+  filter(Sales > 0) %>%                 
+  mutate(log_sales = log(Sales)) %>%      
+  ggplot(aes(x = log_sales)) +
+  
+  # adding geoms to generate layer with histogram & density
+  geom_histogram(aes(y = after_stat(density)),             
+                 bins = 30, fill = "#686868", color = "white", alpha = 0.6) +
+  geom_density(color = "#502479", linewidth = 1.1) +       
+  
+  # adding vertical Lines for mean and median ---
+  geom_vline(xintercept = stats_log$mean, 
+             color = "#D50006", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = stats_log$median, 
+             color = "#502479", linetype = "dotted", linewidth = 1) +
+###   
+  # --- adding labels to lines ---
+  annotate("text", x = stats_log$mean - 0.05, y = 0.45, 
+           label = "Mean", color = "#D50006", angle = 90, vjust = 1) +
+  annotate("text", x = stats_log$median + 0.05, y = 0.45, 
+           label = "Median", color = "#502479", angle = 90, vjust = 0) +
+  
+  # Labels & Theme
+  labs(                                                    
+    title    = "log(Sales): histogram + kernel density",
+    subtitle = paste0(
+      "Skewness = ", stats_log$skew,
+      "  |  Mean = ", round(stats_log$mean, 2),
+      "  |  Median = ", round(stats_log$median, 2),
+      "  |  zeros excluded (n = ", stats_log$n, ")"
+    ),
+    x = "log(Sales)", y = "Density"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(color = "#686868"))
+```
+
+After the log transformation, skewness becomes `r stats_log$skew` --- considerably more
+negative (also indicated by the increased difference between mean and median), meaning the transformation introduces left-skewness rather than removing
+right-skewness --- the opposite of its intended effect. `r fontawesome::fa("circle-right")` **EDA before transformation --- always.**
+
+This result is not accidental. It follows from how store-level unit sales are generated.
+The background box below explains why.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: When Is a Log Transformation Appropriate?
+
+Many econometrics textbooks (Wooldridge, Stock & Watson) present log transformation
+as a standard remedy for two problems:
+
+- **Right-skewness:** Income, house prices, and firm sizes are almost always right-skewed
+  (a few very large values, many small ones). Logging compresses the upper tail.
+- **Interpretability:** Log-transformed models yield coefficients interpretable as
+  elasticities (percentage changes).
+
+Because students typically learn with wage or house price data, a heuristic forms:
+*"business variable → log-transform."* This heuristic is often justified --- but it
+conflates two fundamentally different types of business variable.
+
+| Variable type | Typical distribution | Log appropriate? |
+|---------------|---------------------|-----------------|
+| **Revenue, wealth, asset prices** | Right-skewed: driven by a few very large values (power-law dynamics) | Usually yes |
+| **Unit sales at store level** | Often approximately symmetric | Check empirically --- often no |
+
+Why the difference? Unit sales of a stable consumer good across many similar stores
+are the sum of many independent purchase decisions. The **Central Limit Theorem**
+tells us that such sums converge to a symmetric distribution regardless of the
+distribution of individual purchases. Revenue, by contrast, is frequently dominated
+by a small number of very large transactions --- the power-law dynamics that make log
+transformation genuinely necessary.
+
+**The Carseats data illustrate this perfectly.** `Sales` measures unit sales across
+400 stores. The EDA confirms the theoretical expectation: near-symmetry, no need for
+transformation.
+
+
+:::
+
+
+### Target Variable: `Advertising`
+
+:::{.callout-important icon=false}
+## ⚠️ A2b: Log Transformation --- Does It Work for Advertising?
+
+The histogram showed that `Sales` is already approximately symmetric --- a log
+transformation makes it worse. Now apply the same logic to `Advertising`,
+which the `describe()` table flagged as notably right-skewed.
+
+**Part 1: Check the raw skewness**
+
+```r
+tbl_carseats %>%
+  summarise(skew_adv = skewness(Advertising))   # is Advertising right-skewed?
+```
+
+A log transformation looks promising. But try it naively first:
+
+**Part 2: Discover the NaN problem**
+
+```r
+tbl_carseats %>%
+  mutate(log_adv = log(Advertising)) %>%
+  summarise(skew = skewness(log_adv))
+```
+
+- What does R return? Is it the expected value?
+- Investigate why:
+
+```r
+tbl_carseats %>% filter(Advertising == 0) %>% nrow()   # any zeros?
+log(0)                                                   # what does log(0) return?
+skewness(c(1, 2, 3, -Inf))                              # how does skewness() handle -Inf?
+```
+
+- Unlike `Sales = 0`, is `Advertising = 0` a plausible business observation?
+  What does it mean for a store to have zero advertising budget?
+
+**Part 3: Fix it --- two approaches**
+
+```r
+# Option A: filter zeros, then log
+tbl_carseats %>%
+  filter(Advertising > 0) %>%
+  mutate(log_adv = log(Advertising)) %>%
+  summarise(skew = skewness(log_adv))
+
+# Option B: log1p --- no filtering needed
+tbl_carseats %>%
+  mutate(log_adv = log1p(Advertising)) %>%
+  summarise(skew = skewness(log_adv))
+```
+
+- Do both approaches give the same result? Which is more appropriate here, and why?
+  (Hint: is `Advertising = 0` an error, or a genuine value?)
+- Is the result less skewed than |0.64|? How does this compare to the Sales case?
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: `log1p()` as a Shortcut --- and Its Limitations
+
+**A note on `log1p()` as a shortcut:**
+
+You may encounter `log1p(x)` = `log(x + 1)` as a convenient alternative to filtering
+zeros before logging. It avoids `log(0) = -Inf` by shifting the entire distribution
+up by 1 before taking the log.
+
+However, `log1p` and `log` (after filtering) are *not equivalent* and give different
+skewness values. The "+1" offset compresses small values more than large ones, which
+partially offsets the left-skewness. In our data:
+
+- `log(Sales)` after filtering zeros: skewness ≈ `r stats_log$skew`
+- `log1p(Sales)` on all 400 stores: skewness ≈ `r tbl_carseats %>% summarise(s = round(skewness(log1p(Sales)), 3)) %>% pull(s)`
+
+Both confirm that the log transformation makes things *worse* --- but to different
+degrees. For our analysis, `log(Sales)` with explicit zero-filtering is the
+more transparent approach.
+:::
+
+---
+
+## Step 3: Group-Level Descriptives with `group_by()` and `summarise()`
+
+Having described each variable in isolation, we now condition on grouping variables
+--- the first step towards multivariate thinking. `group_by()` combined with
+`summarise()` is the most direct tidyverse tool for this: it computes descriptive
+statistics *separately for each group*, making differences that are invisible in
+marginal summaries immediately apparent. In a full multivariate analysis (regression,
+Lab 3+), these group differences will reappear as coefficients --- but here we
+describe them first without imposing a model.
+
+### Sales by Shelf Location
+
+```{r group-shelveloc}
+#| code-fold: true
+
+tbl_carseats %>%
+  group_by(ShelveLoc) %>%          # split by shelf location
+  summarise(
+    n            = n(),
+    mean_sales   = round(mean(Sales),   2),
+    median_sales = round(median(Sales), 2),
+    sd_sales     = round(sd(Sales),     2),
+    min_sales    = round(min(Sales),    2),
+    max_sales    = round(max(Sales),    2)
+  ) %>%
+  arrange(desc(mean_sales)) %>%    # sort: highest sales first
+  # --- table formatting ---
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = ShelveLoc == "Good")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = ShelveLoc == "Bad")
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Sales by shelf location (ShelveLoc)")
+```
+
+### Sales by Urban/US Segment
+
+```{r group-urban-us}
+#| code-fold: true
+
+tbl_carseats %>%
+  group_by(Urban, US) %>%          # split by two categorical variables simultaneously
+  summarise(
+    n          = n(),
+    mean_sales = round(mean(Sales), 2),
+    sd_sales   = round(sd(Sales),   2),
+    .groups = "drop"
+  ) %>%
+  # --- table formatting ---
+  gt() %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Sales by Urban status and US region")
+```
+
+### Price Distribution by Shelf Location
+
+```{r price-by-shelveloc}
+#| code-fold: true
+
+# Key question: do better shelves come with higher prices? (foreshadows OVB in Lab 3)
+tbl_carseats %>%
+  group_by(ShelveLoc) %>%
+  summarise(
+    mean_price = round(mean(Price), 2),
+    sd_price   = round(sd(Price),   2),
+    n          = n()
+  ) %>%
+  # --- table formatting ---
+  gt() %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Price by ShelveLoc",
+             subtitle = "Do stores with better shelf space charge higher prices?")
+```
+
+:::{.callout-important icon=false}
+## ⚠️ A3: Group Comparisons
+
+1. What is the difference in average sales between "Good" and "Bad" shelf locations?
+   Is this difference large relative to the overall standard deviation of `Sales`?
+
+2. Do stores with better shelf locations also charge higher prices on average?
+   What would this imply for a simple regression of `Sales` on `Price` alone?
+   (This question foreshadows **Omitted Variable Bias** --- discussed in →Lab 3.)
+
+3. Extend the group-by analysis: compute mean `Sales` and `Advertising` for the
+   four combinations of Urban × US:
+
+```{r}
+tbl_carseats %>%
+  group_by(Urban, US) %>%
+  summarise(
+    mean_sales = mean(Sales),
+    mean_adv   = mean(Advertising),
+    n          = n(),
+    .groups = "drop"
+  )
+```
+
+   What pattern do you see? Are there systematic differences in advertising spend?
+:::
+
+---
+
+## Step 4: Bivariate Relationships
+
+### Introduction: From Univariate to Bivariate
+
+Having described each variable in isolation, we now ask: *are variables related
+to each other, and if so, how?* This is the step from univariate to bivariate ---
+and ultimately multivariate --- thinking.
+
+**Correlation vs. causation** is the first distinction to make.
+A correlation tells us that two variables *move together* in the data.
+It says nothing about *why* they move together. Three explanations are always possible:
+
+1. X causes Y
+2. Y causes X
+3. A third variable Z causes both (confounding / spurious correlation)
+
+In EDA, we document correlations and formulate hypotheses. We do not claim causality.
+
+**Scale level affects both visualisation and choice of measure.**
+For categorical (nominal or ordinal) variables, scatter plots and Pearson's r are
+not meaningful --- we cannot place categories on a numeric axis and compute
+differences from a mean. Instead, we ask: *does the distribution of one variable
+change when the other variable takes a different value?* This is the concept of
+**conditional distributions**, and it is the primary analytical tool for categorical
+bivariate analysis. For metric variables, scatter plots and correlation coefficients
+become available. Details on which measure to use for which scale level are in
+Section 4.5.
+
+### Categorical Variables: Visualising Associations
+
+#### Joint and Marginal Distributions
+
+The starting point for any bivariate analysis of categorical variables is the
+**joint distribution** --- how often each combination of values occurs.
+From this, we derive **marginal distributions** (the univariate distributions
+of each variable, ignoring the other) and --- crucially ---
+**conditional distributions**.
+
+A **conditional distribution** answers: *given that variable Y takes value $y_k$,
+how is variable X distributed?* Formally:
+
+$$f(X = x_j \mid Y = y_k) = \frac{f(x_j,\, y_k)}{f(y_k)}$$
+
+Two variables are **statistically independent** if and only if all conditional
+distributions are identical to the marginal distribution:
+$f(X \mid Y = y_k) = f(X)$ for all values $y_k$.
+In other words: knowing the value of Y tells us nothing about X.
+Any deviation from this equality signals an association.
+
+The Carseats data have two purely nominal variables: `Urban` and `US`.
+`ShelveLoc` is ordinal and used here as a grouping variable.
+The factor levels were already corrected in the bar chart section above.
+
+
+
+#### geom_count() and Heatmap
+
+```{r cat-bivariate-core}
+#| code-fold: true
+#| fig-height: 3
+
+# geom_count: bubble area proportional to joint frequency
+p_count <- tbl_cs %>%
+  ggplot(aes(x = Urban, y = ShelveLoc)) +
+  geom_count(color = "#502479") +             # bubble area ~ count
+  scale_size_area(max_size = 12) +
+  labs(title = "geom_count(): Urban × ShelveLoc",
+       subtitle = "Bubble area = joint frequency",
+       size = "Count") +
+  theme_minimal(base_size = 10)
+
+# Heatmap: tile colour proportional to joint proportion
+p_heat <- tbl_cs %>%
+  count(Urban, ShelveLoc) %>%                 # joint frequencies
+  mutate(f = n / sum(n)) %>%                  # → proportions
+  ggplot(aes(x = Urban, y = ShelveLoc, fill = f)) +
+  geom_tile(color = "white", linewidth = 0.5) +  # tile colour ~ proportion
+  scale_fill_gradient(low = "white", high = "#502479",
+                      labels = scales::percent) +
+  labs(title = "Heatmap: f(Urban, ShelveLoc)",
+       subtitle = "Tile shade = joint proportion",
+       fill = "f(x,y)") +
+  theme_minimal(base_size = 10)
+
+p_count + p_heat
+```
+
+Both plots display **joint frequencies** --- how often each combination of
+`Urban` and `ShelveLoc` occurs. The cell sizes look roughly proportional to
+the marginal distributions, suggesting no strong association between shelf
+quality and urban/rural location.
+
+These plots encode the joint distribution but do not directly show whether
+the conditional distributions differ across groups. Conditional distribution
+plots make this comparison explicit.
+
+#### Conditional Distribution Plots
+
+For each conditional variant we compute the conditional proportions explicitly
+using `group_by()` + `mutate(f = n/sum(n))` and display them as stacked bar
+charts --- the same visual logic as a mosaic plot, implemented entirely in
+standard `ggplot2`.
+
+```{r conditional-plots}
+#| code-fold: true
+#| fig-height: 3.5
+
+# Panel 1: joint distribution f(ShelveLoc, Urban) as heatmap
+p_joint <- tbl_carseats %>%
+  count(ShelveLoc, Urban) %>%                      # joint frequencies
+  mutate(f = n / sum(n)) %>%                       # joint proportions
+  ggplot(aes(x = Urban, y = ShelveLoc, fill = f)) +
+  geom_tile(color = "white", linewidth = 0.5) +    # tile shade ~ joint proportion
+  scale_fill_gradient(low = "white", high = "#502479",
+                      labels = scales::percent) +
+  labs(title    = "f(ShelveLoc, Urban)",           # --- labels ---
+       subtitle = "Tile shade = joint proportion",
+       fill = "f(x,y)") +
+  theme_minimal(base_size = 9)
+
+# Panel 2: conditional f(ShelveLoc | Urban)
+# For each Urban value: how is ShelveLoc distributed?
+p_cond1 <- tbl_carseats %>%
+  count(Urban, ShelveLoc) %>%                      # joint frequencies
+  group_by(Urban) %>%                              # condition on Urban
+  mutate(f_cond = n / sum(n)) %>%                  # conditional proportions
+  ggplot(aes(x = Urban, y = f_cond, fill = ShelveLoc)) +
+  geom_col(color = "white", linewidth = 0.3) +     # stacked bar = conditional dist.
+  scale_fill_manual(values = col_shelf) +          # --- colour ---
+  scale_y_continuous(labels = scales::percent) +
+  labs(title    = "f(ShelveLoc | Urban)",          # --- labels ---
+       subtitle = "Each bar sums to 100%",
+       y = NULL, x = "Urban") +
+  theme_minimal(base_size = 9) + theme(legend.position = "none")
+
+# Panel 3: conditional f(Urban | ShelveLoc)
+# For each ShelveLoc value: how is Urban distributed?
+p_cond2 <- tbl_carseats %>%
+  count(ShelveLoc, Urban) %>%                      # joint frequencies
+  group_by(ShelveLoc) %>%                          # condition on ShelveLoc
+  mutate(f_cond = n / sum(n)) %>%                  # conditional proportions
+  ggplot(aes(x = ShelveLoc, y = f_cond, fill = Urban)) +
+  geom_col(color = "white", linewidth = 0.3) +     # stacked bar = conditional dist.
+  scale_fill_manual(values = c("Yes" = "#502479", "No" = "#686868")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title    = "f(Urban | ShelveLoc)",          # --- labels ---
+       subtitle = "Each bar sums to 100%",
+       y = NULL, x = "ShelveLoc") +
+  theme_minimal(base_size = 9) + theme(legend.position = "none")
+
+p_joint + p_cond1 + p_cond2
+```
+
+The left panel (joint) shows tile shade proportional to joint frequency.
+The centre and right panels show **conditional distributions** as stacked bars ---
+each bar sums to 100%.
+
+**Can you spot the difference between joint and conditional?**
+In the joint heatmap, a darker "Yes" column simply reflects that more stores are urban.
+In the conditional bar charts, the heights directly answer:
+*given that a store is urban, how is ShelveLoc distributed?*
+
+The bar heights are nearly identical across "Yes" and "No" in the centre panel ---
+suggesting that `ShelveLoc` and `Urban` are approximately independent.
+
+:::{.callout-note}
+## ℹ️ How to Read a Conditional Bar Chart
+
+In the **conditional** variants (centre and right), each bar is rescaled to 100%.
+The height of each colour segment answers:
+*what proportion of [conditioning group] has this value?*
+
+**Reading example for f(ShelveLoc | Urban) (centre panel):**
+
+Compare the coloured segments between the "Yes" (urban) and "No" (rural) bars:
+
+- **Same heights**: the variables are **statistically independent** ---
+  knowing whether a store is urban tells you nothing about its shelf quality.
+- **Different heights**: there is an **association** between the two variables.
+
+For `ShelveLoc` and `Urban` in the Carseats data, the proportions are nearly
+identical --- consistent with approximate independence.
+
+**Which panel to use?** The choice depends on the question:
+
+| Panel | Conditions on | Answers |
+|-------|--------------|---------|
+| f(ShelveLoc, Urban) | --- | How common is each combination? |
+| f(ShelveLoc \| Urban) | Urban | Does shelf quality differ between urban and rural stores? |
+| f(Urban \| ShelveLoc) | ShelveLoc | Are good-shelf stores more often in urban locations? |
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Three Variants --- Formal Definition
+
+| Plot type | How to compute in R | Formal quantity |
+|-----------|-------------------|-----------------|
+| **Joint** f(X, Y) | `count(X,Y) %>% mutate(f = n/sum(n))` | $f(x_j, y_k) = h(x_j, y_k)/n$ |
+| **Conditional** f(X\|Y) | `count(X,Y) %>% group_by(Y) %>% mutate(f = n/sum(n))` | $f(x_j \mid y_k) = f(x_j, y_k) / f(y_k)$ |
+| **Conditional** f(Y\|X) | `count(X,Y) %>% group_by(X) %>% mutate(f = n/sum(n))` | $f(y_k \mid x_j) = f(x_j, y_k) / f(x_j)$ |
+
+Statistical independence: $f(x_j \mid y_k) = f(x_j)$ for all $j, k$ ---
+equivalent to $f(x_j, y_k) = f(x_j) \cdot f(y_k)$.
+
+The key insight: computing conditional proportions with `group_by()` + `mutate(f = n/sum(n))`
+makes explicit exactly what the old mosaic rescaling did implicitly.
+:::
+
+
+### Metric Variables: Price and Sales --- A First Look
+
+For metric variables, the scatter plot replaces the mosaic: each observation
+appears as a point in a two-dimensional coordinate system, making the
+direction, strength, and shape of the relationship directly visible.
+
+```{r scatter-price-sales}
+#| code-fold: true
+#| code-summary: "Show code: scatter plot"
+
+tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales)) +
+  geom_point(alpha = 0.4, color = "#7d0a52", size = 1.8) +       # raw observations
+  geom_smooth(method = "lm",    color = "#D50006",                # OLS line (linear trend)
+              se = FALSE, linewidth = 1.2) +
+  geom_smooth(method = "loess", color = "#502479",                # LOESS (linearity check)
+              se = FALSE, linewidth = 1, linetype = "dashed") +
+  # --- labels ---
+  labs(
+    title    = "Price vs. Sales",
+    subtitle = paste0(
+      "Correlation r = ",
+      tbl_carseats %>% summarise(r = round(cor(Price, Sales), 3)) %>% pull(r),
+      "  |  Red = OLS line  |  Purple dashed = LOESS"
+    ),
+    x = "Price (USD)", y = "Sales (thousands of units)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+The OLS line (red) and the LOESS curve (purple, see note below) are drawn here as
+**descriptive visual summaries**, not as inferential models. Here, they both tell the
+same story: the relationship between Price and Sales is approximately linear and negative.
+This is useful prior information for Lab 3 --- a linear model is a reasonable starting point.
+
+:::{.callout-tip}
+## 💡 ggplot default: `se = TRUE`
+`geom_smooth()` adds a grey confidence band around the line by default.
+This band represents inferential uncertainty around the fitted line and only makes
+sense when treating the data as a sample. In EDA on a population, set `se = FALSE`
+to avoid a misleading visual.
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 What is LOESS?
+
+LOESS (*locally estimated scatterplot smoothing*) fits a smooth curve through the
+data without assuming a specific functional form --- no linearity, no fixed slope.
+It does this by fitting many small local regressions across the range of x, then
+connecting them into a continuous curve.
+
+In EDA, LOESS serves as a **linearity check**: if OLS line and LOESS curve run
+closely together (as here), the linear assumption is supported. If they diverge,
+a non-linear model or transformation may be needed.
+:::
+
+### Correlation Measures: From Visual to Numeric
+
+The scatter plots show direction and approximate strength of relationships.
+For a precise, comparable summary across all variable pairs, we compute
+correlation coefficients. The right measure depends on the scale level of
+the variables involved.
+
+:::{.callout-important}
+## Scale Level Determines the Measure
+
+> **Rule of thumb:** always use the measure appropriate for the *lower* scale level
+> of the two variables being compared.
+
+| Variable 1 | Variable 2 | Appropriate measure | R function |
+|-----------|-----------|-------------------|------------|
+| Nominal | Nominal | **Cramér's V** | `rcompanion::cramerV()` |
+| Ordinal | Ordinal | **Spearman's ρ** or **Kendall's τ** | `cor(..., method = "spearman")` |
+| Metric | Metric | **Pearson's r** | `cor()` / `corrr::correlate()` |
+| Metric | Nominal | η² or group comparison | `lm()` + R² |
+
+In the Carseats data:
+- `Sales`, `Price`, `Advertising`, `Income`, `Age`, `Population` → metric → **Pearson**
+- `ShelveLoc` → ordinal (Bad < Medium < Good) → **Spearman / Kendall**
+- `Urban`, `US` → nominal → **Cramér's V**
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Pearson's r --- Intuition and Formula
+
+**Intuition:** Pearson's r measures whether two variables move together
+*linearly*. It answers: when x is above its mean, is y typically also above
+its mean (positive), below it (negative), or unpredictable (zero)?
+
+**Formula:**
+
+$$r_{XY} = \frac{s_{XY}}{s_X \cdot s_Y} = \frac{\sum_{i=1}^n (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i}(x_i - \bar{x})^2} \cdot \sqrt{\sum_{i}(y_i - \bar{y})^2}}$$
+
+The numerator is the **covariance** --- the average product of deviations from
+the mean. The denominator scales it by the product of standard deviations,
+making $r$ dimensionless and bounded between $-1$ and $+1$.
+
+**Key properties:**
+
+- $r = +1$: perfect positive linear relationship
+- $r = -1$: perfect negative linear relationship
+- $r = 0$: no *linear* relationship (but non-linear relationships may exist!)
+- $r$ is symmetric: $r_{XY} = r_{YX}$
+
+**Effect size conventions** (Cohen, 1988):
+
+| $|r|$ | Interpretation |
+|-------|---------------|
+| $> 0.1$ | Small effect |
+| $> 0.3$ | Medium effect |
+| $> 0.5$ | Large effect |
+
+**Important limitation:** Pearson's r only captures *linear* associations.
+Two variables can have $r = 0$ and still be strongly related non-linearly
+--- the Datasaurus Dozen showed us exactly this.
+:::
+
+#### Pearson Correlation Matrix
+
+```{r correlation-matrix-compute}
+#| code-fold: false
+
+# Compute pairwise Pearson correlations
+cor_mat <- tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  cor() %>%          # Pearson correlation matrix → returns a matrix, not a tibble
+  round(3)
+```
+
+```{r correlation-matrix-display}
+#| code-fold: true
+#| code-summary: "Show code: heatmap table"
+
+# Display as colour-coded heatmap table
+cor_mat %>%
+  as_tibble(rownames = "variable") %>%      # matrix → tibble for gt()
+  gt() %>%
+  fmt_number(columns = where(is.numeric), decimals = 3) %>%
+  data_color(                               # --- colour gradient ---
+    columns = where(is.numeric),
+    rows    = everything(),
+    palette = c("#D50006", "white", "#502479"),
+    domain  = c(-1, 1)
+  ) %>%
+  tab_options(table.font.size = "12px") %>% # --- table size ---
+  tab_header("Pearson correlation matrix (numeric variables)")
+```
+
+```{r correlations-ranked}
+#| code-fold: true
+#| code-summary: "Show code: ranked correlations"
+
+# Rank predictors by strength of linear association with Sales
+cor_mat %>%
+  as_tibble(rownames = "variable") %>%
+  select(variable, Sales) %>%
+  filter(variable != "Sales") %>%          # remove self-correlation
+  arrange(desc(abs(Sales))) %>%            # sort by absolute value
+  # --- table formatting ---
+  gt() %>%
+  fmt_number(columns = Sales, decimals = 3) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Pearson correlation with Sales --- ranked by absolute value")
+```
+
+#### The `corrr` Package: Tidy Correlation Analysis
+
+Notice that `cor_mat` above is a matrix, not a tibble:
+
+```{r corrr-motivation}
+#| code-fold: false
+
+# cor() returns a matrix --- this breaks the pipe workflow
+cor_mat %>% class()     # "matrix" "array" --- not a tibble!
+```
+
+This means every further processing step requires `as_tibble()` first.
+The `corrr` package solves this: `correlate()` returns a tibble directly,
+so the result flows seamlessly into `shave()`, `fashion()`, `focus()`,
+`gt()`, or any `dplyr` operation without conversion.
+
+```{r corrr-demo}
+#| code-fold: false
+
+# correlate(): tidy alternative to cor() --- returns a tibble
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  corrr::correlate() %>%                   # Pearson by default, result is a tibble
+  corrr::shave() %>%                       # remove upper triangle (redundant)
+  corrr::fashion()                         # replace NA with blank, round to 2 dp
+```
+
+```{r corrr-focus}
+#| code-fold: true
+
+# focus(): select only correlations with Sales
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  corrr::correlate() %>%
+  corrr::focus(Sales) %>%                  # one column: correlations with Sales only
+  arrange(desc(abs(Sales))) %>%            # sort by absolute value
+  gt() %>%
+  fmt_number(columns = Sales, decimals = 3) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Correlations with Sales (corrr::focus)")
+```
+
+:::{.callout-tip}
+## 💡 `corrr` Key Functions
+
+| Function | What it does |
+|----------|-------------|
+| `correlate()` | Computes correlation matrix as a tibble (Pearson by default) |
+| `shave()` | Sets the upper triangle to `NA` (removes redundancy) |
+| `focus(var)` | Returns only correlations with selected variable(s) |
+| `fashion()` | Pretty-prints: removes `NA`, rounds to 2 decimal places |
+| `network_plot()` | Visualises correlation structure as a network |
+
+The key advantage: all outputs are tibbles that flow seamlessly into `gt()`,
+`ggplot()`, or further `dplyr` operations --- no `as_tibble()` workaround needed.
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A4: Bivariate Analysis
+
+1. Which numeric variable has the **strongest** linear correlation with `Sales`?
+   Which has the weakest?
+
+2. Are there pairs of *predictors* that are strongly correlated with each other
+   (potential multicollinearity)? Why would this matter in a regression model?
+
+3. Look at the scatterplot matrix below (Section 4.6).
+   The `ShelveLoc` colouring reveals subgroup differences invisible in aggregated correlations:
+   - Does the slope of the Price--Sales relationship look different across ShelveLoc groups?
+   - What does this imply for modelling?
+:::
+
+
+### Scatterplot Matrix: Putting It All Together
+
+`ggpairs()` integrates everything introduced in Step 4 into a single matrix view:
+the **diagonal** shows univariate kernel density plots (→ Step 2.2),
+the **lower triangle** shows pairwise scatter plots (→ Section 4.3),
+and the **upper triangle** shows Pearson correlation coefficients (→ Section 4.5).
+
+
+```{r ggpairs-raw}
+#| code-fold: true
+#| code-summary: "Show code: scatterplot matrix (original level order)"
+#| fig-height: 8
+#| fig-width: 10
+
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, ShelveLoc) %>%
+  ggpairs(
+    aes(color = ShelveLoc, alpha = 0.4),
+    upper = list(continuous = wrap("cor", size = 2.8)),            # correlations (upper triangle)
+    lower = list(continuous = wrap("points",                       # scatterplots (lower triangle)
+                                   alpha = 0.25, size = 0.7)),
+    diag  = list(continuous = wrap("densityDiag", alpha = 0.5))   # densities (diagonal)
+  ) +
+  # --- layout ---
+  scale_color_manual(values = c("Bad" = "#D50006", "Medium" = "#686868", "Good" = "#502479")) +
+  scale_fill_manual( values = c("Bad" = "#D50006", "Medium" = "#686868", "Good" = "#502479")) +
+  theme_minimal(base_size = 8) +
+  labs(title    = "Scatterplot matrix: Carseats variables",
+       subtitle = "Coloured by shelf location (ShelveLoc)")
+```
+
+
+---
+
+## Step 5: Boxplots and Conditional Distributions
+
+### Visualising Group Distributions
+
+Boxplots add a second perspective to the group-level summaries from Step 3:
+instead of a single mean, they show the full distributional shape --- median,
+interquartile range, whiskers, and outliers --- *per group*.
+The two key questions from A3 reappear here visually:
+how much do Sales differ across shelf locations, and do stores with better
+shelf space also charge higher prices?
+
+Both plots use `ShelveLoc` with corrected level order (Bad < Medium < Good).
+
+```{r boxplots-core}
+#| code-fold: true
+#| fig-height: 3.5
+
+# Shared colour palette (defined once, reused across all plots in this section)
+col_shelf <- c("Bad" = "#D50006", "Medium" = "#686868", "Good" = "#502479")
+
+# Recode factor levels for correct x-axis order
+tbl_cs <- tbl_carseats %>%
+  mutate(ShelveLoc = factor(ShelveLoc, levels = c("Bad", "Medium", "Good")))
+
+# Left panel: Sales distribution per ShelveLoc group
+p1 <- tbl_cs %>%
+  ggplot(aes(x = ShelveLoc, y = Sales, fill = ShelveLoc)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +              # distribution per group
+  stat_summary(fun = mean, geom = "point",                      # add mean as diamond
+               shape = 23, size = 3, fill = "white")
+
+# Right panel: Price distribution per ShelveLoc group
+p2 <- tbl_cs %>%
+  ggplot(aes(x = ShelveLoc, y = Price, fill = ShelveLoc)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +              # distribution per group
+  stat_summary(fun = mean, geom = "point",
+               shape = 23, size = 3, fill = "white")
+
+p1 + p2   # side by side (patchwork)
+```
+
+```{r boxplots-layout}
+#| code-fold: true
+#| code-summary: "Show code: colours, labels & theme"
+#| fig-height: 3.5
+
+p1 <- tbl_cs %>%
+  ggplot(aes(x = ShelveLoc, y = Sales, fill = ShelveLoc)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  scale_fill_manual(values = col_shelf) +      # --- colour ---
+  labs(title    = "Sales by shelf location",   # --- labels ---
+       subtitle = "Diamond = mean | line = median",
+       x = NULL, y = "Sales (thousands)") +
+  theme_minimal(base_size = 10) +              # --- theme ---
+  theme(legend.position = "none")
+
+p2 <- tbl_cs %>%
+  ggplot(aes(x = ShelveLoc, y = Price, fill = ShelveLoc)) +
+  geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  scale_fill_manual(values = col_shelf) +      # --- colour ---
+  labs(title    = "Price by shelf location",   # --- labels ---
+       subtitle = "Do premium shelves command higher prices?",
+       x = NULL, y = "Price (USD)") +
+  theme_minimal(base_size = 10) +              # --- theme ---
+  theme(legend.position = "none")
+
+p1 + p2
+```
+
+The left panel confirms the group-level finding from Step 3: Good > Medium > Bad,
+with a substantial gap. The right panel raises a flag: stores with better shelf
+placement tend to charge *higher* prices --- not lower. This is the pattern that
+will reappear in Lab 3 as **Omitted Variable Bias**.
+
+```{r adv-sales-scatter}
+#| code-fold: false
+#| fig-height: 3.5
+
+tbl_cs %>%
+  ggplot(aes(x = Advertising, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.35, size = 1.4) +                        # raw observations
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +     # OLS trend per group
+  scale_color_manual(values = col_shelf) +                       # --- colour ---
+  labs(                                                          # --- labels ---
+    title    = "Advertising vs. Sales by shelf location",
+    subtitle = paste0("Overall r = ",
+                      tbl_cs %>%
+                        summarise(r = round(cor(Advertising, Sales), 3)) %>%
+                        pull(r)),
+    x = "Advertising (thousands USD)", y = "Sales (thousands)",
+    color = "ShelveLoc"
+  ) +
+  theme_minimal(base_size = 10) +                               # --- theme ---
+  theme(legend.position = "bottom")
+```
+
+All three groups show a positive advertising--sales relationship, and the slopes
+are similar across shelf locations. The vertical separation between the three trend
+lines reflects the ShelveLoc main effect already seen in the boxplots.
+
+:::{.callout-tip}
+## 💡 Alternative: Violin Plots
+
+Violin plots combine a boxplot with a mirrored density curve, showing not just the
+five-number summary but the full shape of the distribution per group.
+They are particularly useful when distributions are bimodal or have unusual shapes
+that the boxplot's summary statistics would hide.
+
+```{r violin-plot}
+#| code-fold: false
+tbl_cs %>%
+  ggplot(aes(x = ShelveLoc, y = Sales, fill = ShelveLoc)) +
+  geom_violin(alpha = 0.6, trim = FALSE) +         # mirrored density per group
+  geom_boxplot(width = 0.15, fill = "white",        # narrow boxplot overlay
+               outlier.alpha = 0.5) +
+  scale_fill_manual(values = col_shelf) +
+  labs(title = "Sales by shelf location --- violin plot",
+       x = NULL, y = "Sales (thousands)") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+```
+:::
+
+### Outlier Detection
+
+Boxplots are not only popular for visualising distributions, but are widely deployed
+for outlier detection. In Step 2 we found that one or more stores have `Sales = 0`.
+We filtered these out for the skewness calculation to avoid a numerical problem,
+but this does *not* mean we should remove them from the analysis.
+
+The right approach is to **identify and inspect** unusual observations, not delete them.
+An outlier may arise from several causes:
+
+- **Data entry error** (e.g. a typo: `0` instead of `10`) --- the only case where
+  deletion is unambiguously justified, if the error is confirmed.
+- **Measurement error** (e.g. a system failure that recorded zero sales for a week).
+- **True exceptional behaviour** (e.g. a store that genuinely had zero sales due to
+  renovation or a local event) --- removing this would bias the analysis.
+- **A different underlying process** (e.g. a store that only opened recently and
+  had no sales yet).
+
+The boxplot is the standard EDA tool for flagging such cases visually.
+Points beyond the whiskers (1.5 × IQR from the quartiles) are plotted individually
+and invite closer inspection. Flagging is the goal --- deletion requires justification.
+
+---
+
+## Step 6: Formulating Hypotheses
+
+The EDA has surfaced several patterns. The next step is to translate observations
+into testable hypotheses for the modelling phase (→Labs 3 and 4).
+
+:::{.callout-important icon=false}
+## ⚠️ A5: Hypotheses for Modelling
+
+Based on your EDA, formulate **three hypotheses** relevant to the goal
+"Identify underperforming stores".
+
+**Structure:**
+> *"I expect [variable X] to have a [positive/negative] association with Sales because
+> [substantive reasoning]. This is visible in [specific EDA finding: table/plot]."*
+
+Additionally:
+
+1. The `ggpairs` matrix shows that `ShelveLoc` is associated with both `Price` and
+   `Sales`. What does this imply for a simple regression of `Sales` on `Price` alone?
+   (One sentence is enough --- we will formalise this in →Lab 3 as Omitted Variable Bias.)
+
+2. Which variables should be included in the regression model?
+   Which are probably redundant --- and why?
+
+3. What variables are **missing** from the dataset that could explain sales differences?
+   (Keyword: *Data Drought*, @thomasAIValueCreators2025)
+
+4. **The induction trap:** You have now explored all 400 stores. What would you need to
+   do *before* this exploration if you wanted to run valid statistical tests on these
+   hypotheses?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B1: Log Transformation for Sales --- Apply What You Learned
+
+In A2b you worked through the log transformation for `Advertising`.
+Now apply the same sequence to `Sales` and compare.
+
+**Step 1:** Compute the raw skewness:
+
+```r
+tbl_carseats %>%
+  summarise(skew_sales = skewness(Sales))
+```
+
+**Step 2:** Try the naive log transformation:
+
+```r
+tbl_carseats %>%
+  mutate(log_sales = log(Sales)) %>%
+  summarise(skew = skewness(log_sales))
+```
+
+**Step 3:** Fix it with `filter()`:
+
+```r
+tbl_carseats %>%
+  filter(Sales > 0) %>%
+  mutate(log_sales = log(Sales)) %>%
+  summarise(skew = skewness(log_sales))
+```
+
+**Step 4:** Compare with `log1p()`:
+
+```r
+tbl_carseats %>%
+  mutate(log_sales = log1p(Sales)) %>%
+  summarise(skew = skewness(log_sales))
+```
+
+- Do both approaches give the same skewness? Why or why not?
+- Does the log transformation improve the distributional shape for `Sales`?
+  Compare your result with the histogram from Step 2.
+
+**Step 5: Reflect on `Sales = 0`**
+
+Unlike `Advertising = 0` (a store genuinely spending nothing on advertising),
+`Sales = 0` raises a harder question. Consider each scenario and discuss what
+the appropriate analytical response would be:
+
+| Scenario | Implication | Response |
+|----------|-------------|----------|
+| Typo: `0` entered instead of `10` | Data entry error | Correct if confirmable, otherwise flag |
+| System failure: sales not recorded | Measurement error | Flag as missing, do not delete |
+| Store closed for renovation | True exceptional behaviour | Keep, note as structural outlier |
+| Store just opened, no sales yet | Different underlying process | Keep, consider separate modelling |
+
+Which scenario do you consider most plausible for the Carseats dataset?
+What additional information would you need to decide?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B2: Beyond Pearson --- Spearman, Kendall, and Cramér's V
+
+**Why go beyond Pearson?**
+Pearson's r measures *linear* associations between *metric* variables.
+For ordinal variables, or when the relationship is monotone but not linear,
+rank-based alternatives are more appropriate.
+For nominal variables, Cramér's V measures association strength without
+assuming any ordering.
+
+**Part 1: Spearman vs. Pearson for metric variables**
+
+Spearman's ρ applies Pearson's formula to the *ranks* of the observations
+instead of the raw values. This makes it robust to outliers and captures
+monotone (but not necessarily linear) relationships.
+
+```r
+# Compare Pearson and Spearman for Price vs. Sales
+tbl_carseats %>%
+  summarise(
+    pearson  = cor(Price, Sales, method = "pearson"),
+    spearman = cor(Price, Sales, method = "spearman")
+  )
+
+# Are they similar? Try with a variable that has outliers: Advertising
+tbl_carseats %>%
+  summarise(
+    pearson  = cor(Advertising, Sales, method = "pearson"),
+    spearman = cor(Advertising, Sales, method = "spearman")
+  )
+```
+
+When Pearson and Spearman differ substantially, it often signals outliers
+or a non-linear monotone relationship. Which variable shows the largest
+discrepancy? What might explain it?
+
+**Part 2: Spearman for the full numeric matrix using `corrr`**
+
+```r
+# Spearman correlation matrix via corrr
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  corrr::correlate(method = "spearman") %>%   # switch method
+  corrr::shave() %>%
+  corrr::fashion()
+```
+
+Compare to the Pearson matrix from Step 4.5.
+Which correlations change most? What does this tell you?
+
+**Part 3: Kendall's τ as an alternative to Spearman**
+
+Kendall's τ is based on *concordant and discordant pairs* rather than ranks.
+It is more robust than Spearman for small samples and ties.
+
+```r
+tbl_carseats %>%
+  summarise(
+    spearman = cor(Price, Sales, method = "spearman"),
+    kendall  = cor(Price, Sales, method = "kendall")
+  )
+```
+
+Kendall's τ is typically smaller in absolute value than Spearman's ρ for
+the same data. Is this the case here? Are the rankings consistent?
+
+**Part 4: Cramér's V for nominal variables**
+
+For nominal variables (`Urban`, `US`, `ShelveLoc`), neither Pearson nor
+Spearman is appropriate. Cramér's V measures association strength on a
+scale from 0 (independent) to 1 (perfectly associated).
+
+```r
+# install.packages("rcompanion")   # if not yet installed
+library(rcompanion)
+
+# Cramér's V: Urban × US
+tbl_carseats %>%
+  select(Urban, US) %>%
+  corrr::colpair_map(rcompanion::cramerV) %>%
+  corrr::shave() %>%
+  corrr::fashion()
+
+# Cramér's V: all three categorical variables
+tbl_carseats %>%
+  select(Urban, US, ShelveLoc) %>%
+  corrr::colpair_map(rcompanion::cramerV) %>%
+  corrr::shave() %>%
+  corrr::fashion()
+```
+
+Are `Urban` and `US` associated? Is `ShelveLoc` associated with store location?
+What does this imply for the regression model?
+
+**Part 5: Network plot (visual correlation structure)**
+
+```r
+tbl_carseats %>%
+  select(Sales, Price, Advertising, Income, Age, Population) %>%
+  corrr::correlate() %>%
+  corrr::network_plot(min_cor = 0.15,
+                      colors = c("#D50006", "white", "#502479"))
+```
+
+Which variable clusters emerge? Does the network structure reveal anything
+the matrix did not?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B3: Automated EDA Report
+
+`DataExplorer` can generate a full HTML EDA report in one line:
+
+```r
+# One function call generates a self-contained HTML report
+create_report(tbl_carseats,
+              output_file  = "EDA_Carseats_report.html",
+              output_dir   = ".",
+              report_title = "Carseats EDA Report")
+```
+
+Open the report. Which visualisations are most informative?
+Which would you include in a presentation to management?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B4: Missing Data Visualisation
+
+The Carseats data have no missing values --- but real datasets rarely do.
+Explore a dataset with missings using `visdat` and `naniar`:
+
+```r
+library(visdat)
+library(naniar)
+
+vis_dat(airquality)            # data types and missing values as heatmap
+miss_var_summary(airquality)   # missing count and % per variable
+gg_miss_upset(airquality)      # co-occurrence pattern of missings
+```
+
+What patterns do you see? Are certain variables always missing together?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B5: Segmented EDA
+
+```r
+tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = Urban)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +   # OLS per Urban group
+  facet_wrap(~US) +                                            # separate panels for US/non-US
+  scale_color_manual(values = c("Yes" = "#502479", "No" = "#D50006")) +
+  labs(title = "Price vs. Sales by location (Urban) and region (US)",
+       x = "Price (USD)", y = "Sales (thousands)") +
+  theme_minimal()
+```
+
+Any indications of interaction effects between Urban status and US region?
+:::
+
+---
+
+## Summary
+
+```{r summary-table}
+#| echo: false
+
+# EDA findings summary (display only)
+tibble::tribble(
+  ~`EDA Finding`,       ~`Key result`,                                    ~`Implication for Lab 3+`,
+  "Structure",          "400 stores, 11 variables, 0 missing values",     "Dataset ready to use directly",
+  "Sales distribution", "Approximately symmetric (skewness ~ 0.18)",      "No log transformation needed",
+  "Advertising",        "Right-skewed (many zeros; skewness ~ 2)",        "Log(Advertising+1) worth considering",
+  "ShelveLoc effect",   "Good: ~8 vs. Bad: ~5 thousand units (mean)",     "Large categorical effect -> must include",
+  "Price-Sales corr.",  "r ~ -0.44, negative linear trend",               "Include Price; but OVB risk via ShelveLoc",
+  "Advertising-Sales",  "r ~ +0.58, strongest numeric predictor",         "Include Advertising in model",
+  "Missing variables",  "No competition, demographics, or location data", "Data Drought -> motivates Lab 4"
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = `EDA Finding` == "Sales distribution")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = `EDA Finding` == "Missing variables")
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important}
+## Key Messages of This Lab
+
+1. **EDA is CRISP-DM Phase 2.** It follows Business Understanding and precedes all
+   modelling. Its purpose is data comprehension, not prediction.
+
+2. **Never trust a statistic you haven't plotted.** The Datasaurus Dozen illustrates
+   this dramatically: identical summary statistics, completely different realities.
+
+3. **EDA and Data Mining are both inductive.** They differ in scale, purpose, and
+   success criteria --- not in their logical structure. The OLS line in a scatter plot
+   is EDA when it aids understanding; it becomes a DM artefact when evaluated on new data.
+
+4. **The induction trap.** Hypotheses generated from data cannot be tested on those same
+   data. Plan the data split before exploration.
+
+5. **EDA before transformation.** `Sales` is symmetric (CLT applies to store-level unit
+   sales); the log transformation makes it *worse*. `Advertising` is right-skewed and
+   *is* a candidate for transformation. Always check empirically.
+
+6. **`group_by()` + `summarise()` is the most powerful EDA tool in the tidyverse.**
+   Conditional means reveal patterns that global statistics hide.
+
+7. **Outliers require inspection, not deletion.** A value that looks unusual may
+   reflect an error, a measurement problem, or a genuinely exceptional case.
+   Each case must be examined individually before any decision is made.
+:::
+
+:::{.callout-note}
+## Transition to Lab 3
+
+In →Lab 3 we fit the **baseline model** `Sales ~ Price`.
+The EDA findings predict exactly what we will see:
+a low $R^2$ (Price alone is not enough) and a systematic ShelveLoc pattern in the
+residual plot --- the signature of **Omitted Variable Bias**.
+
+We will also examine the regression output table critically:
+since we treat the 400 stores as a population, what do "estimate", "std_error",
+and "p_value" actually mean?
+:::
+
+## References {.unnumbered}

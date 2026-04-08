@@ -1,0 +1,1591 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+
+  Search "PVA2"        — update if session numbering changes
+  Search "Lab 3"       — verify Lab 3 filename is correct
+  Search "icebreaker"  — verify Lab 2 residual plot renders correctly
+  Line ~47             — ShelveLoc factor levels: Bad < Medium < Good
+                         (must match Labs 2 and 3 recoding)
+
+============================================================ -->
+---
+title: "Demo: Multiple Regression"
+subtitle: "CRISP-DM Phase 4 — Modeling | Carseats Case Study"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+bibliography: ../../lit/my_bib.bib
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)   # data wrangling and ggplot2
+library(moderndive)  # get_regression_table(), get_regression_points()
+library(broom)       # augment(), tidy()
+library(gt)          # formatted tables
+library(patchwork)   # combine multiple ggplots
+library(plotly)      # interactive 3D plot
+library(car)         # vif()
+library(ISLR2)       # Carseats and Credit datasets
+
+tbl_carseats <- tibble(Carseats) %>%
+  mutate(ShelveLoc = factor(ShelveLoc,
+                            levels = c("Bad", "Medium", "Good")))
+
+# Shared colour palette — used in all ShelveLoc plots
+col_shelf       <- c("Bad" = "#D50006", "Medium" = "#686868", "Good" = "#502479")
+col_shelf_resid <- c("Bad" = "#D50006", "Medium" = "#b3b2b2", "Good" = "#502479")
+
+# Models fitted live in the document body (mod_shelf, mod_int_shelf)
+# Pre-fitted here only where needed before their section:
+mod_baseline  <- lm(Sales ~ Price,                           data = tbl_carseats)
+mod_adv       <- lm(Sales ~ Price + Advertising,             data = tbl_carseats)
+mod_int_adv   <- lm(Sales ~ Price * Advertising,             data = tbl_carseats)
+mod_full      <- lm(Sales ~ Price + Advertising + ShelveLoc, data = tbl_carseats)
+```
+
+:::{.callout-note collapse="true"}
+## Purpose of this document
+
+This document serves **two functions:**
+
+1. **For the instructor:** Annotated step-by-step guide for the live demo in RStudio.
+   `r fontawesome::fa("chalkboard-teacher")` **Instructor note** callouts signal suggested questions,
+   transitions, and emphasis points.
+
+2. **For students:** Complete reference document available after the session.
+
+**Notation (descriptive setting):**
+
+| Symbol | Meaning |
+|--------|---------|
+| $b_0, b_1, \ldots, b_k$ | OLS coefficients — descriptive, computed from *these* 400 stores |
+| $e_i = y_i - \hat{y}_i$ | Residual — calculated from data |
+| $\hat{y}_i$ | Fitted value on the regression line / plane |
+
+In PVA2, when we treat the 400 stores as a *sample* from a larger population,
+notation shifts to $\hat\beta_j$ estimating unknown $\beta_j$, and $e_i$
+approximating unobservable $\varepsilon_i$.
+:::
+
+:::{.callout-note}
+## Learning Objectives
+
+After this session you will be able to:
+
+- **Extend** the baseline equation with a categorical regressor and explain
+  why R converts it into dummy variables automatically
+- **Interpret** OLS coefficients as partial derivatives (ceteris paribus)
+  in both the numeric and categorical case
+- **Recognise** that `geom_smooth()` with aesthetics `color` implicitly fits an
+  interaction model — and test empirically whether that complexity is warranted
+- **Apply** Occam's Razor via adjusted R²: choose the parallel-slopes model
+  when interaction adds no explanatory power
+- **Identify** confounding variables and explain how controlling for them
+  corrects Omitted Variable Bias in the Price coefficient
+- **Explain** Simpson's Paradox: why an aggregate slope can reverse sign
+  when a third variable is controlled for
+- **Distinguish** the descriptive purpose of residual diagnostics
+  (misspecification detection) from the inferential purpose (distributional checks, Session 3)
+:::
+
+:::{.callout-tip}
+## Navigation
+
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|-------------|
+| `r fontawesome::fa("chalkboard-teacher")` | <span style="color:#2f9e44">**Green — Instructor Note**</span> | Suggested questions, transitions, emphasis points | Before class |
+| ⚠️ | <span style="color:#e02424">**Red — Action Required**</span> | Key concepts, model warnings | During demo |
+| ℹ️ | <span style="color:#1c7ed6">**Blue, open — Note**</span> | Interpretation aids, technical clarifications | As needed |
+| 📚 | <span style="color:#1c7ed6">**Blue, collapsed — Background Theory**</span> | Deeper derivations, optional theory | At home |
+
+**Normal text** and code chunks are the **main content** — work through them in order.
+**Background sections** are marked with a **collapsed blue box** and can be expanded at any time.
+
+⏱ This demo runs approximately **60 minutes** in the live session.
+
+:::
+
+---
+
+## Icebreaker: What Does the Baseline Miss?
+
+### Where are we in CRISP-DM?
+
+```{r crisp-overview}
+#| echo: false
+tibble::tribble(
+  ~Phase, ~Name,                    ~Content,                                   ~Status,
+  "1",    "Business Understanding", "Identify underperforming stores",           "Done (lecture)",
+  "2",    "Data Understanding",     "EDA: distributions, correlations, OVB",     "Done (Lab 1–2)",
+  "3",    "Data Preparation",       "ShelveLoc dummy coding, Advertising",        "Done (Lab 2)",
+  "4",    "Modelling",              "Multiple regression: Sales ~ Price + ...",   "← This demo",
+  "5",    "Evaluation",             "Residuals as performance score, adj. R²",    "Lab 3",
+  "6",    "Deployment",             "Underperformer ranking, Managerial Memo",     "Lab 3"
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = Phase == "4")
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+### The residual tells the story
+
+In Lab 2 we estimated the simplest possible model:
+
+$$\widehat{\text{Sales}}_i = b_0 + b_1 \cdot \text{Price}_i$$
+
+```{r baseline-recap}
+mod_baseline %>%
+  get_regression_summaries() %>%
+  select(r_squared, adj_r_squared, rmse) %>%
+  mutate(Model = "Sales ~ Price") %>%
+  relocate(Model) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 3) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Baseline — Lab 2")
+```
+
+The residual $e_i = \text{Sales}_i - \hat{y}_i$ is both a **diagnostic** and a **scoring tool:**
+
+- **Diagnostic:** systematic patterns in $e_i$ reveal omitted variables
+- **Scoring:** $e_i < 0$ = store sells less than its price-based benchmark → underperformer
+
+```{r icebreaker-resid}
+#| fig-height: 3.2
+augment(mod_baseline, data = tbl_carseats) %>%
+  ggplot(aes(.fitted, .resid, color = ShelveLoc)) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#333") +
+  geom_smooth(aes(group = 1), method = "loess", se = FALSE,
+              color = "black", linewidth = 0.9) +
+  scale_color_manual(values = col_shelf_resid) +
+  labs(title    = "Residual plot — baseline model, coloured by ShelveLoc",
+       subtitle = "Purple (Good) above zero | Red (Bad) below zero | LOESS not flat → misspecification",
+       x = "Fitted values", y = "Residual", color = "ShelveLoc") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — Icebreaker
+
+Point to the colour separation:
+*"Purple dots sit above zero, red dots below — systematically.
+`ShelveLoc` explains part of the residual that our model ignores.
+The obvious fix: add `ShelveLoc` to the equation."*
+:::
+
+---
+
+## The General Model
+
+For $k$ regressors, the regression model (descriptive model notation) is:
+
+$$y_i = b_0 + b_1 x_{i1} + b_2 x_{i2} + \dots + b_k x_{ik} + e_i$$
+
+OLS minimises $\sum_{i=1}^n e_i^2$.
+Because the model is linear, each coefficient is the partial derivative of the
+fitted surface — the slope in one direction while all others are held fixed:
+
+$$b_j = \frac{\partial \hat{y}}{\partial x_j}
+\quad \text{(ceteris paribus)}$$
+
+This is a **mathematical** statement about the slope of the fitted surface.
+It is **not** a causal claim.
+
+### What combinations of regressors will we see?
+
+Multiple regression handles regressors of different scale levels —
+the combination determines both the geometry and the interpretation.
+This demo works through two cases in order of increasing insight, then
+points to what happens with more than two regressors.
+
+```{r regressor-overview}
+#| echo: false
+tibble::tribble(
+  ~`Case`,       ~`Regressors`,                    ~`Geometry`,           ~`This demo`,
+  "Baseline",    "1 numeric (Price)",               "Line in 2D",          "Lab 2 — starting point",
+  "Case A",      "1 numeric + 1 categorical\n(Price + ShelveLoc)", "Parallel lines in 2D\n(one per group)", "← Section 3",
+  "Case B",      "2 numeric\n(Price + Advertising)", "Plane in 3D",        "← Section 4",
+  "Full model",  "2 numeric + 1 categorical\n(Price + Adv + ShelveLoc)", "Parallel planes in 3D", "← Section 5",
+  "General k>2", "k regressors (any mix)",           "Hyperplane — not\nvisualisable", "Same algebra, PVA2"
+) %>%
+  gt() %>%
+  tab_style(style = cell_fill(color = "#f0fff0"),
+            locations = cells_body(rows = 2)) %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = 3)) %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_body(rows = 4)) %>%
+  tab_style(style = cell_fill(color = "#f5f5f5"),
+            locations = cells_body(rows = 5)) %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_column_labels()) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Regressor combinations covered in this demo",
+    subtitle = "Case A first — ShelveLoc explains nearly twice as much variance as Advertising"
+  )
+```
+
+:::{.callout-note}
+## Why Case A before Case B?
+
+A quick empirical check before we start:
+
+- `Sales ~ Price + ShelveLoc` → adj. R² ≈ **0.54**
+- `Sales ~ Price + Advertising` → adj. R² ≈ **0.28**
+
+The categorical variable `ShelveLoc` explains almost twice as much variance
+as the numeric variable `Advertising`. The modelling sequence follows the data —
+not textbook convention.
+:::
+
+::: {.callout-caution collapse="true"}
+## Background: Matrix notation (optional)
+
+For $n$ observations and $k$ regressors (including an intercept column of ones):
+
+$$\mathbf{y} = \mathbf{X}\,\mathbf{b} + \mathbf{e}$$
+
+OLS solution: $\mathbf{b} = (\mathbf{X}'\mathbf{X})^{-1}\mathbf{X}'\mathbf{y}$
+(requires $\mathbf{X}'\mathbf{X}$ invertible — no perfect multicollinearity).
+Each element of $\mathbf{b}$ is the same partial derivative as above;
+the matrix form makes computation tractable for arbitrary $k$.
+:::
+
+---
+
+## Case A: What if We Just Add `ShelveLoc`?
+
+This section covers **Case A** from the overview table: one numeric regressor
+(`Price`) and one categorical regressor (`ShelveLoc`).
+This is the most common starting point in applied regression —
+one continuous measure of interest, one grouping variable that needs to be
+controlled for. The key challenge: a categorical variable cannot enter a
+regression equation as-is. It must first be converted into a numeric representation.
+
+### The model equation — written out
+
+The residual plot showed that `ShelveLoc` is the missing piece.
+Adding it extends the baseline equation to:
+
+$$\widehat{\text{Sales}}_i = b_0 + b_1 \cdot \text{Price}_i + b_2 \cdot \text{ShelveLoc}_i \tag{1}$$
+
+But wait — `ShelveLoc` is not a number. As we have seen in **Lab 2**, `ShelveLoc` is a **factor** variable with three ordered levels ($k = 3$): Bad → Medium → Good.
+Since a category cannot be multiplied with a coefficient, `r fontawesome::fa('r-project')` automatically converts factor objects into so called **dummy variables**: one binary indicator per category, minus one for the reference group. Hence, in our case ($k = 3$) `r fontawesome::fa('r-project')` creates $k - 1 = 2$ dummies for `ShelveLoc`:
+
+::: {.callout-caution collapse="true"}
+## Background: Dummy variables — binary, dichotomous, indicator
+
+A **dummy variable** (also called **binary**, **dichotomous**, or **indicator** variable)
+takes only two values:
+
+| Value | Meaning |
+|-------|---------|
+| `1` | The observation belongs to this category |
+| `0` | It does not |
+
+For `ShelveLoc` with $k = 3$ categories, R creates $k - 1 = 2$ dummies:
+
+| Store | ShelveLocMedium | ShelveLocGood |
+|-------|:--------------:|:------------:|
+| Bad shelf | 0 | 0 |
+| Medium shelf | 1 | 0 |
+| Good shelf | 0 | 1 |
+
+**Why $k - 1$ and not $k$?**
+If all three dummies were included, their columns would always sum to 1 —
+a perfect linear combination of the intercept column.
+The design matrix $\mathbf{X}$ would be singular ($\mathbf{X}'\mathbf{X}$ not invertible)
+and OLS would have no unique solution.
+Dropping one category — the **reference group** (`Bad`) — resolves this.
+Its effect is absorbed into the intercept $b_0$.
+
+**Synonyms in the literature:**
+
+| Term | Common in |
+|------|-----------|
+| Dummy variable | Econometrics (Wooldridge, Greene) |
+| Indicator variable | Statistics, R documentation |
+| Binary variable | Machine learning |
+| Dichotomous variable | Psychology, survey research |
+| One-hot encoding | Machine learning (all $k$ dummies, no intercept) |
+:::
+
+```{r dummy-table}
+#| echo: false
+tibble(
+  ShelveLoc         = c("Bad (reference)", "Medium", "Good"),
+  `Absorbed into`   = c("b₀ (intercept)", "—", "—"),
+  `ShelveLocGood`   = c(0L, 0L, 1L),
+  `ShelveLocMedium` = c(0L, 1L, 0L)
+) %>%
+  gt() %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = 1)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote(
+    "Reference = Bad (first level — set explicitly in setup). Change with relevel(ShelveLoc, ref = 'Good') if needed."
+  )
+```
+
+The full equation with dummies therefore replaces the placeholder $b_2 \cdot \text{ShelveLoc}_i$
+from equation (1) with two explicit dummy terms:
+
+$$\widehat{\text{Sales}}_i = b_0 + b_1 \cdot \text{Price}_i
+  + b_2 \cdot \mathbf{1}_{\text{Good},\,i}
+  + b_3 \cdot \mathbf{1}_{\text{Medium},\,i} \tag{2}$$
+
+Each `ShelveLoc` group gets its own **intercept shift** ($b_2$ or $b_3$)
+but the **same Price slope** ($b_1$) — that is the **parallel slopes** assumption.
+
+:::{.callout-note}
+## From equation to `lm()` — the direct mapping
+
+| Equation (2) term | R formula term |
+|---------------|---------------|
+| $b_0$ (intercept) | always included by default |
+| $b_1 \cdot \text{Price}_i$ | `Price` |
+| $b_2 \cdot \mathbf{1}_{\text{Good}}$ | automatically from `ShelveLoc` |
+| $b_3 \cdot \mathbf{1}_{\text{Medium}}$ | automatically from `ShelveLoc` |
+| **Additive (`+`): same slope** | `lm(Sales ~ Price + ShelveLoc)` |
+| **Interaction (`*`): different slopes** | `lm(Sales ~ Price * ShelveLoc)` |
+
+The `+` operator means: same slope for all groups (additive / parallel slopes).
+The `*` operator means: different slope per group (interaction term included).
+:::
+
+### Step 1 — `lm(Sales ~ Price + ShelveLoc)`: fit and inspect
+
+Following equation (2), we translate directly into R:
+
+```{r parallel-fit-first}
+#| code-fold: false
+mod_shelf <- lm(Sales ~ Price + ShelveLoc, data = tbl_carseats)
+
+mod_shelf %>%
+  get_regression_table() %>%
+  select(term, estimate) %>%
+  gt() %>%
+  fmt_number(columns = estimate, decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_body(rows = str_detect(term, "ShelveLoc"))) %>%
+  tab_style(style = cell_fill(color = "#fff0f0"),
+            locations = cells_body(rows = term == "Price")) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    paste0("Sales ~ Price + ShelveLoc  |  adj. R² = ",
+           round(summary(mod_shelf)$adj.r.squared, 3)),
+    subtitle = "Same Price slope (b₁) for all three groups — parallel slopes by construction"
+  )
+```
+
+::: {.callout-caution collapse="true"}
+## Background: Reading the parallel slopes table
+
+The table has four rows, corresponding directly to equation (2):
+
+- **`(Intercept)`** = $b_0$ — predicted Sales for a **Bad**-shelf store at Price = 0
+  (not meaningful; see centering later)
+- **`Price`** = $b_1$ — the Price effect, **identical for all three shelf groups**
+- **`ShelveLocGood`** = $b_2$ — how much higher Good-shelf stores sell
+  compared to Bad, at any given Price
+- **`ShelveLocMedium`** = $b_3$ — same logic for Medium vs. Bad
+
+The key constraint: there is **one single Price slope** $b_1$.
+This is the parallel-slopes assumption — all three lines tilt at the same angle.
+:::
+
+:::{.callout-note}
+## In descriptive regression we focus on the `estimate` column only
+
+The full `get_regression_table()` output also shows `std_error`, `statistic`,
+`p_value`, `lower_ci`, and `upper_ci`. These are **inferential** quantities —
+meaningful only when treating the 400 stores as a *sample* from a larger population.
+
+In the **descriptive** setting, all 400 stores *are* the population.
+Standard errors and p-values are not defined for a population —
+and the term **`estimate`** is itself slightly misleading here:
+there is nothing to estimate when you have the full population.
+The coefficients $b_0, b_1, \ldots$ are exact descriptive summaries, not estimates.
+
+We return to these inferential statistics in Session 3.
+:::
+
+### Step 2 — Visualise: `geom_smooth()` vs. what our model implies
+
+Our model (equation 2) implies parallel lines — same slope, different intercepts.
+Let's plot it, then compare with the `geom_smooth()` picture from earlier:
+
+```{r parallel-slopes-plot}
+#| code-fold: true
+#| code-summary: "Show code: parallel slopes plot"
+#| fig-height: 3.8
+tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.35, size = 1.8) +
+  geom_parallel_slopes(se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = col_shelf) +
+  labs(title    = "lm(Sales ~ Price + ShelveLoc): parallel slopes",
+       subtitle = "Same Price slope for all groups — one shift per group",
+       x = "Price (USD)", y = "Sales (000 units)", color = "ShelveLoc") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+Now compare with what `geom_smooth()` produced when we visualised earlier:
+
+```{r geom-smooth-plot}
+#| code-fold: true
+#| code-summary: "Show code: geom_smooth() plot"
+#| fig-height: 3.8
+tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.35, size = 1.8) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = col_shelf) +
+  labs(title    = "geom_smooth(): what model did this fit implicitly?",
+       subtitle = "Slightly different slopes across groups — look closely at Good vs. Bad",
+       x = "Price (USD)", y = "Sales (000 units)", color = "ShelveLoc") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+Looking at the `geom_smooth()` plot, the three lines appear nearly — but not perfectly —
+parallel. A **close inspection** reveals **slightly different slopes** across shelf locations:
+the price sensitivity seems marginally stronger for `Good` stores than for `Bad` ones.
+But should we trust this visual impression, or is it an artefact of fitting
+separate lines to noisy data?
+
+:::{.callout-important}
+## `geom_smooth()` implicitly fits the interaction model
+
+When aesthetics `color` maps to a categorical variable, ggplot2 fits
+**separate lines per group** — each with its own intercept *and* slope.
+This corresponds to a different equation:
+
+$$\widehat{\text{Sales}}_i = b_0 + b_1 \cdot \text{Price}_i
+  + b_2 \cdot \mathbf{1}_{\text{Good}}
+  + b_3 \cdot \mathbf{1}_{\text{Medium}}
+  + b_4 \cdot (\text{Price}_i \times \mathbf{1}_{\text{Good}})
+  + b_5 \cdot (\text{Price}_i \times \mathbf{1}_{\text{Medium}}) \tag{3}$$
+
+i.e. `lm(Sales ~ Price * ShelveLoc)` — **not** `lm(Sales ~ Price + ShelveLoc)`.
+:::
+
+::: {.callout-caution collapse="true"}
+## Background: `geom_parallel_slopes()` — why it is not in base ggplot2
+
+`geom_parallel_slopes()` is a function from the **moderndive** package —
+it is not available in base ggplot2.
+
+ggplot2's `geom_smooth(method = "lm")` always fits the most general model
+within each colour group — the interaction model (separate intercept *and* slope).
+There is no built-in option to force equal slopes across groups.
+`geom_parallel_slopes()` fills this gap: it fits `lm(y ~ x + group)` internally
+and plots the resulting parallel lines.
+
+**The practical rule:** whenever you use `geom_smooth()` with a categorical
+colour aesthetic, you are visualising an interaction model —
+whether you intend to or not.
+:::
+
+### Step 3 — `lm(Sales ~ Price * ShelveLoc)`: resolve the contradiction
+
+`geom_smooth()` fitted equation (3) — the interaction model.
+The interaction terms $b_4$ and $b_5$ capture whether the **effect of Price on Sales
+differs depending on shelf location**. In other words: does a price increase hurt
+sales more for a prominently placed product than for one tucked away on a bad shelf?
+If so, Price and ShelveLoc *interact* — and the slopes would differ across groups.
+
+```{r interaction-fit}
+#| code-fold: false
+mod_int_shelf <- lm(Sales ~ Price * ShelveLoc, data = tbl_carseats)
+
+mod_int_shelf %>%
+  get_regression_table() %>%
+  select(term, estimate) %>%
+  gt() %>%
+  fmt_number(columns = estimate, decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_body(rows = str_detect(term, "ShelveLoc") &
+                                     !str_detect(term, ":"))) %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = str_detect(term, ":"))) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    paste0("Sales ~ Price × ShelveLoc  |  adj. R² = ",
+           round(summary(mod_int_shelf)$adj.r.squared, 3)),
+    subtitle = "Purple = ShelveLoc intercept shifts  |  Yellow = slope offsets (interaction terms, eq. 3)"
+  )
+```
+
+::: {.callout-caution collapse="true"}
+## Background: Reading the interaction table
+
+The table has **six rows** — two more than equation (2).
+The yellow rows are the interaction terms: slope offsets relative to Bad.
+
+**Reconstruct each group's line from the table:**
+
+```{r interaction-lines}
+#| echo: false
+b <- coef(mod_int_shelf)
+tibble(
+  `ShelveLoc group` = c("Bad (reference)", "Good", "Medium"),
+  `Intercept`       = c(round(b[1], 3),
+                        round(b[1] + b["ShelveLocGood"], 3),
+                        round(b[1] + b["ShelveLocMedium"], 3)),
+  `Price slope`     = c(round(b["Price"], 4),
+                        round(b["Price"] + b["Price:ShelveLocGood"], 4),
+                        round(b["Price"] + b["Price:ShelveLocMedium"], 4)),
+  `How computed`    = c(
+    "b₀  /  b₁",
+    "(b₀ + b_Good)  /  (b₁ + b_{Price:Good})",
+    "(b₀ + b_Medium)  /  (b₁ + b_{Price:Medium})"
+  )
+) %>%
+  gt() %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = 1)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Bad is the reference group — its values appear directly in b₀ and b₁")
+```
+
+The three Price slopes are
+`r round(b["Price"], 4)`,
+`r round(b["Price"] + b["Price:ShelveLocGood"], 4)`, and
+`r round(b["Price"] + b["Price:ShelveLocMedium"], 4)`.
+They differ by less than 0.005 — negligible.
+:::
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — interaction tables
+
+*"The table has 6 rows. None gives you the intercept or slope for Good or Medium
+directly — you always add the offset to the reference-group value."*
+
+*"Look at the slope offsets (yellow rows). They are tiny — less than 0.003.
+That is the formal answer to the visual impression: the slopes differ, but only marginally.
+Is that worth 2 extra parameters?"*
+:::
+
+### Occam's Razor: the simpler model wins
+
+```{r occam-comparison}
+bind_rows(
+  get_regression_summaries(mod_shelf) %>%
+    mutate(Model = "Parallel slopes: Sales ~ Price + ShelveLoc", k = 4),
+  get_regression_summaries(mod_int_shelf) %>%
+    mutate(Model = "Interaction:     Sales ~ Price × ShelveLoc", k = 6)
+) %>%
+  select(Model, k, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f0fff0"),
+            locations = cells_body(rows = 1)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Parallel slopes vs. interaction: adj. R² is the referee",
+    subtitle = "adj. R² penalises the 2 extra parameters of the interaction model"
+  )
+```
+
+:::{.callout-note}
+## Occam's Razor: prefer the simpler model when fit is equal
+
+> *"Under otherwise equal conditions, simpler models are preferable to complex ones."*
+
+adj. R² is **identical at 0.539** for both models (equations 2 and 3),
+yet the interaction model uses 2 extra parameters. Zero marginal benefit →
+equation (2), the parallel slopes model, wins.
+
+The near-parallel lines in `geom_smooth()` were not misleading —
+they reflected a genuine data property: the Price sensitivity is the same
+across shelf locations.
+
+See the background box below for a counter-example where interaction *is* warranted
+and adj. R² confirms it.
+:::
+
+### Eyeball test: with vs. without interaction term
+
+```{r eyeball-test}
+#| code-fold: true
+#| code-summary: "Show code: side-by-side comparison"
+#| fig-height: 4
+p_par <- tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.3, size = 1.5) +
+  geom_parallel_slopes(se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = col_shelf) +
+  labs(title    = "Without interaction term",
+       subtitle = "geom_parallel_slopes()",
+       x = "Price (USD)", y = "Sales (000 units)") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom")
+
+p_int <- tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales, color = ShelveLoc)) +
+  geom_point(alpha = 0.3, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = col_shelf) +
+  labs(title    = "With interaction term",
+       subtitle = "geom_smooth()",
+       x = "Price (USD)", y = "Sales (000 units)") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+
+(p_par + p_int) +
+  plot_annotation(
+    title    = "The two models look nearly identical — because adj. R² is identical",
+    subtitle = "Left: parallel slopes (eq. 2)  |  Right: interaction model (eq. 3)"
+  )
+```
+
+### The parallel slopes model: interpret and verify
+
+The model is already fitted above. Here we spell out what each coefficient means
+and verify that the predictions match the observed group means.
+
+**What each coefficient means:**
+
+```{r parallel-interp}
+#| echo: false
+b_s <- coef(mod_shelf)
+tibble(
+  Term           = names(b_s),
+  Estimate       = round(b_s, 4),
+  Interpretation = c(
+    paste0("Avg. Sales for a Bad-shelf store at Price = 0  (not meaningful here — see centering)"),
+    paste0("Price effect: +1 USD → ", round(b_s[2], 4),
+           " 000 units, holding ShelveLoc fixed — same for all three groups"),
+    paste0("Good vs. Bad shelf: +", round(b_s[3], 3),
+           " 000 units at any Price — parallel upward shift"),
+    paste0("Medium vs. Bad shelf: +", round(b_s[4], 3),
+           " 000 units at any Price — parallel upward shift")
+  )
+) %>%
+  gt() %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_body(rows = str_detect(Term, "ShelveLoc"))) %>%
+  tab_options(table.font.size = "13px")
+```
+
+**Verify: predicted means match observed means**
+
+```{r parallel-verify}
+#| code-fold: false
+b_s <- coef(mod_shelf)
+mp  <- mean(tbl_carseats$Price)
+
+cat("Predicted Sales at mean Price (", round(mp, 1), " USD):\n")
+cat("  Bad:   ", round(b_s[1] + b_s[2] * mp, 2), "\n")
+cat("  Good:  ", round(b_s[1] + b_s[2] * mp + b_s[3], 2), "\n")
+cat("  Medium:", round(b_s[1] + b_s[2] * mp + b_s[4], 2), "\n\n")
+cat("Observed mean Sales:\n")
+tbl_carseats %>%
+  group_by(ShelveLoc) %>%
+  summarise(mean_sales = round(mean(Sales), 2)) %>%
+  print()
+```
+
+The Carseats data give a clear verdict: parallel slopes.
+But the same procedure on a different dataset can yield the opposite answer.
+The background box below shows exactly that case.
+
+::: {.callout-caution collapse="true"}
+## Background: When interaction IS warranted — UT Austin (moderndive Ch. 6)
+
+The moderndive textbook (`evals` dataset, $n = 463$) shows the opposite case:
+here the interaction *is* justified.
+
+```{r ut-austin}
+#| message: false
+evals_ch6 <- evals %>% select(score, age, gender)
+
+mod_ut_par <- lm(score ~ age + gender,  data = evals_ch6)
+mod_ut_int <- lm(score ~ age * gender,  data = evals_ch6)
+
+bind_rows(
+  get_regression_summaries(mod_ut_par) %>%
+    mutate(Model = "Parallel slopes: score ~ age + gender", k = 3),
+  get_regression_summaries(mod_ut_int) %>%
+    mutate(Model = "Interaction:     score ~ age × gender", k = 4)
+) %>%
+  select(Model, k, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 3) %>%
+  tab_style(style = cell_fill(color = "#f0fff0"),
+            locations = cells_body(rows = 2)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("UT Austin: interaction IS warranted",
+             subtitle = "adj. R² rises 0.035 → 0.045 (+29% relative) with 1 extra parameter")
+```
+
+```{r ut-austin-viz}
+#| fig-height: 3.5
+p_ut_int <- evals_ch6 %>%
+  ggplot(aes(x = age, y = score, color = gender)) +
+  geom_point(alpha = 0.3, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = c("female" = "#D50006", "male" = "#502479")) +
+  labs(title = "Interaction model",
+       subtitle = "Lines cross (X-pattern) — different slopes justified",
+       x = "Age", y = "Score") +
+  theme_minimal(base_size = 9) + theme(legend.position = "bottom")
+
+p_ut_par <- evals_ch6 %>%
+  ggplot(aes(x = age, y = score, color = gender)) +
+  geom_point(alpha = 0.3, size = 1.5) +
+  geom_parallel_slopes(se = FALSE, linewidth = 1.1) +
+  scale_color_manual(values = c("female" = "#D50006", "male" = "#502479")) +
+  labs(title = "Parallel slopes model",
+       subtitle = "Forced equal slopes — misses the X-pattern",
+       x = "Age", y = "Score") +
+  theme_minimal(base_size = 9) + theme(legend.position = "bottom")
+
+(p_ut_int + p_ut_par) +
+  plot_annotation(
+    title    = "Same procedure — different data answer",
+    subtitle = "UT Austin: lines cross visually AND adj. R² improves → interaction warranted"
+  )
+```
+
+| | Carseats (ShelveLoc) | UT Austin (gender) |
+|--|--|--|
+| Visual | Nearly parallel | Clear X-pattern |
+| adj. R² gain | 0.000 | +0.010 (+29% rel.) |
+| **Verdict** | **Parallel slopes** | **Interaction** |
+
+**The procedure is identical — the data decide.**
+:::
+
+### ShelveLoc as a confounding variable
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — confounding
+
+*"`ShelveLoc` is a **confounding variable**: it correlates with Price
+(prime shelf locations support higher prices) AND with Sales
+(better placement drives more units).
+Without it in the model, the Price coefficient was biased — **Omitted Variable Bias**."*
+
+*"Adding `ShelveLoc` as a **control variable** lets us read the Price effect
+within comparable stores (same shelf location).
+That is ceteris paribus — and it is why the Price coefficient changes
+when we add ShelveLoc. We will quantify this in the Model Quality section."*
+:::
+
+---
+
+## Case B: Adding a Second Numeric Regressor: `Advertising`
+
+This section covers **Case B** from the overview table: two numeric regressors
+(`Price` and `Advertising`). The key difference from Case A: with two numeric
+variables, OLS no longer fits a line — it fits a **plane** in three-dimensional
+space, and the ceteris-paribus interpretation becomes directly visible in the geometry.
+
+`ShelveLoc` already jumped adj. R² from 0.15 to 0.54.
+Can `Advertising` add anything on top?
+Adding a second numeric regressor also changes the geometry:
+where `Price + ShelveLoc` gave parallel lines, `Price + Advertising` gives a **plane**.
+
+### From parallel lines to a plane in 3D
+
+```{r viz-3d}
+#| fig-height: 5
+price_grid <- seq(min(tbl_carseats$Price),       max(tbl_carseats$Price),       length.out = 30)
+adv_grid   <- seq(min(tbl_carseats$Advertising), max(tbl_carseats$Advertising), length.out = 30)
+
+# plotly add_surface expects z[i,j] = f(y_grid[i], x_grid[j])
+# outer() produces z[i,j] = f(x_grid[i], y_grid[j]) → transpose needed
+z_mat <- outer(price_grid, adv_grid,
+               function(p, a) coef(mod_adv)[1] +
+                               coef(mod_adv)[2] * p +
+                               coef(mod_adv)[3] * a)
+
+plot_ly() %>%
+  add_trace(
+    data   = tbl_carseats,
+    x = ~Price, y = ~Advertising, z = ~Sales,
+    type = "scatter3d", mode = "markers",
+    marker = list(size = 3, color = "#7d0a52", opacity = 0.6),
+    name = "Stores"
+  ) %>%
+  add_surface(
+    x = price_grid, y = adv_grid, z = t(z_mat),
+    colorscale = list(c(0,"#f5f0fa"), c(0.5,"#7d0a52"), c(1,"#502479")),
+    opacity = 0.55, showscale = FALSE,
+    name = "Regression plane"
+  ) %>%
+  layout(
+    title = list(
+      text = "Sales ~ Price + Advertising: the regression plane",
+      font = list(size = 13)
+    ),
+    scene = list(
+      xaxis  = list(title = "Price (USD)"),
+      yaxis  = list(title = "Advertising (USD 000)"),
+      zaxis  = list(title = "Sales (000 units)"),
+      camera = list(eye = list(x = 1.8, y = -1.5, z = 0.9))
+    )
+  )
+```
+
+:::{.callout-note}
+## What the 3D plot shows
+
+**Simple regression** ($k=1$): OLS fits a **line** — residual = vertical distance to line.
+
+**Two numeric regressors** ($k=2$): OLS fits a **plane** — residual = vertical distance to plane.
+
+**Partial effect from geometry:** $b_1$ is the slope of the plane *along the Price axis*
+while the Advertising axis is held fixed. Tilt the plot — that is ceteris paribus made visible.
+
+**Adding ShelveLoc** (categorical): instead of one plane,
+OLS fits **parallel planes** (one per group, same slope) — exactly what we just estimated.
+With an interaction term, the planes would be **tilted** relative to each other.
+
+**$k > 2$ regressors:** geometrically unplottable, but
+$\mathbf{b} = (\mathbf{X}'\mathbf{X})^{-1}\mathbf{X}'\mathbf{y}$
+and the partial-derivative interpretation remain identical.
+:::
+
+### Fit and interpret
+
+```{r two-numeric-fit}
+#| code-fold: false
+mod_adv %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci),
+             decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f0fff8"),
+            locations = cells_body(rows = term == "Advertising")) %>%
+  tab_style(style = cell_fill(color = "#fff0f0"),
+            locations = cells_body(rows = term == "Price")) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(paste0("Sales ~ Price + Advertising  |  R² = ",
+                    round(summary(mod_adv)$r.squared, 3),
+                    "  |  adj. R² = ",
+                    round(summary(mod_adv)$adj.r.squared, 3)))
+```
+### Centering: making the intercept meaningful
+
+$b_0 = $ `r round(coef(mod_adv)[1], 2)` is the predicted Sales when
+Price = 0 *and* Advertising = 0 — both outside the observed range.
+**Mean centering** replaces $x_j$ with $x_j^c = x_j - \bar{x}_j$:
+then $b_0^c$ is the predicted Sales for a store with **average Price and
+average Advertising** — a meaningful quantity.
+
+```{r centering}
+#| code-fold: false
+tbl_c <- tbl_carseats %>%
+  mutate(Price_c       = Price       - mean(Price),
+         Advertising_c = Advertising - mean(Advertising))
+
+mod_adv_c <- lm(Sales ~ Price_c + Advertising_c, data = tbl_c)
+
+bind_rows(
+  tidy(mod_adv)   %>% mutate(Model = "Original"),
+  tidy(mod_adv_c) %>% mutate(Model = "Mean-centred")
+) %>%
+  select(Model, term, estimate) %>%
+  pivot_wider(names_from = Model, values_from = estimate) %>%
+  gt() %>%
+  fmt_number(columns = c(Original, `Mean-centred`), decimals = 4) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Centering: intercept changes, slopes unchanged",
+    subtitle = paste0(
+      "Centred intercept = predicted Sales at mean Price (",
+      round(mean(tbl_carseats$Price), 1), " USD) and mean Advertising (",
+      round(mean(tbl_carseats$Advertising), 1), " USD 000)")
+  )
+```
+
+:::{.callout-note}
+## What centering does and does not change
+
+**Changes:** $b_0^c$ is now the predicted outcome at the mean of all regressors —
+a meaningful number: *"A store with average price and average advertising
+is expected to sell `r round(coef(mod_adv_c)[1], 2)` thousand units."*
+
+**Does not change:** slopes $b_1, b_2$, R², residuals, fitted values.
+Centering is a reparametrisation, not a different model.
+Use it whenever $x = 0$ is not in the observed range.
+:::
+
+### Simpson's Paradox — when aggregate trends mislead
+
+Adding a second numeric regressor can reverse the sign of a coefficient.
+This is Simpson's Paradox: a trend visible in the aggregate disappears or reverses
+when a third variable is controlled for.
+
+```{r simpson-viz}
+#| fig-height: 3.8
+# Simple bivariate plots
+p_price <- tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales)) +
+  geom_point(alpha = 0.3, color = "#7d0a52", size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#D50006", linewidth = 1.1) +
+  annotate("text", x = 70, y = 15,
+           label = paste0("b₁ = ", round(coef(mod_baseline)["Price"], 3)),
+           color = "#D50006", size = 3.5, hjust = 0) +
+  labs(title = "Price vs. Sales (bivariate)",
+       x = "Price (USD)", y = "Sales") +
+  theme_minimal(base_size = 9)
+
+p_adv_simple <- tbl_carseats %>%
+  ggplot(aes(x = Advertising, y = Sales)) +
+  geom_point(alpha = 0.3, color = "#7d0a52", size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#502479", linewidth = 1.1) +
+  annotate("text", x = 1, y = 15,
+           label = paste0("b₁ = +", round(coef(lm(Sales~Advertising,tbl_carseats))["Advertising"], 3)),
+           color = "#502479", size = 3.5, hjust = 0) +
+  labs(title = "Advertising vs. Sales (bivariate)",
+       x = "Advertising (USD 000)", y = "Sales") +
+  theme_minimal(base_size = 9)
+
+(p_price + p_adv_simple) +
+  plot_annotation(
+    title    = "Bivariate picture — each variable in isolation",
+    subtitle = "Both relationships look straightforward here"
+  )
+```
+
+```{r simpson-binned}
+#| fig-height: 3.8
+# ntile() avoids non-unique breaks caused by Advertising's many zero values
+tbl_carseats %>%
+  mutate(adv_q = factor(ntile(Advertising, 4),
+                        labels = c("Q1 (low)", "Q2", "Q3", "Q4 (high)"))) %>%
+  ggplot(aes(x = Price, y = Sales, color = adv_q)) +
+  geom_point(alpha = 0.35, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.0) +
+  scale_color_manual(values = c("Q1 (low)" = "#D50006",
+                                "Q2"       = "#7d0a52",
+                                "Q3"       = "#502479",
+                                "Q4 (high)"= "#686868")) +
+  labs(
+    title    = "Price vs. Sales — disaggregated by Advertising quartile",
+    subtitle = paste0(
+      "Within each quartile: same negative Price slope  |  ",
+      "Gap between lines = partial effect of Advertising  |  ",
+      "Parallel ≈ no interaction (confirms adj. R² finding)"),
+    x = "Price (USD)", y = "Sales (000 units)",
+    color = "Advertising quartile"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+:::{.callout-note}
+## Simpson's Paradox in the multiple regression context
+
+When two regressors are correlated, the bivariate slope of one variable can differ
+substantially from its partial slope in the multiple model.
+
+**In Carseats:** Price and Advertising are only weakly correlated
+(`r round(cor(tbl_carseats$Price, tbl_carseats$Advertising), 3)`),
+so the sign reversal that characterises strong Simpson cases does not occur here.
+The slopes within each Advertising quartile are nearly parallel — confirming the
+parallel-slopes model and the absence of a meaningful interaction.
+
+**The classic Simpson case** (moderndive Ch. 6, Credit data): Income has a *positive*
+bivariate relationship with credit card debt, but a *negative* partial slope once
+credit limit is controlled for — a full sign reversal caused by a strong confounder.
+The background box below shows the full story.
+:::
+
+::: {.callout-caution collapse="true"}
+## Background: Simpson's Paradox — the credit card example (moderndive Ch. 6)
+
+```{r credit-setup}
+#| message: false
+credit_ch6 <- Credit %>%
+  as_tibble() %>%
+  select(debt         = Balance,
+         credit_limit = Limit,
+         income       = Income)
+```
+
+```{r credit-bivariate}
+#| fig-height: 3.5
+p_c1 <- credit_ch6 %>%
+  ggplot(aes(x = credit_limit, y = debt)) +
+  geom_point(alpha = 0.3, color = "#7d0a52", size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#D50006", linewidth = 1.1) +
+  labs(title = "Debt ~ Credit limit",
+       subtitle = paste0("b = +",
+         round(coef(lm(debt ~ credit_limit, credit_ch6))["credit_limit"], 3)),
+       x = "Credit limit (USD)", y = "Debt (USD)") +
+  theme_minimal(base_size = 9)
+
+p_c2 <- credit_ch6 %>%
+  ggplot(aes(x = income, y = debt)) +
+  geom_point(alpha = 0.3, color = "#7d0a52", size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#502479", linewidth = 1.1) +
+  labs(title = "Debt ~ Income (bivariate)",
+       subtitle = paste0("b = +",
+         round(coef(lm(debt ~ income, credit_ch6))["income"], 3),
+         "  ← POSITIVE"),
+       x = "Income (USD 000)", y = "Debt (USD)") +
+  theme_minimal(base_size = 9)
+
+p_c1 + p_c2
+```
+
+```{r credit-simpson}
+#| fig-height: 3.5
+# Disaggregate by credit_limit quartile to reveal Simpson
+credit_ch6 %>%
+  mutate(limit_q = cut(
+    credit_limit,
+    breaks = quantile(credit_limit, probs = c(0,.25,.5,.75,1), na.rm = TRUE),
+    labels = c("Q1 low", "Q2", "Q3", "Q4 high"),
+    include.lowest = TRUE
+  )) %>%
+  ggplot(aes(x = income, y = debt, color = limit_q)) +
+  geom_point(alpha = 0.3, size = 1.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.0) +
+  scale_color_manual(values = c("Q1 low"  = "#D50006",
+                                "Q2"      = "#7d0a52",
+                                "Q3"      = "#502479",
+                                "Q4 high" = "#686868")) +
+  labs(
+    title    = "Debt ~ Income — disaggregated by credit limit quartile",
+    subtitle = "Within each quartile: NEGATIVE slope — sign reversal vs. bivariate",
+    x = "Income (USD 000)", y = "Debt (USD)",
+    color = "Credit limit"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom")
+```
+
+```{r credit-model}
+debt_model <- lm(debt ~ credit_limit + income, data = credit_ch6)
+
+debt_model %>%
+  get_regression_table() %>%
+  select(term, estimate) %>%
+  gt() %>%
+  fmt_number(columns = estimate, decimals = 3) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Multiple model: income slope reverses sign",
+    subtitle = paste0(
+      "Bivariate: b_income = +",
+      round(coef(lm(debt~income,credit_ch6))["income"], 3),
+      "  |  Multiple (controlling for limit): b_income = ",
+      round(coef(debt_model)["income"], 3))
+  )
+```
+
+**What happened:** credit limit is a confounding variable — it correlates
+strongly with both income ($r \approx 0.79$) and debt. Within each credit-limit group,
+higher income is associated with *lower* debt. The aggregate positive slope
+was entirely driven by the confound: high-income people also have high credit limits
+which enables more debt.
+
+**Lesson:** In any multiple regression, always ask *"what is being controlled for?"*
+The partial slope can differ dramatically from the bivariate slope —
+and sometimes reverses sign completely.
+:::
+
+---
+
+## The Full Model: Price + Advertising + ShelveLoc
+
+Combining both insights:
+
+$$\widehat{\text{Sales}}_i = b_0 + b_1 \cdot \text{Price}_i
+  + b_2 \cdot \text{Advertising}_i
+  + b_3 \cdot \mathbf{1}_{\text{Good}}
+  + b_4 \cdot \mathbf{1}_{\text{Medium}}$$
+
+```{r full-model}
+#| code-fold: false
+mod_full %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci),
+             decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f5f0fa"),
+            locations = cells_body(rows = str_detect(term, "ShelveLoc"))) %>%
+  tab_style(style = cell_fill(color = "#fff0f0"),
+            locations = cells_body(rows = term == "Price")) %>%
+  tab_style(style = cell_fill(color = "#f0fff8"),
+            locations = cells_body(rows = term == "Advertising")) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_header(
+    paste0("Sales ~ Price + Advertising + ShelveLoc  |  adj. R² = ",
+           round(summary(mod_full)$adj.r.squared, 3)),
+    subtitle = "Purple = ShelveLoc | Red = Price | Green = Advertising"
+  )
+```
+
+**Live computation — ceteris paribus:**
+
+```{r prediction}
+#| code-fold: false
+# Predicted Sales: Good shelf, Price = 120, Advertising = 10
+predict(mod_full,
+        newdata = data.frame(Price = 120, Advertising = 10, ShelveLoc = "Good"))
+
+# Manual — shows each term's contribution
+b <- coef(mod_full)
+b["(Intercept)"] +
+  b["Price"]          * 120 +
+  b["Advertising"]    * 10  +
+  b["ShelveLocGood"]  * 1
+```
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — live computation
+
+Type this live. Then vary:
+- `ShelveLoc = "Bad"` → *how much does the shelf-location shift cost?*
+- `Advertising = 0` → *how much of the prediction came from advertising?*
+
+This makes ceteris paribus tangible: change one input, hold all others fixed,
+see what happens.
+:::
+
+---
+
+## Model Quality and Selection
+
+### Systematic comparison
+
+```{r model-compare-full}
+bind_rows(
+  get_regression_summaries(mod_baseline)  %>% mutate(Model = "① Sales ~ Price",                     k = 2),
+  get_regression_summaries(mod_adv)       %>% mutate(Model = "② + Advertising",                     k = 3),
+  get_regression_summaries(mod_shelf)     %>% mutate(Model = "③ + ShelveLoc (parallel)",             k = 4),
+  get_regression_summaries(mod_full)      %>% mutate(Model = "④ + Advertising + ShelveLoc",          k = 5),
+  get_regression_summaries(mod_int_shelf) %>% mutate(Model = "⑤ + ShelveLoc × Price (interaction)", k = 6)
+) %>%
+  select(Model, k, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f0fff0"),
+            locations = cells_body(rows = 4)) %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = 5)) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Model comparison across all specifications",
+    subtitle = "Green = selected model ④ | Yellow = interaction (not warranted)"
+  ) %>%
+  tab_footnote("adj. R² penalises additional parameters — use it (not R²) to compare model sizes")
+```
+
+### Adjusted R²
+
+**R² always increases** when a regressor is added — even random noise marginally improves
+in-sample fit. **Adjusted R²** corrects for this:
+
+$$\bar{R}^2 = 1 - \frac{n-1}{n-k} \cdot (1 - R^2)$$
+
+where $k$ = number of parameters (including intercept).
+If a regressor adds less explanatory power than a random variable would on average,
+$\bar{R}^2$ decreases. Use $\bar{R}^2$ — not $R^2$ — when comparing models of different sizes.
+
+### OVB correction: the Price coefficient across specifications
+
+```{r ovb-table}
+tibble(
+  Model      = c("① Price only", "② + Advertising",
+                 "③ + ShelveLoc", "④ + Both", "⑤ Interaction"),
+  `b̂_Price`  = map_dbl(
+    list(mod_baseline, mod_adv, mod_shelf, mod_full, mod_int_shelf),
+    ~ coef(.x)["Price"]
+  ),
+  `adj. R²`  = map_dbl(
+    list(mod_baseline, mod_adv, mod_shelf, mod_full, mod_int_shelf),
+    ~ summary(.x)$adj.r.squared
+  )
+) %>%
+  mutate(`Δ from ①` = `b̂_Price` - coef(mod_baseline)["Price"]) %>%
+  gt() %>%
+  fmt_number(columns = c(`b̂_Price`, `adj. R²`, `Δ from ①`), decimals = 4) %>%
+  tab_style(
+    style = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = abs(`Δ from ①`) > 0.005)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "OVB correction: b̂_Price moves when ShelveLoc is controlled",
+    subtitle = "Adding Advertising barely changes b̂_Price — ShelveLoc is the confounder"
+  )
+```
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — OVB moment
+
+*"The Price coefficient in model ① is `r round(coef(mod_baseline)["Price"], 3)`.
+After controlling for ShelveLoc it becomes `r round(coef(mod_shelf)["Price"], 3)`.
+Why more negative?"*
+
+*"Good-shelf stores can charge higher prices AND sell more.
+Without ShelveLoc, that positive association leaks into the Price coefficient
+and makes it look less negative than it truly is.
+That is Omitted Variable Bias — and we just corrected it."*
+:::
+
+### Forward specification — best practice
+
+| Strategy | Procedure | Risk |
+|----------|-----------|------|
+| **Forward** | Start minimal, add theory-grounded variables | Transparent; easy to miss confounders |
+| **Backward** | Start full, remove stepwise | Nothing missed; temptation to data-mine |
+
+For this course: **forward, theory-grounded**.
+Automated `step()` optimises in-sample fit and inflates false discovery rates —
+that is the **p-hacking problem** introduced in PVA2.
+
+---
+
+## Underfitting vs. Overfitting
+
+```{r fit-progression}
+#| fig-height: 3.5
+fit_df <- bind_rows(
+  get_regression_summaries(mod_baseline)  %>% mutate(k = 2, label = "① Price"),
+  get_regression_summaries(mod_adv)       %>% mutate(k = 3, label = "② +Adv"),
+  get_regression_summaries(mod_shelf)     %>% mutate(k = 4, label = "③ +Shelf"),
+  get_regression_summaries(mod_full)      %>% mutate(k = 5, label = "④ Both"),
+  get_regression_summaries(mod_int_shelf) %>% mutate(k = 6, label = "⑤ +Inter")
+)
+
+p_r2 <- fit_df %>%
+  pivot_longer(c(r_squared, adj_r_squared),
+               names_to = "metric", values_to = "val") %>%
+  ggplot(aes(x = k, y = val, color = metric, group = metric)) +
+  geom_line(linewidth = 1.1) + geom_point(size = 3) +
+  scale_color_manual(values = c("r_squared"     = "#D50006",
+                                "adj_r_squared" = "#502479"),
+                     labels = c("R²", "adj. R²")) +
+  scale_x_continuous(breaks = c(2,3,4,5,6), labels = fit_df$label) +
+  labs(title = "R² vs. adj. R²", x = NULL, y = NULL, color = NULL) +
+  theme_minimal(base_size = 9) +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1),
+        legend.position = "bottom")
+
+p_rmse <- fit_df %>%
+  ggplot(aes(x = k, y = rmse)) +
+  geom_line(color = "#7d0a52", linewidth = 1.1) +
+  geom_point(color = "#7d0a52", size = 3) +
+  scale_x_continuous(breaks = c(2,3,4,5,6), labels = fit_df$label) +
+  labs(title = "In-sample RMSE (000 units)", x = NULL, y = NULL) +
+  theme_minimal(base_size = 9) +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+
+(p_r2 + p_rmse) +
+  plot_annotation(
+    title    = "Underfitting → Adequate fit → Overfitting risk",
+    subtitle = "R² always rises | adj. R² penalises complexity | RMSE alone insufficient without out-of-sample data"
+  )
+```
+
+:::{.callout-important}
+## The fundamental tension
+
+**Underfitting** (models ①–②): Too simple — misses real patterns.
+Symptom: low adj. R², systematic residual patterns.
+
+**Adequate fit** (model ④): Captures the main variation with interpretable,
+theory-grounded predictors and justified modelling assumptions.
+
+**Overfitting risk** (model ⑤): Adds complexity without improving adj. R².
+In-sample fit looks fine; performance on new data degrades.
+
+**Today we only see in-sample fit** — diagnosing overfitting requires
+new data or cross-validation (ER017).
+
+> *"Discovery without overfit. The challenge of data science is to find real
+> patterns — not to memorize the noise in your sample."*
+> — @taddy_business_2019, p. 8
+:::
+
+---
+
+## Residual Diagnostics
+
+```{r resid-3way}
+#| fig-height: 4
+pts_base <- augment(mod_baseline, data = tbl_carseats)
+pts_adv2 <- augment(mod_adv,      data = tbl_carseats)
+pts_full <- augment(mod_full,      data = tbl_carseats)
+
+mk <- function(pts, title, r2) {
+  pts %>%
+    ggplot(aes(.fitted, .resid, color = ShelveLoc)) +
+    geom_point(alpha = 0.4, size = 1.3) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "#333") +
+    geom_smooth(aes(group = 1), method = "loess", se = FALSE,
+                color = "black", linewidth = 0.9) +
+    scale_color_manual(values = col_shelf_resid,
+                       guide = "none") +
+    labs(title    = title,
+         subtitle = paste0("adj. R² = ", round(r2, 3)),
+         x = "Fitted", y = "Residual") +
+    theme_minimal(base_size = 9)
+}
+
+(mk(pts_base, "① Price only",         summary(mod_baseline)$adj.r.squared) +
+ mk(pts_adv2, "② + Advertising",      summary(mod_adv)$adj.r.squared)      +
+ mk(pts_full, "④ + Adv + ShelveLoc",  summary(mod_full)$adj.r.squared)) +
+  plot_annotation(
+    title    = "Residual diagnostics — descriptive purpose: misspecification detection",
+    subtitle = paste0(
+      "Signal 1: LOESS not flat → systematic omission  |  ",
+      "Signal 2: colour clusters → confound not controlled")
+  )
+```
+
+:::{.callout-note}
+## How to read these plots — two diagnostic signals
+
+**Signal 1 — LOESS trend:**
+A flat black line at zero = no systematic pattern remaining.
+A curved line = the model misses a systematic relationship.
+
+**Signal 2 — colour clustering:**
+Colours randomly mixed = the coloured variable is controlled for.
+Colours clustered (purple above, red below) = the variable belongs in the model.
+
+**① Price only:** LOESS bends; purple above zero, red below →
+ShelveLoc confounds, systematic omission.
+
+**② + Advertising:** LOESS flatter but not flat; colour separation persists →
+ShelveLoc still missing.
+
+**④ + Adv + ShelveLoc:** LOESS approximately flat; colours randomly mixed ✅ →
+main systematic variation absorbed. Remaining scatter:
+random noise + variables outside the dataset.
+
+**What these plots do NOT check** in the descriptive setting:
+normality and homoskedasticity — those are needed for inference (PVA2),
+not for the descriptive conditional mean.
+:::
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — pointing out the signals
+
+Students scan the plots globally and often miss the two specific signals.
+Point explicitly:
+
+*"In plot ①, where are the purple dots? Above zero.
+Where are the red ones? Below zero. That is not random —
+ShelveLoc systematically shifts the residuals."*
+
+*"In plot ④, the colour separation is gone.
+The model now accounts for shelf location — the residual is a cleaner signal."*
+:::
+
+---
+
+## Multicollinearity
+
+```{r vif-check}
+#| code-fold: false
+vif(mod_full)
+```
+
+```{r corr-matrix}
+tbl_carseats %>%
+  select(Price, Advertising, Income, Age, Population) %>%
+  cor() %>% round(3) %>%
+  as.data.frame() %>% rownames_to_column("Variable") %>%
+  gt() %>%
+  fmt_number(columns = -Variable, decimals = 3) %>%
+  tab_options(table.font.size = "12px") %>%
+  tab_header("Correlation matrix — numeric regressors")
+```
+
+:::{.callout-note}
+## Multicollinearity: descriptive vs. inferential impact
+
+| | Descriptive (today) | Stochastic / inference (PVA2) |
+|-|---|---|
+| **Fitted values $\hat{y}_i$** | Unaffected | Unaffected |
+| **Individual coefficients** | Partial effects unreliable when regressors correlated | Unbiased but high variance → wide CIs |
+| **Diagnosis** | Correlation matrix, VIF | VIF, condition number |
+| **Threshold** | \|r\| > 0.8 between regressors: caution | VIF > 5: problematic |
+
+For model ④: all VIFs are low — no multicollinearity concern.
+:::
+
+---
+
+## Performance Scores → Bridge to Lab 3
+
+```{r performance}
+#| code-fold: false
+store_scored <- mod_full %>%
+  get_regression_points() %>%
+  mutate(performance_gap = residual) %>%
+  arrange(performance_gap)
+
+store_scored %>%
+  head(5) %>%
+  select(ID, Sales, Sales_hat, residual) %>%
+  gt() %>%
+  fmt_number(columns = c(Sales, Sales_hat, residual), decimals = 2) %>%
+  tab_style(style = cell_fill(color = "#fff0f0"), locations = cells_body()) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header("Top 5 Underperformers — strongest negative residuals")
+```
+
+```{r perf-viz}
+store_scored %>%
+  ggplot(aes(x = Sales_hat, y = performance_gap,
+             color = performance_gap < -2)) +
+  geom_point(alpha = 0.6, size = 1.8) +
+  geom_hline(yintercept = 0, color = "#D50006",
+             linewidth = 1.1, linetype = "dashed") +
+  geom_hline(yintercept = c(-2, 2), color = "#686868",
+             linewidth = 0.5, linetype = "dotted") +
+  scale_color_manual(values  = c("FALSE" = "#b3b2b2", "TRUE" = "#D50006"),
+                     labels  = c("Normal", "Underperformer")) +
+  labs(title    = "Performance score: residuals from model ④",
+       subtitle = "Price- / Advertising- / ShelveLoc-adjusted underperformance",
+       x = "Fitted Sales (000 units)",
+       y = "Performance gap (residual)",
+       color = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+:::{.callout-tip}
+## `r fontawesome::fa("chalkboard-teacher")` Instructor note — handover to Lab 3
+
+*"This is the output of the demo: a performance score for every store,
+adjusted for price, advertising budget, and shelf location.
+A store with a strongly negative residual sells less than comparable stores
+under the same conditions — that is the underperformer signal."*
+
+*"In Lab 3 you will rank these stores, look at their characteristics,
+and write the Managerial Memo. Open `PVA1_Lab3_PerformanceMining.qmd`."*
+:::
+
+---
+
+## What We Learned: Four Models at a Glance
+
+Now that we have worked through each model step by step,
+here is the comparison that motivated the sequence:
+
+```{r orientation-table}
+bind_rows(
+  get_regression_summaries(mod_adv)       %>% mutate(Model = "Price + Advertising",       k = 3),
+  get_regression_summaries(mod_int_adv)   %>% mutate(Model = "Price × Advertising",       k = 4),
+  get_regression_summaries(mod_shelf)     %>% mutate(Model = "Price + ShelveLoc",          k = 4),
+  get_regression_summaries(mod_int_shelf) %>% mutate(Model = "Price × ShelveLoc",          k = 6)
+) %>%
+  select(Model, k, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 3) %>%
+  tab_style(style = cell_fill(color = "#f0fff0"),
+            locations = cells_body(rows = str_detect(Model, "ShelveLoc"))) %>%
+  tab_style(style = cell_fill(color = "#fff0f0"),
+            locations = cells_body(rows = str_detect(Model, "Advertising"))) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    "Four two-variable models — why we started with ShelveLoc",
+    subtitle = paste0(
+      "Green = ShelveLoc (adj. R² ≈ 0.54)  |  ",
+      "Red = Advertising (adj. R² ≈ 0.28)  |  ",
+      "Interaction adds nothing in either case")
+  )
+```
+
+:::{.callout-note}
+## The numbers explain the sequence
+
+**ShelveLoc** alone explains nearly twice as much variance as Advertising —
+and adding an interaction term changes nothing (adj. R² identical at 0.539).
+That is why we started with ShelveLoc and chose the parallel-slopes model:
+the data guided the decision, not convention.
+
+**Advertising** still adds real signal on top of ShelveLoc
+(adj. R² rises from 0.539 to ~0.54 in the full model) — small but consistent.
+:::
+
+---
+
+## Summary
+
+```{r final-summary}
+#| echo: false
+bind_rows(
+  get_regression_summaries(mod_baseline) %>% mutate(Model = "① Sales ~ Price"),
+  get_regression_summaries(mod_shelf)    %>% mutate(Model = "② + ShelveLoc (parallel)"),
+  get_regression_summaries(mod_full)     %>% mutate(Model = "③ + Advertising + ShelveLoc  ← selected")
+) %>%
+  select(Model, r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse), decimals = 4) %>%
+  tab_style(style = cell_fill(color = "#f0fff0"), locations = cells_body(rows = 3)) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important}
+## Key concepts established in this demo
+
+1. **Descriptive Regression Notation:** $b_j$ / $e_i$ (descriptive) — distinguished from $\hat\beta_j$ / $\varepsilon_i$ (stochastic, Session 3)
+
+2. **Orientation table first:** empirical adj. R² comparison guides model-building sequence before any individual coefficient is examined
+
+3. **`geom_smooth()` reveals the interaction model** implicitly — always check whether non-parallel slopes are warranted
+
+4. **Occam's Razor operationalised by adj. R²:** Carseats → parallel slopes (adj. R² unchanged); UT Austin → interaction (adj. R² improves)
+
+5. **Geometry:** line (k=1) → plane (k=2 numeric) → parallel planes (+ categorical, no interaction) → tilted planes (+ interaction)
+
+6. **Partial effects** = partial derivatives = ceteris paribus — descriptive, not causal
+
+7. **Confounding and control variables:** ShelveLoc biases the Price coefficient; controlling for it corrects the OVB (visible numerically)
+
+8. **Centering:** makes $b_0$ meaningful as predicted outcome at mean $\mathbf{x}$
+
+9. **Simpson's Paradox:** aggregate slope can differ from or reverse the partial slope — always ask what is being controlled for
+
+10. **adj. R² for model comparison**, eyeball test (Occam), forward specification
+
+11. **Residual diagnostics (descriptive):** two signals — LOESS trend (misspecification) and colour clustering (uncontrolled confound)
+
+12. **Multicollinearity:** affects individual coefficients (not fitted values); VIF > 5 as warning threshold
+:::
+
+## References {.unnumbered}

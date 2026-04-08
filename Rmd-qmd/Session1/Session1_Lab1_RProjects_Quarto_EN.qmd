@@ -1,18 +1,28 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Line references are approximate; search for the marker text.
+
+  Line ~175  Step 1 Moodle link (R-Project_Template.zip)
+  Line 223: Step 1 Moodle link 
+  Line 580/583: A3 Moodle links 
+  Line ~928 ff.: A5 Setup Chunk
+
+============================================================ -->
 ---
-title: "Session 1 · Lab 1: R-Projects & Quarto"
-subtitle: "Project strcture, data import and first presentation"
+title: "Session 1 · Lab 1: R Projects & Quarto"
+subtitle: "Project Structure, Data Import, and First Presentation"
 author: "Prof. Dr. Jörg Schoder"
 date: today
-lang: en
+lang: en-US
 format:
   html:
     toc: true
     toc-depth: 3
-    toc-title: "Inhalt"
+    toc-title: "Contents"
     number-sections: false
     code-fold: true
     code-tools: true
-    code-summary: "Code anzeigen"
+    code-summary: "Show code"
     theme: cosmo
     css: ../../css/styles.css
     embed-resources: true
@@ -20,573 +30,916 @@ execute:
   echo: true
   message: false
   warning: false
+bibliography: ../../lit/my_bib.bib
 ---
 
-```{r}
-#| label: setup
+```{r setup}
 #| include: false
-library(tidyverse)
-library(fontawesome)
-library(openintro)
-library(gt)
+library(tidyverse)    # data wrangling & ggplot2
+library(fontawesome)  # fa() icons
+library(openintro)    # ames dataset
+library(gt)           # formatted tables
 data("ames", package = "openintro", envir = .GlobalEnv)
 ```
 
-## Lab 1 · Overview
+## Learning Objectives and Overview
 
-### Learning Objectives
+:::{.callout-note}
+## Learning Objectives
 
--  Create an r fa('r-project') project with a clean folder structure
-
-- Import data from packages and local files
-
-- Learn initial exploratory commands (dim(), head(), glimpse())
-
-- Create and render a Quarto presentation
-
-- Use inline r fa('r-project') code in Quarto
-
-### Today's Roadmap
-
-| Phase      | Inhalt                                |
-|------------|---------------------------------------|
-| 🔵 Concept | Projektstruktur & Datenimport         |
-| 🔵 Demo    | `ames` erkunden, Quarto & Inline-Code |
-| 🟡 Aufgabe | eigene Datensätze importieren         |
-| 🟢 Aufgabe | Quarto-Folien erstellen               |
-
-<br> ⏱️ **Dauer ca. 30 Minuten** · 👤 **Einzelarbeit**
-
-::: {.callout-note appearance="minimal"}
-**Voraussetzung:** `r fa('r-project')`, RStudio sowie die Pakete `tidyverse`, `openintro` und `gt` sind installiert.
+- **Set up** a reproducible R project with a clean folder structure
+- **Explain** why R Projects and relative paths are the foundation of
+  reproducible analysis, and demonstrate this by running code that works
+  on any machine
+- **Import** data from packages, local files, and URLs
+- **Explore** a new dataset with `dim()`, `head()`, and `glimpse()`
+- **Create and render** a Quarto presentation with inline R code
 :::
 
-## Schritt 1 — Template entpacken & umbenennen
+## 🧭 How to Navigate This Lab
 
-### Anleitung
+| Symbol | Box colour | Meaning | When to read |
+|--------|-----------|---------|--------------|
+| ⚠️ | <span style="color:#e02424">**Red — Action Required**</span> | Run code, answer questions | **Do this in the lab session** |
+| 💡 | <span style="color:#2f9e44">**Green — Best Practice / Tip**</span> | Coding tips, shortcuts | Skim in the lab |
+| 📚 | <span style="color:#1c7ed6">**Blue, collapsed — Background**</span> | Concepts, context | Read at home |
+| ℹ️ | <span style="color:#1c7ed6">**Blue, open — Note**</span> | Short clarifications | Read when you reach them |
 
-1.  Laden Sie `R-Project_Template.zip` herunter\
-    ([Moodle-link](https://moodle.ffhs.ch/pluginfile.php/5752746/mod_assign/introattachment/0/R-Project_Template.zip?forcedownload=1))
-2.  Entpacken Sie das Archiv
-3.  Benennen Sie den Ordner um in `ER014-PVA1_XY`\
-    **X** = Anfangsbuchstabe Nachname\
-    **Y** = Anfangsbuchstabe Vorname\
-    *(Beispiel: Maria Müller → `ER014-PVA1_MM`)*
-4.  Öffnen Sie den Ordner und prüfen Sie die Struktur
+**Normal text** and code chunks are the **main content** — work through them in order.
 
-::: {.callout-warning appearance="minimal"}
-Keine Leerzeichen und keine Sonderzeichen im Ordnernamen — das vermeidet Pfadprobleme unter allen Betriebssystemen!
+⏱ **30 minutes** for mandatory tasks (Steps 1–5 and the two ⚠️ tasks).
+Bonus tasks if time permits.
+
+::: {.callout-note}
+## ℹ️ Prerequisites
+
+`r fa('r-project')`, RStudio, and the packages `tidyverse`, `openintro`, `gt`,
+and `xfun` are installed.
 :::
 
-### Erwartete Ordnerstruktur
+---
 
-``` text
-ER014-PVA1_XY/
-├── data/
-│   ├── raw/        ← Rohdaten (nie verändern!)
-│   └── tidy/       ← bereinigte Daten (tidy-Format)
-├── R/              ← R-Skripte
-├── qmd/            ← Quarto-Dateien
-├── figs/           ← Diagramme (mit R selbst erstellt)
-├── img/            ← Bilddateien (aus web oder Grafikprogrammen)
-├── lit/            ← Literatur (pdfs etc.) und Bibliographie (.bib, .json etc.)
-└── README.md       ← Dokumentation Projekt (im Wurzelverzeichnis)
+## Icebreaker: Why Does This All Matter?
+
+### Scenario
+
+You are a data scientist at a car dealership group. A former colleague, Anna,
+had analysed a dataset of used car listings — `autos_(StockerUIBK)_20240414.csv`
+— to identify pricing patterns. The analysis was well received. Six months later
+your manager asks you to update it with a new data extract.
+
+You find Anna's folder on the shared drive and open her script. The first line reads:
+
+```r
+tbl_autos <- read_csv("C:/Users/Anna/Documents/Uni/autos.csv")
 ```
 
-💡 **Kernprinzip:** Rohdaten bleiben immer unverändert.\
-Alles andere lässt sich jederzeit aus den Rohdaten neu erzeugen.
+**Problem 1 — Path error.** Anna's absolute path does not exist on your machine.
+You search the shared drive for the original file. After twenty minutes you find
+a file called `autos.csv` in a folder called `final_FINAL_v3`. You are not sure
+whether it is the same version Anna used. You cannot tell when it was downloaded.
 
-## Schritt 2 — RStudio-Projekt anlegen
+You load the file anyway and scroll through the script. There are no comments.
+Variable names have been renamed mid-script without explanation. Two intermediate
+objects — `tbl_clean` and `tbl_model` — appear from nowhere. You eventually find
+what looks like the original import buried in a file called `test2.R` on Anna's
+desktop backup.
+
+**Problem 2 — No documentation, no structure.** The project was never designed
+to be handed over. There is no README, no folder convention, no record of which
+script produced which output. Anna's work is effectively lost — not because the
+analysis was wrong, but because it cannot be traced or reproduced.
+
+This is not an edge case. It is the default outcome when analysis workflows are
+not designed for reproducibility from the start.
+
+**Reproducibility** means that anyone — a colleague, a reviewer, your future self
+— can take your code and data and arrive at exactly the same results.
+**This matters in science (peer review, replication), in business (audit trails,
+handover), and in collaborative work (version control, onboarding).**
+
+The two problems Anna's project suffered from have direct solutions:
+
+| Problem | Solution | Where in this lab |
+|---------|----------|------------------|
+| Hard-coded paths break on other machines | R Projects + `xfun::from_root()` | Steps 1–2 |
+| No structure, no documentation | Folder convention + README files | Steps 1, 3.3 |
+| Import not reproducible | `DataImport.R` with date-stamped saves | Step 3 |
+| Results not replicable | Quarto — code and text in one document | Steps 4–5 |
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Reproducibility in Practice
+
+Data-driven organisations have invested heavily in reproducible workflows
+precisely because the cost of non-reproducibility is high.
+
+Airbnb's data science team publishes openly about their internal tooling.
+Their blog post
+[*"Scaling Knowledge at Airbnb"*](https://medium.com/airbnb-engineering/scaling-knowledge-at-airbnb-875d73eff091)
+describes the transition from ad-hoc analysis scripts to a system where
+every analytical result is traceable to code and data —
+a prerequisite for knowledge transfer at scale.
+
+The broader reproducibility crisis in science is well documented:
+@baker_1500_2016 found that over 70% of researchers had failed to reproduce
+another scientist's results, and more than 50% had failed to reproduce their
+own. The tools you learn in this lab — R Projects, version-controlled scripts,
+Quarto documents — are the practical infrastructure that makes reproducibility
+achievable.
+:::
+
+### CRISP-DM: A Process That Must Be Documented
+
+The analytics methodology used in this course is **CRISP-DM** (Cross-Industry
+Standard Process for Data Mining). It structures the analysis workflow into
+six phases:
+
+```{r crisp-context}
+#| echo: false
+
+tibble::tribble(
+  ~Phase, ~Name,                   ~Content,                                            ~Status,
+  "1",    "Business Understanding", "Goal: identify underperforming stores",             "Done (lecture)",
+  "2",    "Data Understanding",     "EDA: structure, quality, distributions, patterns",  "Lab 2",
+  "3",    "Data Preparation",       "Cleaning, encoding, feature engineering",           "Lab 3",
+  "4",    "Modelling",              "Regression model: Sales ~ Price + ...",             "Lab 3 + Demo",
+  "5",    "Evaluation",             "R², residuals, OVB check",                         "Demo + Lab 4",
+  "6",    "Deployment",             "Performance ranking, managerial memo",              "Lab 4"
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_header(
+    title    = "CRISP-DM: Six Phases of the Analytics Process",
+    subtitle = "Lab 1 builds the infrastructure for all six phases"
+  )
+```
+
+Each phase produces artefacts — cleaned datasets, model outputs, reports —
+that must be traceable and reproducible. **Lab 1 builds the infrastructure
+that makes this possible:** a clean project structure, reproducible import
+scripts, and Quarto documents that regenerate their outputs automatically.
+
+:::{.callout-important}
+## The Central Lesson
+
+Without reproducible infrastructure, the CRISP-DM process cannot be
+retraced, validated, or handed over.
+
+**R Projects + R Scripts + Quarto = reproducible, portable analysis.**
+
+Everything you set up in this lab will be used in Labs 2, 3, and 4.
+:::
+
+---
+
+## ⚠️ Setting Up Your R Project
+
+To build Anna's project correctly — and avoid the problems from the icebreaker —
+we follow a defined setup workflow. Here is the complete sequence before we start:
+
+| Step | Action | Result |
+|------|--------|--------|
+| **1** | Download template, unzip, rename folder | Project folder with correct structure |
+| **2** | Create RStudio Project from the folder | `.Rproj` file → portable paths |
+| **3** | `R/DataImport.R` — loads/saves to `data/raw/`; `data/raw/README.md` documents sources | `data/raw/` populated and documented |
+| **4** | Explore data with `dim()`, `head()`, `glimpse()` | First understanding of data structure |
+| **5** | Build a Quarto presentation | Reproducible, auto-updating output |
+
+---
+
+## Step 1 — Project Folder
+
+*Before R can do anything useful, the project needs a home — a folder with a
+predictable structure that works the same way on every machine.*
+
+:::{.callout-important icon=false}
+## ⚠️ A1: Create Your Project Folder
+
+1. Download `R-Project_Template.zip`\
+   ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752746/mod_assign/introattachment/0/R-Project_Template.zip?forcedownload=1))
+2. Unzip the archive
+3. Rename the folder to `ER114_Session1_XY`\
+   **X** = first letter of your last name, **Y** = first letter of your first name\
+   *(Example: Maria Müller → `ER014-Session1_MM`)*
+4. Open the folder and verify the structure matches the tree below
+
+:::{.callout-warning}
+No spaces or special characters in the folder name — this causes path problems
+on all operating systems!
+:::
+
+``` text
+ER114_Session1_XY/
+├── data/
+│   ├── raw/        ← Raw data (never modify!)
+│   └── tidy/       ← Cleaned data (tidy format)
+├── R/              ← R scripts
+├── qmd/            ← Quarto files
+├── figs/           ← Figures (created with R)
+├── img/            ← Image files
+├── lit/            ← Literature (PDFs, .bib files)
+└── README.md       ← Project documentation (root level)
+```
+
+✅ **Success criterion:** The folder exists with the subdirectories above.
+:::
+
+💡 **Core principle:** Raw data always remains unchanged.
+Everything else can be regenerated from raw data at any time.
+
+### Project Documentation with README Files — One Per Folder
+
+Every folder in the project contains a `README.md` — a plain text file that
+serves as the orientation document for that folder. The convention is simple:
+whenever you add files to a folder, update its README.
+
+| Folder | README contains |
+|--------|----------------|
+| `/` (project root) | Goals, team, milestones, data sources at a glance |
+| `data/raw/` | One row per file: source, date obtained, description |
+| `data/tidy/` | One row per file: what was transformed, reference to script |
+| `R/` | One row per script: purpose, inputs, outputs |
+| `qmd/` | One row per document: purpose, output format |
+
+The root `README.md` is the project's front page — it contains the big picture.
+The folder READMEs contain the operational detail. Together they make the project
+navigable without opening a single file.
+
+You do not need to write all READMEs today. Build them as you add content,
+starting with `data/raw/README.md` in Step 3.
+
+---
+
+## Step 2 — RStudio Project
+
+*The folder now exists. This step links it to RStudio — creating the `.Rproj`
+file that makes all paths in the project portable. This is the direct technical
+answer to Problem 1 from the icebreaker.*
+
+:::{.callout-important icon=false}
+## ⚠️ A2: Create an RStudio Project
 
 ::: panel-tabset
-### Anleitung
+### Task
 
-1.  Öffnen Sie RStudio 
-2.  **File → New Project → Existing Directory**
-3.  Navigieren Sie zu Ihrem Ordner `ER014-PVA1_XY`
-4.  Klicken Sie **Create Project**
-5.  RStudio startet neu — oben rechts erscheint der Projektname
+1. Open RStudio
+2. **File → New Project → Existing Directory**
+3. Navigate to your folder `ER114_Session1_XY`
+4. Click **Create Project**
+5. RStudio restarts
 
-✅ **Erfolgskriterium:** Der Projektname erscheint oben rechts in RStudio.
+### Check
 
-### Screenshot-Hinweis
-
-``` text
-┌─────────────────────────────────────────┐
-│ File  Edit  Code  View  ...             │
-├─────────────────────────────────────────┤
-│                    [ER014-PVA1_MM ▼]    │  ← Projektname
-│                                         │
-│  Environment  History  ...              │
-│  ─────────────────────────              │
-│                                         │
-└─────────────────────────────────────────┘
+When you click **Create Project**, RStudio loads the new project immediately.
+Compare the Screenshot below with your RStudio Window and check if all three indicators of a successful project creation are visible:
+```{r screenshot-rproject}
+#| echo: false
+#| fig-alt: "RStudio screenshot showing project name in title bar, R project logo top right, and .Rproj file in Files pane"
+#| out-width: "100%"
+knitr::include_graphics(xfun::from_root("img", "Session1", "Screenshot_RProject.png"))
 ```
 
-### Was passiert im Hintergrund?
+1. **Top left** — the window title reads `ER114_Session1_XY — RStudio`
+2. **Top right** — the `R` cube icon shows the project name `ER114_Session1_XY`
+3. **Bottom right (Files tab)** — `ER114_Session1_XY.Rproj` has appeared automatically
 
-RStudio legt eine `.Rproj`-Datei im Ordner an:
+✅ **Success criterion:** All three indicators are visible. If the top right still shows *Project: (None)*, the project was not created correctly — repeat Step 2.
+
+
+### What Happens in the Background?
+
+RStudio creates an `.Rproj` file in the project folder:
 
 ``` text
-ER014-PVA1_XY/
-├── ER014-PVA1_XY.Rproj   ← NEU
+ER114_Session1_XY/
+├── ER114_Session1_XY.Rproj   ← NEW
 ├── data/
-│   ├── raw/
-│   └── tidy/
 ...
 ```
 
-**Warum ist das wichtig?**
+When you open this file, RStudio sets the working directory to the project root
+automatically. Relative paths like `"data/raw/file.csv"` therefore work on
+**any computer** — without `setwd()`.
 
-Beim Öffnen der `.Rproj`-Datei setzt RStudio das Arbeitsverzeichnis automatisch auf diesen Ordner. Relative Pfade wie `"data/raw/datei.csv"` funktionieren dadurch auf **jedem Rechner** ohne `setwd()` — das ist die Grundlage für reproduzierbare Analysen.
+:::{.callout-note collapse="true"}
+## 📚 Background: What Is a Working Directory?
+
+The **working directory** is the folder R uses as its starting point when
+resolving file paths. Think of it as R's "current location" on your file system.
+
+```r
+getwd()   # show current working directory
+```
+
+Without an R Project, the working directory is wherever R happened to start —
+often the home folder or desktop. This is exactly what happened with Anna's
+script: `"C:/Users/Anna/Documents/Uni/autos.csv"` only works on Anna's machine.
+
+An `.Rproj` file fixes this: opening the project always sets the working directory
+to the project root. The file itself is plain text — it stores RStudio project
+settings and should be committed to version control so any collaborator gets the
+same setup automatically.
+:::
+:::
 :::
 
-## Schritt 3 — Daten importieren: Konzept
+---
 
-`r fa('r-project')` kann Daten aus vielen Quellen laden. Die wichtigsten Wege im Überblick:
+## Step 3 — Importing and Saving Data: `R/DataImport.R`
 
-### Weg 1: Daten aus einem Paket
+*Recall Problem 2 from the icebreaker: Anna had no structured import routine,
+no date-stamped file copies, no documentation of where the data came from.
+This step builds exactly that infrastructure.*
 
-Viele `r fa('r-project')`-Pakete liefern Datensätze direkt mit — **keine Datei nötig**.
+There are two fundamentally different ways data enters an R project —
+and they call for different handling. All import operations live in a single
+dedicated script that you build section by section as you work through this step.
 
-```{r}
-#| label: demo-import-paket
-# Paket laden
-library(openintro)
-# Datensatz ins globale Environment laden
+**First: create the script.** In the **Files tab** (bottom right), navigate
+to the `R/` folder of your project, then click **New Blank File → R Script**.
+The file opens already in the correct location — save it immediately as
+`DataImport.R`.
+
+:::{.callout-tip}
+## 💡 Alternative: RStudio Menu Bar
+
+You can also create the file via **File → New File → R Script** in the
+RStudio menu bar. This requires an extra step: when saving (e.g. with **Ctrl+S**),
+navigate manually to the `R/` subfolder of your current R-Project before confirming. If you skip this,
+`DataImport.R` lands in the project root instead of `R/` — not wrong, but
+inconsistent with the folder convention from Step 1.
+:::
+
+**All import and save operations** go into this dedicated R-script `DataImport.R`. This makes it possible to rerun the complete data acquisition from scratch.
+The source and provenance of each dataset are documented in `data/raw/README.md`
+— not in the script itself.
+
+:::{.callout-tip}
+## 💡 Installing ≠ Loading
+
+`install.packages()` downloads the package **once** from the internet.\
+`library()` activates it for the **current session** — repeat after every restart.\
+`install.packages()` does **not** belong in a script — only run it in the console.
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Why Code, Not Clicks? R vs. SPSS
+
+Many students in this course are familiar with **SPSS**, where data import happens
+through menus and dialog boxes. This feels intuitive — but leaves no record.
+Reproducing the analysis means remembering every click in the right order.
+
+In R, every operation is a line of code in `DataImport.R`. Running it again
+on a new machine, with updated data, or six months later — always produces
+the same result. This reproducibility is one of the core reasons why R
+and Python have replaced SPSS in most professional data science settings.
+
+If you click something, document it as code. If you have to make the same
+click twice, write it as a function.
+:::
+
+:::{.callout-tip}
+## 💡 Running Code in RStudio
+
+Cursor on a line → **Ctrl+Enter** (Win) / **Cmd+Enter** (Mac) runs that line.\
+Select multiple lines → **Ctrl+Enter** runs all selected lines.\
+After import, objects appear in the **Environment** panel (top right).
+:::
+
+### 3.1 Case 1 — Data Fetched Directly by R
+
+The simplest case: data is available as an R package, via a URL, or through an API.
+R loads it directly into memory. Since no local file exists yet, we save a snapshot
+to `data/raw/` immediately — with a date in the filename so we always know which
+version we worked with.
+
+#### Importing Data from Packages 
+
+Many `r fa('r-project')` packages bundle datasets directly — **no file needed**.
+The code below shows what this looks like; we will add it to `DataImport.R`
+in the task at the end of this section:
+
+```{r demo-script-case1}
+#| code-fold: false
+# ============================================================
+# DataImport.R — Data Import and Local Storage
+# Session 1 · Lab 1
+# Document each dataset in data/raw/README.md after running.
+# ============================================================
+
+# ----- Section 1: Package / URL / API Data ------------------
+## Import from package  ------
+# R fetches data 
+library(openintro)  # ames dataset
+library(ISLR2)     # Carseats dataset
+data(ames)                                # housing dataset (demo in this lab)
+tbl_carseats <- tibble(Carseats)          # retail dataset — used in Labs 2–4
+```
+
+:::{.callout-important icon=false}
+## ⚠️ A2a: Copy and Run the Code, then Check Your Environment Panel
+
+Run the lines above and check whether `tbl_carseats` and `ames` appear
+in the Environment panel (top right).
+
+:::{.callout-note}
+## ℹ️ Why Does `ames` Show `<Promise>`?
+
+`tbl_carseats` appears under **Data** with its dimensions visible immediately.
+`ames` may appear under **Values** as `<Promise>` — greyed out. This is
+R's lazy loading: `data(ames)` registers the dataset but loads it into memory
+only when first accessed, saving RAM. To force the load, run `ames` or
+`glimpse(ames)` in the console.
+:::
+:::
+
+#### Saving Locally — the Routine
+
+After loading from a package, URL, or API, we always save to `data/raw/` using
+the same routine. **Only `my_out_file` changes between datasets:**
+
+```{r demo-save-package}
+#| eval: false
+#| code-fold: false
+## Save imported data to data/raw/ with date-stamped filename. ------
+library(tidyverse) # for tidy-Syntax (here magrittr Pipe)
+library(glue)      # for building date-stamped filenames
+
+# Adapt the following line for each dataset (only my_out_file changes):
+my_out_file  <- glue("carseats_{format(Sys.Date(), '%Y%m%d')}.rds")
+# This part stays the same every time:
+tbl_carseats %>%
+  write_rds(xfun::from_root("data", "raw", my_out_file))
+```
+
+Result: e.g. `data/raw/carseats_20240315.rds`.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Why This Save Routine?
+
+**Why `.rds`?**
+`.rds` is R's native binary format. Unlike `.csv`, it preserves all data types
+(factors, dates, integers) exactly — no information loss on save/reload.
+It is also faster and smaller. The tradeoff: R-specific. For sharing with
+non-R users, export `.csv` additionally.
+
+**Why the date in the filename?**
+Data changes. Package datasets are updated between versions. API data is
+refreshed regularly. The date records *when* you obtained this snapshot —
+making the analysis auditable even if the source data changes later.
+
+**Why `format(Sys.Date(), "%Y%m%d")` and not just `Sys.Date()`?**
+`Sys.Date()` gives `"2024-03-15"` — with hyphens, which can cause problems
+on Windows. `format(Sys.Date(), "%Y%m%d")` gives `"20240315"` — compact,
+safe on all operating systems, and still human-readable.
+:::
+
+`glue()` makes building the filename readable. The `{}`-syntax evaluates
+any R expression and inserts the result directly into the string:
+
+:::{.callout-tip}
+## 💡 The `glue` Package
+
+`glue()` builds strings with embedded R expressions — wrap them in `{}`:
+
+```r
+library(glue)
+name <- "carseats"
+date <- format(Sys.Date(), "%Y%m%d")
+glue("{name}_{date}.rds")    # → "carseats_20260315.rds"
+```
+
+Alternative without `glue`: `paste0(name, "_", date, ".rds")` — same result,
+slightly less readable for longer strings.
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ A2b: Save `ames` the Same Way
+
+Add the following lines to **Section 1** of `R/DataImport.R` and run them:
+
+```{r task-save-ames}
+#| code-fold: false
+#| eval: false
 data(ames)
+my_out_file <- glue("ames_{format(Sys.Date(), '%Y%m%d')}.rds")
+ames %>% write_rds(xfun::from_root("data", "raw", my_out_file))
 ```
 
-::: {.callout-note appearance="minimal"}
-**Installieren ≠ Laden**\
-`install.packages()` lädt das Paket **einmalig** aus dem Internet.\
-`library()` aktiviert es für die **aktuelle `r fa('r-project')`-Session** — bei jedem Neustart wiederholen.\
-`install.packages()` gehört **nicht** ins Skript, sondern wird einmalig in der Konsole ausgeführt.
+Verify: does `data/raw/ames_YYYYMMDD.rds` appear?
 :::
 
-### Weg 2: Lokale Datei
+#### URLs and APIs
 
-```{r}
+The same routine applies when R fetches data from the web:
+
+```{r demo-import-web}
 #| eval: false
-# CSV (Semikolon-getrennt, z.B. dt. Excel-Export)
-tbl_autos <- read_csv2(xfun::from_root(
-  "data/raw/autos.csv"))
+#| code-fold: false
+# URL example: Inside Airbnb Geneva listings
+url <- "http://data.insideairbnb.com/switzerland/vd/geneva/2024-09-18/data/listings.csv.gz"
+tbl_airbnb <- read_csv(url)
 
-# R-natives Binärformat
-tbl_buli <- read_rds(xfun::from_root(
-  "data/raw/buli.rds"))
+my_out_file <- glue("airbnb_geneva_{format(Sys.Date(), '%Y%m%d')}.rds")
+tbl_airbnb %>%
+  write_rds(xfun::from_root("data", "raw", my_out_file))
 ```
 
-::: {.callout-note appearance="minimal"}
-**`read_csv` vs. `read_csv2`**\
-`,` als Trennzeichen → `read_csv()` · `;` als Trennzeichen → `read_csv2()`\
-Im Zweifel: Datei mit Texteditor öffnen und nachsehen.\
-Falsches Trennzeichen → alle Werte landen in **einer** Spalte!
+:::{.callout-note}
+## ℹ️ APIs: Same Pattern
+
+Many institutions provide APIs that allow R to query databases directly —
+for example the Swiss Federal Statistical Office (`library(BFS)`).
+The import call differs, but the save routine is identical.
+Web scraping and APIs will be covered practically in **ER015** and **ER018**.
 :::
 
-### Weg 3: Datei direkt aus dem Web
 
-```{r}
-#| eval: false
-# URL direkt übergeben
-url <- "https://example.org/daten.csv"
-tbl <- read_csv(url)
+### 3.2 Case 2 — Local Files
 
-# ZIP-Archiv herunterladen und entpacken
-tmp <- tempfile(fileext = ".zip")
-download.file("https://example.org/daten.zip", tmp)
-tbl <- read_csv(unzip(tmp, exdir = tempdir()))
-```
+Not all data can be loaded by R directly. **Proprietary data** — internal company
+data, licensed datasets, confidential client exports — typically arrives as a file.
+@thomasAIValueCreators2025 argues that proprietary data is one of the primary
+sources of competitive advantage for data-driven companies precisely because it
+cannot be replicated from public sources.
 
-Nützlich für öffentliche Datensätze, die regelmässig aktualisiert werden.
+These files must be placed **manually** in `data/raw/` before R can import them.
+No save routine is needed — the original file in `data/raw/` already serves as
+the local raw data copy.
 
-### Weg 4: API (Programmierschnittstelle)
+:::{.callout-important icon=false}
+## ⚠️ A3: Download, Place, and Import Local Files
 
-Viele Institutionen stellen APIs bereit — `r fa('r-project')` fragt die Daten direkt ab, ohne manuellen Download:
+**Step 1 — In your browser:** download these two files:
 
-```{r}
-#| eval: false
-# Beispiel: Daten vom Bundesamt für Statistik (CH)
-library(BFS)
+1. `autos_(StockerUIBK)_20240414.csv`\
+   ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/autos_%28StockerUIBK%29_20240414.csv?forcedownload=1))
 
-# Katalog durchsuchen und Datensatz abrufen
-bfs_get_data(number_bfs = "px-x-0102010000_101",
-             language = "de")
-```
+2. `buli_raw_2023-09-06.rds`\
+   ([Moodle link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/buli_raw_2023-09-06.rds?forcedownload=1))
 
-::: {.callout-note appearance="minimal"}
-**Ausblick:** Web-Scraping und APIs werden in **ER015** und **ER018** praktisch eingesetzt.\
-Neugierig? → [`BFS`-Paket auf CRAN](https://cran.r-project.org/package=BFS) · [Dokumentation](https://felixluginbuhl.com/BFS/)
-:::
+**Step 2 — In Finder / Explorer:** move both files unchanged into `data/raw/`.
+Always keep the original filename — do not rename files.
 
-## Schritt 3 — Daten importieren: Reproduzierbarkeit
-
-### Warum im Skript oder Quarto-Chunk?
-
-Daten per Klick importieren (z.B. über *Import Dataset* in RStudio) ist verlockend — aber **nicht reproduzierbar**: Kein anderer kann nachvollziehen, welche Schritte Sie gemacht haben.
-
-✅ **Importcode gehört immer in ein `r fa('r-project')`-Skript oder einen Quarto-Chunk.**\
-Dann kann jeder — inklusive Ihres zukünftigen Ichs — die Analyse von Grund auf neu ausführen.
-
-::: {.callout-tip appearance="minimal"}
-**Faustregel:** Wenn Sie etwas klicken, dokumentieren Sie es danach als Code.\
-Wenn Sie denselben Klick zweimal machen müssen, schreiben Sie ihn als Funktion.
-:::
-
-### Pfade: der häufigste Stolperstein
-
-```{r}
-#| eval: false
-# ❌ Absoluter Pfad — funktioniert nur auf DIESEM Rechner
-read_csv("C:/Users/Maria/Desktop/autos.csv")
-
-# ❌ Relativer Pfad ohne Projekt — abhängig vom
-#    aktuellen Arbeitsverzeichnis
-read_csv("data/raw/autos.csv")   # klappt nur wenn
-                                  # wd korrekt gesetzt
-
-# ✅ Mit xfun::from_root() — immer relativ zur
-#    .Rproj-Datei, egal aus welchem Unterordner
-library(xfun)
-read_csv2(from_root("data/raw/autos.csv"))
-```
-
-::: {.callout-note appearance="minimal"}
-`xfun::from_root()` sucht die `.Rproj`-Datei im aktuellen oder übergeordneten Verzeichnis und baut den Pfad von dort. Das funktioniert auch dann, wenn das Skript aus `R/` oder das `.qmd` aus `qmd/` ausgeführt wird.
-:::
-
-## Schritt 3 — Dateien herunterladen
-
-Laden Sie diese beiden Dateien herunter und speichern Sie sie in `data/raw/`:
-
-### Dateien
-
-1.  `autos_(StockerUIBK)_20240414.csv`\
-    ([Moodle-link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/autos_%28StockerUIBK%29_20240414.csv?forcedownload=1))
-
-2.  `buli_raw_2023-09-06.rds`\
-    ([Moodle-link](https://moodle.ffhs.ch/pluginfile.php/5752753/mod_assign/introattachment/0/buli_raw_2023-09-06.rds?forcedownload=1))
-
-::: {.callout-warning appearance="minimal"}
-Dateien **nicht umbenennen** — der Code referenziert die Originalnamen exakt.
-:::
-
-### Überprüfung
-
+Verify the folder contents:
 ``` text
 data/raw/
 ├── autos_(StockerUIBK)_20240414.csv
 └── buli_raw_2023-09-06.rds
 ```
 
-### Drei Datensätze — drei Importwege
+**Step 3 — Back in RStudio:** add Section 2 to `R/DataImport.R` and run it:
 
-| Datensatz   | Importweg         | Funktion                      |
-|-------------|-------------------|-------------------------------|
-| `ames`      | Paket `openintro` | `data(..., envir=.GlobalEnv)` |
-| `tbl_autos` | Datei `.csv`      | `read_csv2()`                 |
-| `tbl_buli`  | Datei `.rds`      | `read_rds()`                  |
-
-<br>
-
-| Format | Trennzeichen    | Besonderheit               |
-|--------|-----------------|----------------------------|
-| `.csv` | `;` (Semikolon) | Textformat, überall lesbar |
-| `.rds` | —               | komprimiert, nur `r fa('r-project')`        |
-
-## Schritt 4 — `r fa('r-project')`-Skript anlegen
-
-**File → New File → R Script** → speichern als `R/EDA_IMS.R`
-
-```{r}
+```{r task-import-local}
+#| code-fold: false
 #| eval: false
-# ============================================
-# EDA_IMS.R  —  Explorative Datenanalyse
-# PVA1 · Lab 1
-# ============================================
+# ----- Section 2: Local Files -------------------------------
+# Files placed manually in data/raw/ — import with original filename.
+# Only my_in_file changes between datasets.
 
-# 1. Pakete laden --------------------------------
-#    (Pakete müssen vorher einmalig installiert sein:
-#     install.packages(c("tidyverse","openintro","gt","xfun")))
-library(tidyverse)
-library(openintro)
-library(gt)
+my_in_file <- "autos_(StockerUIBK)_20240414.csv"
+tbl_autos  <- read_csv2(xfun::from_root("data", "raw", my_in_file))
 
-# 2. Paketdaten laden ----------------------------
-data("ames", package = "openintro", envir = .GlobalEnv)
-
-# 3. Externe Dateien importieren -----------------
-my_in_file <- "data/raw/autos_(StockerUIBK)_20240414.csv"
-tbl_autos  <- read_csv2(xfun::from_root(my_in_file))
-
-my_in_file <- "data/raw/buli_raw_2023-09-06.rds"
-tbl_buli   <- read_rds(xfun::from_root(my_in_file))
+my_in_file <- "buli_raw_2023-09-06.rds"
+tbl_buli   <- read_rds(xfun::from_root("data", "raw", my_in_file))
 ```
 
-::: {.callout-tip appearance="minimal"}
-**Code ausführen:** Cursor in eine Zeile → **Strg+Enter** (Win) / **Cmd+Enter** (Mac) führt diese Zeile aus.\
-Mehrere Zeilen markieren → **Strg+Enter** führt alle markierten Zeilen aus.\
-Nach dem Import erscheinen die Objekte im **Environment**-Panel oben rechts.
+Verify: do `tbl_autos` and `tbl_buli` appear in the Environment panel?
 :::
 
-## 🔵 Demo — `ames` erkunden
+:::{.callout-tip}
+## 💡 `read_csv` vs. `read_csv2`
+
+`,` as separator → `read_csv()` · `;` as separator → `read_csv2()`\
+If in doubt: open the file in a text editor and check.\
+Wrong separator → all values land in **one** column!
+
+The hyphens in `buli_raw_2023-09-06.rds` are fine *in this filename* — the
+producer chose that format. The issue with hyphens arises only when *we*
+generate filenames with `Sys.Date()`, which is why we use `format(Sys.Date(), "%Y%m%d")`.
+:::
+
+**What if the file has no date in its name?**
+Not every external file carries version information — a client might send `data.csv`.
+In that case the download date goes into `data/raw/README.md`. The file itself
+is kept exactly as received — never renamed.
+
+:::{.callout-tip}
+## 💡 Why Only `my_in_file` Changes
+
+Keeping the routine stable — and changing only the filename variable —
+means adapting the import for a new dataset is always just one line.
+The code is easier to read, easier to audit, and harder to get wrong.
+
+`xfun::from_root("data", "raw", my_in_file)` builds the path from the
+project root, regardless of which subfolder the script runs from.
+This is the same function that makes all paths in this project portable
+(see Step 2 — Why does this matter?).
+
+Note that the same principle applies to `my_out_file` in Case 1
+:::
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Paths and `xfun::from_root()`
+
+```r
+# ❌ Absolute path — only works on THIS machine
+read_csv("C:/Users/Maria/Desktop/carseats.csv")
+
+# ❌ Relative path without a project — depends on working directory
+read_csv("data/raw/carseats.csv")
+
+# ✅ from_root() — always relative to the .Rproj file
+read_rds(xfun::from_root("data", "raw", "carseats_20240315.rds"))
+```
+
+`xfun::from_root()` searches for the `.Rproj` file and builds the path from
+there, joining arguments with the correct separator for the operating system.
+:::
+
+### 3.3 Document in `data/raw/README.md`
+
+The README convention was introduced in Step 1. Now fill in `data/raw/README.md`
+with one row per dataset. This is where version information lives for files that
+carry no date in their own name:
+
+``` markdown
+# data/raw — Raw Data
+
+All files here are original, unmodified data. **Never edit these files.**
+Transformations go in R/DataWrangling.R; cleaned data goes to data/tidy/.
+
+| File | Source | Obtained | Description |
+|------|--------|----------|-------------|
+| carseats_20240315.rds | ISLR2 R package (v1.0) | 2024-03-15 | Retail: 400 stores, 11 vars |
+| ames_20240315.rds | openintro R package | 2024-03-15 | Housing: 2930 obs, 82 vars |
+| autos_(StockerUIBK)_20240414.csv | Provided by course instructor, downloaded via Moodle | 2024-04-14 | Car listings |
+| buli_raw_2023-09-06.rds | Provided by course instructor, downloaded via Moodle | 2023-09-06 | Bundesliga match data |
+```
+
+Update this file whenever a new dataset is added to `data/raw/`.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: Data Wrangling and `data/tidy/`
+
+When raw data needs cleaning or transformation — renaming columns, fixing data
+types, filtering rows — this goes into `R/DataWrangling.R`. The result is saved
+to `data/tidy/` with the same date-stamped routine:
+
+```r
+tbl_tidy <- tbl_carseats %>%
+  mutate(ShelveLoc = factor(ShelveLoc, levels = c("Bad", "Medium", "Good")))
+
+my_out_file <- glue("carseats_tidy_{format(Sys.Date(), '%Y%m%d')}.rds")
+tbl_tidy %>% write_rds(xfun::from_root("data", "tidy", my_out_file))
+```
+
+`data/tidy/README.md` documents what was changed and references the script.
+Data wrangling begins in **Lab 3**.
+:::
+
+---
+
+## 🔵 Demo — A First Look at the Data
+
+*Proper Exploratory Data Analysis — distributions, relationships, outliers —
+comes in Lab 2 (EDA). Here we just verify that the imported datasets look
+reasonable and get a feel for their structure.*
 
 :::: panel-tabset
 ### dim() / nrow() / ncol()
 
-```{r}
-dim(ames)    # Ergebnis: [Zeilen, Spalten]
-nrow(ames)   # nur Zeilen
-ncol(ames)   # nur Spalten
+```{r demo-dim}
+dim(ames)    # Result: [rows, columns]
+nrow(ames)   # rows only
+ncol(ames)   # columns only
 ```
 
-❓ Was bedeuten diese Zahlen inhaltlich?\
-→ *2930 Zeilen = 2930 verkaufte Häuser; 82 Spalten = 82 Variablen (Preis, Fläche, Lage …)*
+❓ What do these numbers mean in context?\
+→ *2930 rows = 2930 houses sold; 82 columns = 82 variables (price, area, location …)*
 
 ### head()
 
-```{r}
-head(ames)   # erste 6 Zeilen (Standard)
+```{r demo-head}
+head(ames)   # first 6 rows (default)
 ```
 
-❓ `head(ames, n = 10)` — was ändert sich?
+❓ `head(ames, n = 10)` — what changes?
 
 ### glimpse()
 
-```{r}
+```{r demo-glimpse}
 glimpse(ames)
 ```
 
-::: {.callout-note appearance="minimal"}
-**`head()` vs. `glimpse()`**\
-`head()` zeigt die ersten Zeilen tabellarisch — praktisch bei wenigen Spalten.\
-`glimpse()` dreht die Perspektive: jede **Variable** wird zur Zeile, inklusive Datentyp (`<fct>`, `<int>`, `<dbl>`). Ideal bei vielen Spalten oder um schnell die Datentypen zu prüfen.
+:::{.callout-note}
+## ℹ️ `head()` vs. `glimpse()`
+
+`head()` shows the first rows as a table — practical with few columns.\
+`glimpse()` flips the perspective: each **variable** becomes a row,
+including its data type (`<fct>`, `<int>`, `<dbl>`). Ideal for many
+columns or a quick check of data types.
 :::
 ::::
 
-## 🔵 Demo — Quarto verstehen
+:::{.callout-important icon=false}
+## ⚠️ A4: Explore `tbl_autos` and `tbl_buli`
 
-### Warum Quarto?
+Apply the same commands to the two local datasets you imported in A3.
 
-Quarto verbindet **`r fa('r-project')`-Code, Ergebnisse und Text** in einem einzigen Dokument. Statt Tabellen und Grafiken manuell in ein Word-Dokument zu kopieren, entstehen sie direkt beim Rendern — automatisch, reproduzierbar und immer aktuell. Dasselbe `.qmd`-Quelldokument lässt sich in verschiedene Formate ausgeben:
-
-| Format                   | Anwendung                       |
-|--------------------------|---------------------------------|
-| HTML                     | interaktive Berichte, Webseiten |
-| PDF                      | Abgaben, Publikationen          |
-| Word (`.docx`)           | kollaboratives Bearbeiten       |
-| Präsentation (Reveal.js) | Vorträge, diese Labs            |
-
-
-
-### Die drei Bausteine einer Quarto-Datei
-
-Eine `.qmd`-Datei besteht immer aus denselben drei Elementen: 
-
-* YAML-Kopf (Metadaten & Ausgabeformat)
-* Code (`r fa('r-project')`, Python, Julia …)
-* Text und Formatierungsangaben (Markdown)
-
-
-#### YAML-Kopf
-```         
----                        ← YAML-Header beginnt mit ---
-title: "Mein Bericht"
-format: html
----                       ← und endet mit ---
-```
-
-#### Code
-
-`r fa('r-project')`-Code kann in Form von **Code-Blöcken** oder als **Inline-Code** eingebunden werden.
-
-* Code-Blöcke: Einfügen mit **Strg+Alt+I** (Win) oder über Klick auf *Insert → R*:
-
-[` ```{r} `]{.verbatim} R-Code [` ``` `]{.verbatim}
-
-
-::: {.callout-note appearance="minimal"}
-**Code-Chunk-Optionen**:
-Ob die Code-Blöcke **im Ausgabedokument** (bspw. .pptx, .pdf) erscheinen (meist nicht erwünscht!) oder nicht, kann mit den sog. Code-Chunk-Optionen gesteuert werden. Sie werden meist mit `#|` (Hash-Pipe) direkt über dem Code gesteuert.
-:::
-
-Soll neben dem Ergebnis auch der Codeblock im finalen Dokument erscheinen, kann dies mit der Option `#|echo: true` am Beginn des Codeblocks umgesetzt werden:
-
-```{r}
-#| echo: true # (=Standard) - muss nicht explizit angegeben werden
-4 + 3
-```
-
-Mit `#| echo: false` erscheint nur das Ergebnis, der Code bleibt verborgen — nützlich für Präsentationen:
-
-```{r}
-#| echo: false
-4 + 3
-```
-
-
-Mit `#| eval: false` wird der Code angezeigt, aber nicht ausgeführt — nützlich für Beispielcode:
-
-```{r}
+```{r task-dim}
+#| code-fold: false
 #| eval: false
-4 + 3
+dim(tbl_autos);  nrow(tbl_autos);  ncol(tbl_autos)
+dim(tbl_buli);   nrow(tbl_buli);   ncol(tbl_buli)
 ```
 
-* Inline-Code (→ vgl. [Demo-Abschnitt](@inline)).
+❓ What does one row represent in each dataset?
+*(One car listing? One match? One matchday?)*
 
-
-#### Text und Formatierung
-
-Quarto verwendet **Markdown** für die Textformatierung: `**fett**`, `*kursiv*`, `# Überschrift`, `- Liste`. Eine kompakte Referenz: [Quarto Markdown Basics](https://quarto.org/docs/authoring/markdown-basics.html).
-
-### Exkurs: Tabellen in Quarto-Dokumenten
-
-Für strukturierte Datentabellen im Ausgabedokument eignet sich das `gt`-Paket:
-
-```{r}
-ames %>%
-  select(area, price, Neighborhood, Bedroom.AbvGr, Lot.Area) %>%
-  head(5) %>%
-  gt() %>%
-  tab_header(
-    title    = "Ames Housing — erste 5 Zeilen (Auswahl)",
-    subtitle = "Quelle: openintro-Paket"
-  )
-```
-
-::: {.callout-note appearance="minimal"}
-**Wiederholung aus der Vorbereitung: tidyverse und die Pipe**\
-Mit dem **magrittr**-Paket wurde 2013 die Idee der "Pipe" in `r fa('r-project')` implementiert. Seit 2014 ist der **magrittr**-Operator `%>%` im **dplyr**-Paket implementiert und kann mit Laden des **tidyverse**-Metapakets direkt genutzt werden.
-
-Der Pipe-Operator `%>%` ermöglicht es, auf einfache Weise eine Reihe von Operationen zu verketten:
-
-`x %>% f()` bedeutet: nimm `x` und übergib es als **erstes** Argument an `f()`.\
-
-Aufgrund des großen Erfolgs des tidyverse-Metapakets wurde mit Version 4.1.0 auch in Base-`r fa('r-project')` eine Pipe implementiert.  Diese **native Pipe** `|>` funktioniert für die meisten Anwendungen identisch. 
-
-`r fa('exclamation-circle')` Wir nutzen `%>%` aus `magrittr`, weil sie einen grösseren Funktionsumfang bietet, bspw. wenn sie mit der `lm()`-Funktion genutzt wird.
-:::
-
-## 🔵 Demo — Inline-`r fa('r-project')`-Code verstehen  {#inline} 
-
-### Syntax
-
-Inline-`r fa('r-project')`-Code wird mit einem Backtick (&#96;), dem Buchstaben `r` und einem Leerzeichen eingeleitet — unmittelbar vor dem `r fa('r-project')`-Ausdruck, und mit einem schliessenden Backtick (&#96;) beendet. Quarto führt den Ausdruck beim Rendern aus und setzt das Ergebnis direkt in den Fliesstext ein.
-
-### Vorher: hartcodierte Zahlen
-
-Im Quelltext stehen die Zahlen fest eingetippt:
-
-``` markdown
-Der Ames-Datensatz enthält 2930 Zeilen und 82 Spalten.
-```
-
-Gerendertes Ergebnis — Zahlen stehen als fixer/unveränderbarer Text im Dokument:
-
-> Der Ames-Datensatz enthält 2930 Zeilen und 82 Spalten.
-
-❌ Wenn sich die Daten ändern, stimmt der Text nicht mehr — und man merkt es oft nicht. Ausserdem: Anfälligkeit für Tippfehler.
-
-### Nachher: Inline-`r fa('r-project')`-Code
-
-Im Quelltext stehen `r fa('r-project')`-Ausdrücke statt fester Zahlen:
-
-Der Ames-Datensatz enthält &#96;r nrow(ames)&#96; Zeilen und &#96;r ncol(ames)&#96; Spalten.
-
-Gerendertes Ergebnis — Quarto wertet die Ausdrücke aus und setzt die Werte ein:
-
-> Der Ames-Datensatz enthält **`r nrow(ames)`** Zeilen und **`r ncol(ames)`** Spalten.
-
-✅ Die Zahlen aktualisieren sich automatisch — bei jedem Render aus den Daten berechnet. Damit auch keine Tippfehler!
-
-### Weitere Beispiele
-
-| Quelltext                            | Gerendertes Ergebnis           |
-|--------------------------------------|--------------------------------|
-| `` `r nrow(ames)` ``                 | `r nrow(ames)`                 |
-| `` `r ncol(ames)` ``                 | `r ncol(ames)`                 |
-| `` `r round(mean(ames$price), 0)` `` | `r round(mean(ames$price), 0)` |
-| `` `r Sys.Date()` ``                 | `r Sys.Date()`                 |
-
-::: {.callout-tip appearance="minimal"}
-**Wann Inline-Code, wann Chunk?**\
-Inline-Code eignet sich für **einzelne Werte** im Fliesstext (Anzahl, Mittelwert, Datum).\
-Für Tabellen und Grafiken → Code-Chunk.
-:::
-
-## 🟡 Aufgabe — Datensätze importieren & erkunden
-
-Führen Sie in `R/EDA_IMS.R` die Importbefehle für `tbl_autos` und `tbl_buli` aus und erkunden Sie die Datensätze **analog zur `ames`-Demo**:
-
-### A: Dimensionen prüfen
-
-```{r}
-#| eval: false
-dim(tbl_autos)
-nrow(tbl_autos)
-ncol(tbl_autos)
-
-dim(tbl_buli)
-nrow(tbl_buli)
-ncol(tbl_buli)
-```
-
-❓ Was stellt eine Zeile jeweils dar?\
-*(Ein Auto? Ein Spiel? Ein Spieltag?)*
-
-### B: Struktur erkunden
-
-```{r}
+```{r task-glimpse}
+#| code-fold: false
 #| eval: false
 glimpse(tbl_autos)
 glimpse(tbl_buli)
 ```
 
-❓ Welche Variablentypen kommen vor?\
-*(`<chr>`, `<dbl>`, `<date>`, `<fct>` …)*
+❓ What variable types appear? (`<chr>`, `<dbl>`, `<date>`, `<fct>` …)
 
-### C: Erste Zeilen anzeigen
-
-```{r}
-#| eval: false
-head(tbl_autos)
-head(tbl_buli)
-```
-
-### D: Erkenntnisse dokumentieren
-
-Halten Sie Ihre Beobachtungen als Kommentar im Skript fest:
-
-```{r}
-#| eval: false
-# tbl_autos: ___ Zeilen, ___ Spalten
-# Eine Zeile = ein ________________
-# Variablentypen: ___________________
-
-# tbl_buli:  ___ Zeilen, ___ Spalten
-# Eine Zeile = ein ________________
-# Variablentypen: ___________________
-```
-
-::: {.callout-tip appearance="minimal"}
-Diese Notizen sind die Basis für die Quarto-Folien im nächsten Schritt.
+Note your observations — they will be useful for the Quarto slides in A4.
 :::
 
-## 🟢 Aufgabe — Quarto-Präsentation erstellen
+---
+
+## 🔵 Demo — Understanding Quarto
+
+### Why Quarto?
+
+Quarto combines **`r fa('r-project')` code, results, and text** in a single
+document. Tables and figures are generated directly during rendering —
+automatically, reproducibly, and always up to date.
+
+| Format | Use case |
+|--------|----------|
+| HTML | Interactive reports, websites |
+| PDF | Submissions, publications |
+| Word (`.docx`) | Collaborative editing |
+| Presentation (Reveal.js) | Talks, these labs |
+
+### The Three Building Blocks
+
+A `.qmd` file always consists of three elements:
+
+**1. YAML header** (metadata & output format)
+
+```
+---
+title: "My Report"
+format: html
+---
+```
+
+**2. Code chunks** — insert with **Ctrl+Alt+I**:
+
+```{r demo-echo}
+#| echo: true
+4 + 3   # echo: true → shows code and result (default)
+```
+
+```{r demo-echofalse}
+#| echo: false
+4 + 3   # echo: false → result only, code hidden
+```
+
+```{r demo-evalfalse}
+#| eval: false
+4 + 3   # eval: false → code shown, not executed
+```
+
+**3. Text** — Quarto uses Markdown: `**bold**`, `*italic*`, `# Heading`.
+
+:::{.callout-note collapse="true"}
+## 📚 Background: What Is Markdown?
+
+Markdown is a lightweight markup language: plain text with simple
+formatting conventions that render as formatted HTML.
+
+| Markdown | Renders as |
+|---------|-----------|
+| `**bold**` | **bold** |
+| `*italic*` | *italic* |
+| `# Heading 1` | Large heading |
+| `- item` | Bullet list |
+| `` `code` `` | `inline code` |
+
+A complete reference: [Quarto Markdown Basics](https://quarto.org/docs/authoring/markdown-basics.html).
+:::
+
+### Tables in Quarto Documents
+
+The `gt` package produces publication-quality tables:
+
+```{r demo-gt}
+ames %>%
+  select(area, price, Neighborhood, Bedroom.AbvGr, Lot.Area) %>%
+  head(5) %>%
+  gt() %>%
+  tab_header(
+    title    = "Ames Housing — first 5 rows (selection)",
+    subtitle = "Source: openintro package"
+  )
+```
+
+:::{.callout-note collapse="true"}
+## 📚 Background: The Pipe `%>%`
+
+The pipe operator `%>%` chains operations: `x %>% f()` means "take `x`
+and pass it as the first argument to `f()`". It was introduced by the
+`magrittr` package (2013) and is available via `library(tidyverse)`.
+
+Base R added a native pipe `|>` in version 4.1.0, which works identically
+for most uses. We use `%>%` throughout this course because it offers
+additional functionality (e.g. with `lm()`).
+:::
+
+---
+
+## 🔵 Demo — Inline `r fa('r-project')` Code {#inline}
+
+### The Idea
+
+Code chunks produce **blocks** — tables, plots, printed output.
+But sometimes you need a single computed value *inside a sentence*.
+That is what **inline R code** is for.
+
+**Syntax:** a backtick, the letter `r`, a space, an R expression, a closing backtick.
+
+<div style="background:#f1f3f5; border-left:4px solid #502479; padding:10px 16px; font-family:monospace; font-size:0.95em; margin:1em 0;">
+The Ames dataset contains &#96;r nrow(ames)&#96; houses sold,
+with a mean sale price of &#96;r scales::dollar(round(mean(ames$price), 0))&#96;.
+</div>
+
+When Quarto renders this, it evaluates the expressions and inserts the results:
+
+> The Ames dataset contains **`r nrow(ames)`** houses sold,
+> with a mean sale price of **`r scales::dollar(round(mean(ames$price), 0))`**.
+
+### Why This Matters
+
+Compare the two approaches side by side:
+
+| Approach | Source text | Risk |
+|----------|------------|------|
+| ❌ Hard-coded | `...sold, with a mean price of $170,000.` | Wrong the moment data changes |
+| ✅ Inline code | `...sold, with a mean price of` `` `r scales::dollar(round(mean(ames$price),0))` `` | Always correct, recomputed at every render |
+
+Hard-coded numbers create silent errors: the text becomes wrong without any
+warning. With inline code the document cannot be out of sync with the data.
+
+### More Examples
+
+| What you write | What you get |
+|---------------|-------------|
+| `` `r nrow(ames)` `` | `r nrow(ames)` |
+| `` `r ncol(ames)` `` | `r ncol(ames)` |
+| `` `r round(mean(ames$price), 0)` `` | `r round(mean(ames$price), 0)` |
+| `` `r Sys.Date()` `` | `r Sys.Date()` |
+
+:::{.callout-tip}
+## 💡 When Inline Code, When a Chunk?
+
+Inline code → **single values** embedded in text (a count, a mean, today's date).\
+Code chunk → **tables, plots, or multi-line output**.
+:::
+
+With data imported (A2/A3), explored (A4), and documented we now learn the
+tools that make analysis and reporting reproducible.
+
+
+---
+
+## ⚠️ Create a Quarto Presentation
+
+:::{.callout-important icon=false}
+## ⚠️ A5: Build `DataOverview.qmd`
 
 ::::::: panel-tabset
-### 1. Datei anlegen
+### 1. Create File
 
-1.  **File → New File → Quarto Presentation → Reveal.js**
-2.  Speichern als `qmd/Datenuebersicht.qmd`
-3.  Gesamten Beispielinhalt löschen
-4.  YAML-Header einfügen:
+1. **File → New File → Quarto Presentation → Reveal.js**
+2. Save as `qmd/DataOverview.qmd`
+3. Delete all example content
+4. Insert YAML header:
 
 ``` yaml
 ---
-title: "Datenübersicht"
-subtitle: "PVA1 · Lab 1"
-author: "Ihr Name"
+title: "Data Overview"
+subtitle: "Session 1 · Lab 1"
+author: "Your Name"
 date: today
 format:
   revealjs:
@@ -598,154 +951,163 @@ execute:
 ---
 ```
 
-### 2. Setup-Chunk
+### 2. Setup Chunk
 
-Direkt nach dem YAML-Header — lädt alle Objekte **unsichtbar** vor:
+Directly after the YAML — loads all objects invisibly:
 
 ```` markdown
 ```{{r}}
 #| label: setup
 #| include: false
 library(tidyverse)
-library(openintro)
+library(ISLR2)
 library(gt)
-data("ames", package = "openintro", envir = .GlobalEnv)
+tbl_carseats <- tibble(Carseats)
 
-my_in_file <- "data/raw/autos_(StockerUIBK)_20240414.csv"
-tbl_autos  <- read_csv2(xfun::from_root(my_in_file))
-
-my_in_file <- "data/raw/buli_raw_2023-09-06.rds"
-tbl_buli   <- read_rds(xfun::from_root(my_in_file))
+my_in_file <- "buli_raw_2023-09-06.rds"
+tbl_buli   <- read_rds(xfun::from_root("data", "raw", my_in_file))
 ```
 ````
 
-::: {.callout-important appearance="minimal"}
-`#| include: false` — Code läuft beim Rendern, erscheint aber **nicht** im gerenderten Dokument.\
-Alle drei Objekte stehen danach auf jeder Folie zur Verfügung.
+:::{.callout-note}
+## ℹ️ `#| include: false`
+
+Code runs during rendering but does **not** appear in the output.\
+Both objects are available on every subsequent slide.
 :::
 
-### 3. Folie: Autos
-
-Orientieren Sie sich an der `ames`-Demo:
+### 3. Slide: Carseats
 
 ```` markdown
-## Autos-Datensatz
+## Carseats Dataset
 
-Der Datensatz enthält **`nrow(tbl_autos)`** Beobachtungen
-und **`ncol(tbl_autos)`** Variablen.
+The dataset contains **`nrow(tbl_carseats)`** observations
+and **`ncol(tbl_carseats)`** variables.
 
 ```{{r}}
-tbl_autos %>%
+tbl_carseats %>%
   head(5) %>%
+  select(1:6) %>%
   gt() %>%
-  tab_header(title = "Erste 5 Zeilen: Autos")
+  tab_header(title = "First 5 rows: Carseats (selection)")
 ```
 ````
 
-::: {.callout-note appearance="minimal"}
-`` `{{r}} nrow(tbl_autos)` `` und `` `{{r}} nrow(tbl_autos)` `` funktionieren hier, weil `tbl_autos` im Setup-Chunk geladen wurde — genau wie `ames` in der Demo.
-:::
-
-### 4. Folie: Bundesliga
+### 4. Slide: Bundesliga
 
 ```` markdown
-## Bundesliga-Datensatz
+## Bundesliga Dataset
 
-Der Datensatz enthält **`nrow(tbl_buli)`** Beobachtungen
-und **`ncol(tbl_buli)`** Variablen.
+The dataset contains **`nrow(tbl_buli)`** observations
+and **`ncol(tbl_buli)`** variables.
 
 ```{{r}}
 tbl_buli %>%
   head(5) %>%
   select(1:6) %>%
   gt() %>%
-  tab_header(title = "Erste 5 Zeilen: Bundesliga (Auswahl)")
+  tab_header(title = "First 5 rows: Bundesliga (selection)")
 ```
 ````
 
-::: {.callout-note appearance="minimal"}
-`select(1:6)` wählt die ersten 6 Spalten aus — bei breiten Datensätzen vermeidet das übervolle Tabellen auf der Folie.
+:::{.callout-tip}
+## 💡 `select(1:6)`
+
+Selects the first 6 columns — prevents overfull slides with wide datasets.
 :::
 
-### 5. Folie: Vergleich
+### 5. Slide: Comparison
 
 ``` markdown
-## Datensatz-Übersicht
+## Dataset Overview
 
-| Datensatz  | Zeilen              | Spalten             |
-|------------|---------------------|---------------------|
-| ames       | `nrow(ames)`        | `ncol(ames)`        |
-| Autos      | `nrow(tbl_autos)` | `ncol(tbl_autos)` |
-| Bundesliga | `nrow(tbl_buli)`  | `ncol(tbl_buli)`  |
-
-Die Werte werden beim Rendern automatisch eingesetzt.
+| Dataset    | Rows                   | Columns                |
+|------------|------------------------|------------------------|
+| Carseats   | `nrow(tbl_carseats)`   | `ncol(tbl_carseats)`   |
+| Bundesliga | `nrow(tbl_buli)`       | `ncol(tbl_buli)`       |
 ```
 
-### 6. Rendern & Prüfen
+### 6. Render & Check
 
-1.  **Strg+S** — Datei speichern
-2.  **Render** (oder **Strg+Shift+K**)
-3.  Präsentation öffnet sich im Browser
+1. **Ctrl+S** — save
+2. **Render** (or **Ctrl+Shift+K**)
+3. Presentation opens in the browser
 
-✅ **Erfolgskriterium:** Alle drei Folien zeigen korrekte Dimensionen und Tabellen.
+✅ **Success criterion:** Both slides show correct dimensions and tables.
 
-::: {.callout-tip appearance="minimal"}
-Render-Fehler? → Zeilennummer in der Fehlermeldung lesen, betroffenen Chunk in der Konsole isoliert testen.
+:::{.callout-tip}
+## 💡 Render Error?
+
+Read the line number in the error message, isolate the affected chunk
+in the console and test it there first.
 :::
 :::::::
+:::
 
-## Bonusaufgaben
+---
 
-### B1: Variablentypen als Tabelle
+## Bonus Tasks
 
-Erstellen Sie eine Folie mit Variablennamen und Datentypen:
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B1: Variable Types as a Table
 
-```{r}
+Add a slide showing variable names and data types for `tbl_carseats`:
+
+```{r bonus-b1}
 #| eval: false
+#| code-fold: false
 tibble(
-  Variable = names(tbl_autos),
-  Typ      = map_chr(tbl_autos, class)
+  Variable = names(tbl_carseats),
+  Type     = map_chr(tbl_carseats, class)
 ) %>%
   gt() %>%
-  tab_header(title = "Variablen: Autos")
+  tab_header(title = "Variables: Carseats")
 ```
+:::
 
-### B2: Fehlende Werte
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B2: Missing Values
 
-Zeigen Sie nur Spalten mit mindestens einem NA:
+Show only columns with at least one `NA` in `tbl_carseats`:
 
-```{r}
+```{r bonus-b2}
 #| eval: false
-tbl_autos %>%
+#| code-fold: false
+tbl_carseats %>%
   summarise(across(everything(), ~sum(is.na(.)))) %>%
   pivot_longer(everything(),
                names_to  = "Variable",
-               values_to = "Fehlend") %>%
-  filter(Fehlend > 0) %>%
+               values_to = "Missing") %>%
+  filter(Missing > 0) %>%
   gt() %>%
-  tab_header(title = "Fehlende Werte: Autos")
+  tab_header(title = "Missing values: Carseats")
 ```
+:::
 
-### B3: Visualisierung mit `ames`
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B3: Visualisation with `ames`
 
-```{r}
+```{r bonus-b3}
 #| eval: false
+#| code-fold: false
 ames %>%
   ggplot(aes(x = area, y = price)) +
-  geom_point(alpha = 0.3, color = "steelblue") +
+  geom_point(alpha = 0.4, color = "#502479") +         # --- colour ---
   scale_y_continuous(labels = scales::dollar) +
   labs(
-    title = "Wohnfläche vs. Verkaufspreis",
+    title    = "Living Area vs. Sale Price",
     subtitle = "Ames, Iowa 2006–2010",
-    x = "Wohnfläche (sqft)",
-    y = "Verkaufspreis (USD)"
+    x        = "Living area (sqft)",
+    y        = "Sale price (USD)"
   ) +
   theme_minimal()
 ```
+:::
 
-### B4: HTML-Theme der Präsentation wechseln
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B4: Change the Presentation Theme
 
-Experimentieren Sie mit dem `theme`-Parameter im YAML der `Datenuebersicht.qmd`:
+Experiment with the `theme` parameter in the YAML of `DataOverview.qmd`:
 
 ``` yaml
 format:
@@ -753,178 +1115,187 @@ format:
     theme: moon
 ```
 
-Optionen: `sky` · `beige` · `serif` · `simple` · `night` · `moon`
+Options: `sky` · `beige` · `serif` · `simple` · `night` · `moon`
 
-❓ Welches Theme wirkt für eine akademische Präsentation angemessen?
+❓ Which theme is appropriate for an academic presentation?
+:::
 
-## Häufige Fehler & Lösungen
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B5: Load Airbnb Data from the Web
 
-::: callout-warning
-#### ❌ Datei nicht gefunden
+```{r bonus-b5}
+#| eval: false
+#| code-fold: false
+# Read current Geneva Airbnb listings directly from Inside Airbnb
+url_airbnb <- "http://data.insideairbnb.com/switzerland/vd/geneva/2024-09-18/data/listings.csv.gz"
+tbl_airbnb <- read_csv(url_airbnb)
 
-```         
+dim(tbl_airbnb)
+glimpse(tbl_airbnb)
+```
+
+How many listings are there? What variables are available?
+Could this data answer a business question?
+*(Hint: think about price, neighbourhood, room type.)*
+:::
+
+---
+
+## Common Errors & Solutions
+
+:::{.callout-warning}
+#### ❌ File Not Found
+
+```
 Error: cannot open file 'data/raw/...'
 ```
 
-**Ursache:** Kein `r fa('r-project')`-Projekt geöffnet oder Tippfehler im Pfad.
+**Cause:** No `r fa('r-project')` project open, or a typo in the path.
 
-**Lösung:**\
-1. Projektname oben rechts in RStudio sichtbar?\
-2. Datei wirklich in `data/raw/`?\
-3. `xfun::from_root()` verwenden
+**Solution:**\
+1. Is the project name visible in the top right of RStudio?\
+2. Is the file really in `data/raw/`?\
+3. Use `xfun::from_root()`
 :::
 
-::: callout-warning
-#### ❌ Alle Daten in einer Spalte
+:::{.callout-warning}
+#### ❌ All Data in One Column
 
-Datensatz hat nur eine Spalte, obwohl mehrere erwartet werden.
+Dataset has only one column, although several are expected.
 
-**Ursache:** Falsches Trennzeichen — `read_csv()` statt `read_csv2()` (oder umgekehrt).
+**Cause:** Wrong separator — `read_csv()` instead of `read_csv2()` (or vice versa).
 
-**Lösung:** Datei mit Texteditor öffnen und prüfen: Komma oder Semikolon als Trennzeichen?
+**Solution:** Open the file in a text editor and check: comma or semicolon?
 :::
 
-::: callout-warning
-#### ❌ Paket nicht installiert
+:::{.callout-warning}
+#### ❌ Package Not Installed
 
-```         
+```
 Error: there is no package called 'gt'
 ```
 
-**Lösung:** Einmalig installieren, dann laden:
+**Solution:** Install once, then load:
 
 ``` r
 install.packages("gt")
 library(gt)
 ```
 
-`install.packages()` nie in ein Skript schreiben — nur in der Konsole ausführen!
+Never write `install.packages()` in a script — only run it in the console!
 :::
 
-::: callout-warning
-#### ❌ Objekt nicht gefunden
+:::{.callout-warning}
+#### ❌ Object Not Found
 
-```         
-Error: object 'tbl_autos' not found
+```
+Error: object 'tbl_carseats' not found
 ```
 
-**Ursache:** Import-Code wurde nicht ausgeführt.
+**Cause:** Import code was not executed.
 
-**Lösung:**\
-- Im Skript: Importzeilen zuerst ausführen\
-- In Quarto: Setup-Chunk mit `#| include: false` vorhanden?\
-- `data("ames", package = "openintro", envir = .GlobalEnv)` nach `library(openintro)` vergessen?
+**Solution:**\
+- In the script: run import lines first\
+- In Quarto: check that the setup chunk with `#| include: false` is present
 :::
 
-## Lab 1 · Zusammenfassung
+---
 
-::: callout-tip
-#### Was wir gelernt haben
+## Lab 1 · Summary
 
-✅ R-Projekte garantieren reproduzierbare, rechnerübergreifende Pfade
+:::{.callout-tip}
+## What We Have Learned
 
-✅ **Zwei Importwege:** `data(..., envir=.GlobalEnv)` für Paketdaten · `read_csv2()`/`read_rds()` für Dateien
-
-✅ `xfun::from_root()` — Pfade immer relativ zur `.Rproj`-Datei
-
-✅ `dim()`, `head()`, `glimpse()` für ersten Überblick über jeden Datensatz
-
-✅ `%>%` — die magrittr-Pipe verknüpft Analyseschritte lesbar
-
-✅ Inline-R-Code hält Dokumente automatisch konsistent
+✅ R Projects guarantee reproducible, machine-independent paths\
+✅ **Import–save workflow:** fetch or load → `write_rds()` with date in filename (Case 1) or place file manually (Case 2) → document in `data/raw/README.md`\
+✅ `format(Sys.Date(), "%Y%m%d")` — safe, human-readable date format for filenames\
+✅ `glue()` — readable string building with embedded R expressions\
+✅ `xfun::from_root("data", "raw", filename)` — paths always relative to `.Rproj`\
+✅ Local files keep their original names; package/API data gets a new date-stamped name\
+✅ `dim()`, `head()`, `glimpse()` for a first overview of any dataset\
+✅ Inline R code keeps documents automatically consistent
 :::
 
-::: callout-important
-#### Checkliste vor Abgabe
+:::{.callout-important}
+## Checklist Before Submission
 
-☐ Ordner korrekt benannt (`ER014-PVA1_XY`)
-
-☐ `.Rproj`-Datei vorhanden und geöffnet
-
-☐ Beide Dateien in `data/raw/` (unverändert)
-
-☐ Skript `R/EDA_IMS.R` läuft **fehlerfrei** von oben nach unten
-
-☐ `qmd/Datenuebersicht.qmd` rendert ohne Fehler
-
-☐ Präsentation `qmd/Datenuebersicht.qmd` rendert ohne Fehler
-
-☐ Alle drei Datensätze in der Präsentation mit korrekten Dimensionen
-
-☐ Vergleichsfolie: Inline-Code zeigt korrekte Werte
+☐ Folder named correctly (`ER114_Session1_XY`)\
+☐ `.Rproj` file present and open\
+☐ Both files in `data/raw/` (unchanged)\
+☐ `R/DataImport.R` runs **without errors** from top to bottom\
+☐ `data/raw/` contains `carseats_YYYYMMDD.rds` and `ames_YYYYMMDD.rds`\
+☐ `data/raw/README.md` documents all four datasets\
+☐ `qmd/DataOverview.qmd` (Task A5) renders without errors\
+☐ Both datasets shown in the presentation with correct dimensions\
+☐ Comparison slide: inline code shows correct values
 :::
 
-## Anhang: Integration von Literaturverwaltungsprogrammen
+:::{.callout-note}
+## ℹ️ What Comes Next
 
-Für die Literatur-Verwaltung existieren diverse empfehlenswerte Produkte am Markt, darunter auch kostenlose Programme. Diese kurze Einführung bezieht sich auf Zotero, eine Software, die es kostenlos in Versionen für verschiedene Plattformen (Windows-PC, Apple MacOS und Linux) gibt. Zotero kann dabei in unterschiedlichen Programmen (Webbrowser-Erweiterungen, Microsoft Office bzw. MS-Word sowie RStudio in Verbindung mit Quarto/RMarkdown) genutzt werden. 
+In **Lab 2**, we apply the infrastructure built here to the Carseats dataset
+from the `ISLR2` package — a retail dataset of 400 stores that will be the
+running example throughout the course. The import is a one-liner:
 
-Wer bereits eine andere Software (bspw. Mendeley, Citavi...) nutzt, hat zwei Möglichkeiten:
+```r
+library(ISLR2)
+tbl_carseats <- tibble(Carseats)
+```
 
-* Einbinden dieser Software in RStudio ein (dazu finden sich Anleitungen im www) oder
-* Migration der Inhalte in die Zotero-Software.
-  
-### Installation von Zotero und Integration in RStudio
+The datasets imported today (`ames`, `tbl_carseats`, `tbl_autos`, `tbl_buli`) served as practice vehicles for learning the import mechanics and to prepare you for the revision assignment and upcoming labs. In Lab 2 the analytical work begins.
 
-#### Installation Zotero und praktische Zusatztools
+:::{.callout-note collapse="true"}
+## 📚 Outlook: R Projects + Git = Full Reproducibility
 
-Zur Installation von Zotero sind die folgenden Schritte notwendig:
+R Projects solve the path problem. **Git** solves the history problem:
+it tracks every change to every file, allows you to revert to any previous
+state, and enables collaboration without overwriting each other's work.
 
-* Download des Installers auf der [Zotero Webseite](www.zotero.org)
-* Erstellen eines kostenlosen Accounts  
+R Project + Git repository = the gold standard for reproducible analysis.
+Git will be introduced in **ER015**. For now: treat your `.Rproj` file as
+the anchor of your project — keep it at the root, never move it.
+:::
+:::
 
-Installation praktischer Zusatztools zur Nutzung von Zotero:
+---
 
-* Die Literaturverwaltung mit Zotero kann durch folgende Zusatztools noch komfortabler werden:
-  * Installiere in der Zotero Desktop-App das Zusatzprogramm **Better BibTex for Zotero**. Folge dazu der Anleitung auf der [BetterBibtex Webseite](https://retorque.re/zotero-better-bibtex/installation/).
-  * Installiere den zum genutzten Browser (unterstützt werden derzeit Chrome, Edge, Safari und Firefox) [Zotero-Connector](http://www.zotero.org/download/connectors), um Quellen direkt aus dem Browser in die eigene Bibliothek importieren zu können.
-  
-* Hinweis: Zotero kann auch direkt in MS-Word genutzt werden. Nach Installation von Zotero erscheint in Word automatisch ein Reiter "Zotero".
+## Resources
 
-#### Integration in RStudio
-
-Zur Einbindung Zotero in RStudio sind die folgenden Schritte durchzuführen:
-
-1. Folgende Eingabe in der Console:
-
-> `remotes::install_github("paleolimbot/rbbt")`
-
-2. Nach der Installation muss RStudio geschlossen und neu gestartet werden.
-
-3. Nun sollte Zotero in den Addins von RStudio zu finden sein.
-
-Grundsätzlich sollte sichergestellt werden, dass alle Dateien (.R, .qmd etc.) stets mit UTF8-Encoding erstellt werden, um Kompatibilitätsprobleme zu vermeiden.  
-
-
-### Erstellen eines Literaturverzeichnisses in Quarto/RMarkdown {#zotero}
-
-* Zunächst ist eine Bibliographie-Datei zu erstellen. Dazu in Zotero folgende Klicks durchführen:
-
-> `Datei > Bibliothek exportieren`
-
-* Wählen das Format CSL JSON (grundsätzlich sind auch andere Ausgabeformate, wie bspw. BibLaTex möglich, aber CSL JSON wird sich wohl weiter durchsetzen)  
-
-* Speichere die Datei im lit-Ordner des jeweiligen R-Projekts, bspw. unter dem Namen `my_bib.json`
-
-* Gib im YAML-Kopf die beiden folgenden Zeilen ein, um das Literaturverzeichnis für das .qmd- bzw. .Rmd-Dokument automatisch zu erstellen:
-
-> `bibliography: my_bib.json` 
-> `reference-section-title: Quellenverzeichnis`
-
-Obs! Hinter reference-section-title wird spezifiziert, wie die Überschrift des Quellenverzeichnisses lauten soll (hier: "Quellenverzeichnis"). Alternativ könnte bspw. auch "Literaturverzeichnis" oder nur "Literatur" festgelegt werden.  
-
-Wenn die Ausgabe im MS-Word-Format erfolgen soll, kann eine Word-Vorlage erstellt werden, um die Ausgabe direkt in der für die zu verfassende Arbeit passenden Formatierung ausgeben zu lassen. Hinweise dazu finden sich bspw. auf der [RStudio-Webseite](https://rmarkdown.rstudio.com/articles_docx.html).
-
-## Ressourcen
-
-📖 [r4ds.hadley.nz](https://r4ds.hadley.nz) — Kap. 6 & 7\
+📖 [r4ds.hadley.nz](https://r4ds.hadley.nz) — Ch. 6 & 7\
 *(Workflow: scripts & projects)*
 
 📖 [quarto.org/docs/output-formats](https://quarto.org/docs/output-formats/html-basics.html)\
-*(HTML-Dokumente in Quarto)*
+*(HTML documents in Quarto)*
 
-📖 [xfun-Dokumentation](https://yihui.org/xfun/)\
+📖 [xfun documentation](https://yihui.org/xfun/)\
 *(from_root())*
+
+📖 [insideairbnb.com/get-the-data](http://insideairbnb.com/get-the-data/)\
+*(Open Airbnb listing data for 100+ cities)*
 
 📺 RStudio: *"Project-oriented workflow"* (Webinar)
 
-<br> **Fragen? → Debrief Lab 1**
+:::{.callout-note collapse="true"}
+## 📚 Self-Learning: Reference Management with Zotero
+
+Zotero is a free reference manager that integrates with RStudio and Quarto.
+It is relevant from **Lab 3 onwards** when citations appear in reports.
+
+Setup steps:
+1. Download from [zotero.org](https://www.zotero.org) and create a free account
+2. Install **Better BibTeX** add-on ([instructions](https://retorque.re/zotero-better-bibtex/installation/))
+3. Install the [Zotero Connector](http://www.zotero.org/download/connectors) for your browser
+4. Export library: `File > Export Library` → format: CSL JSON → save as `lit/my_bib.json`
+5. Add to YAML: `bibliography: ../../lit/my_bib.json`
+
+Note: Zotero also integrates directly with MS Word.
+Always save `.R` and `.qmd` files with **UTF-8 encoding** to avoid compatibility issues.
+:::
+
+<br> **Questions? → Lab 1 Debrief**
+
+---
+
+## References
+
+

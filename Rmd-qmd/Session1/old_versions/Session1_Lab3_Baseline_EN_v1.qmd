@@ -1,0 +1,614 @@
+---
+title: "Lab 3: Baseline Model — Simple Regression"
+subtitle: "CRISP-DM Phase 3 & 4 — Data Preparation & Modeling"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(moderndive)
+library(broom)
+library(gt)
+library(patchwork)
+library(ISLR2)
+
+tbl_carseats <- tibble(Carseats)
+```
+
+## Learning Objectives and Overview
+
+:::{.callout-note}
+## Learning Objectives
+
+- Understand simple linear regression as a **descriptive** tool: conditional means, not causal claims
+- Read the regression equation as a **model formula** and interpret its coefficients correctly
+- Compute and interpret the **coefficient of determination R²**
+- Use **residuals** as a measure of underperformance and read the residual plot
+- Diagnose **Omitted Variable Bias (OVB)** in the residual plot
+:::
+
+**Scenario:** In Lab 2 you explored the Carseats data and established that
+`Price` is negatively correlated with `Sales`. Now you build the simplest possible
+regression model — the **baseline model** — and critically assess what it can and cannot do.
+
+:::{.callout-tip}
+## Schedule
+⏱ **15 minutes** — Mandatory tasks (A1–A3), bonus tasks if time permits.
+:::
+
+---
+
+## Background: Simple Linear Regression as a Descriptive Tool
+
+### What Is Simple Linear Regression — and What Is It Not?
+
+Simple linear regression is often introduced alongside inferential machinery: standard errors, p-values, confidence intervals. Before we reach that machinery, it is worth stepping back and clarifying what regression *fundamentally is*.
+
+**At its core, simple linear regression is a descriptive technique.**
+
+Given a dataset of $n$ observations $(x_i, y_i)$, OLS finds the straight line that best summarises the relationship between $x$ and $y$ in that dataset. In our case: the line that best describes how average sales vary with price *across the 400 stores we have*.
+
+This is important: the 400 Carseats stores are our **population** (or at least the complete dataset of interest). We are not trying to generalise from a small sample to a larger world — we are describing what is already in front of us. This is the same descriptive spirit as EDA in Lab 2.
+
+### Regression as Conditional Means
+
+The OLS line can be understood as a machine for computing **conditional means**:
+
+$$\hat{y}_i = \hat\beta_0 + \hat\beta_1 \cdot x_i \approx E[Y \mid X = x_i]$$
+
+For each value of $x$ (price), the regression line gives the average $y$ (sales) across all stores with that price. The coefficients describe the *systematic* part of this relationship; residuals capture what is left over.
+
+This perspective — regression as conditional means — makes coefficients intuitive:
+
+- $\hat\beta_1$ is the **slope**: how much does the conditional mean of Sales change when Price increases by one unit?
+- $\hat\beta_0$ is the **intercept**: what is the conditional mean of Sales when Price = 0? (Often not directly interpretable.)
+
+### A Note on the Standard Regression Table
+
+When we estimate a regression on a **population** (all 400 stores), the standard output from `lm()` includes more columns than we strictly need right now:
+
+| Column | Meaning | Relevant? |
+|--------|---------|-----------|
+| `estimate` | The coefficient $\hat\beta$ | ✅ Yes — this is what we need |
+| `std_error` | Standard error — how variable would $\hat\beta$ be across repeated samples? | ⚠️ Not meaningful for a population |
+| `statistic` | t-value = estimate / std_error | ⚠️ Requires sampling context |
+| `p_value` | Probability under $H_0: \beta = 0$ in a sampling framework | ⚠️ Not meaningful for a population |
+| `lower_ci` / `upper_ci` | 95% confidence interval | ⚠️ Requires sampling context |
+
+:::{.callout-important}
+## Descriptive Context: What the Column Headers Actually Mean
+
+The column labelled `estimate` is somewhat misleading here: in a population analysis, $\hat\beta$ is not an **estimate** (which implies sampling uncertainty) but a **parameter** — the exact value of the slope for our 400 stores. Similarly, standard errors, p-values, and confidence intervals are concepts from sampling theory: they quantify how much results might vary across hypothetical repeated samples. When we treat the 400 stores as the population, there is no such variation — we have *all* the data.
+
+**Practical consequence for this lab:**\
+We focus exclusively on the `estimate` column. The other columns (standard error, t-value, p-value, confidence interval) are shown by the software, but they only become conceptually meaningful in PVA2, when we treat our data as a sample from a larger process and ask inferential questions.
+:::
+
+### The Model Formula
+
+Before turning to R, let us write down the model we are going to fit and make explicit what its parts mean.
+
+The **simple linear regression model** for our baseline case is:
+
+$$\widehat{\text{Sales}}_i = \hat\beta_0 + \hat\beta_1 \cdot \text{Price}_i$$
+
+**Interpretation of the coefficients:**
+
+- $\hat\beta_1$ (slope): the **partial derivative** of $\widehat{\text{Sales}}$ with respect to $\text{Price}$:
+$$\hat\beta_1 = \frac{\partial \widehat{\text{Sales}}}{\partial \text{Price}}$$
+In plain language: for each additional dollar in price, the conditional mean of Sales changes by $\hat\beta_1$ thousand units — all else being equal (which here means: within the dataset as it is).
+
+- $\hat\beta_0$ (intercept): the predicted value of $\widehat{\text{Sales}}$ when $\text{Price} = 0$. This is rarely interpretable in practice (no store charges zero), but it anchors the line.
+
+**How are the coefficients chosen?**
+
+OLS selects $\hat\beta_0$ and $\hat\beta_1$ to minimise the **sum of squared residuals (SSR)**:
+
+$$\min_{\hat\beta_0,\, \hat\beta_1} \sum_{i=1}^{n} e_i^2 = \sum_{i=1}^{n}(y_i - \hat\beta_0 - \hat\beta_1 x_i)^2$$
+
+Setting the first-order conditions (partial derivatives = 0) yields analytical solutions:
+
+$$\hat\beta_1 = \frac{s_{xy}}{s_x^2} = \frac{\sum_i(x_i - \bar{x})(y_i - \bar{y})}{\sum_i(x_i - \bar{x})^2}$$
+
+$$\hat\beta_0 = \bar{y} - \hat\beta_1 \cdot \bar{x}$$
+
+Notice that $\hat\beta_1$ equals the correlation between $x$ and $y$, scaled by the ratio of their standard deviations:
+$$\hat\beta_1 = r_{xy} \cdot \frac{s_y}{s_x}$$
+
+This shows that the regression slope is directly linked to correlation — but expressed in the original units.
+
+### The Coefficient of Determination R²
+
+The total variation in $y$ (TSS) can be decomposed into explained variation (ESS) and residual variation (SSR):
+
+$$\underbrace{\sum_i(y_i - \bar{y})^2}_{\text{TSS}} = \underbrace{\sum_i(\hat{y}_i - \bar{y})^2}_{\text{ESS}} + \underbrace{\sum_i e_i^2}_{\text{SSR}}$$
+
+The coefficient of determination measures the share of explained variation:
+
+$$R^2 = \frac{\text{ESS}}{\text{TSS}} = 1 - \frac{\text{SSR}}{\text{TSS}} \in [0, 1]$$
+
+:::{.callout-note}
+## Interpreting R² Correctly
+
+$R^2 = 0.15$ means: **15% of the variance in `Sales`** is explained by the model.
+The remaining 85% is attributable to other factors not in the model.
+
+A low $R^2$ is **not a failure** — it signals that important variables are missing.
+Didactically, this is precisely the point: it motivates the **multiple model** with ShelveLoc and Advertising.
+
+For simple regression, $R^2 = r_{xy}^2$ — the square of the Pearson correlation between $x$ and $y$.
+:::
+
+:::{.callout-important}
+## Regression as Benchmark — Not as Truth
+
+The regression line is **not** a causal model and **not** an exact prediction.
+It is a **market standard**: the sales a store *on average* should achieve
+at a given price.
+
+A store with a strongly **negative residual** sells less than the price benchmark would predict —
+that is the underperformance signal we are looking for.
+
+> *"Regression does not give us truth. It gives us conditional averages —
+> benchmarks against which to judge individual cases."*
+> — @taddy_business_2019, p. 32
+:::
+
+---
+
+## Step 1: Estimate the Baseline Model
+
+### The Model
+
+Before running `lm()`, let us explicitly state what we are about to estimate:
+
+$$\widehat{\text{Sales}}_i = \hat\beta_0 + \hat\beta_1 \cdot \text{Price}_i$$
+
+We expect $\hat\beta_1 < 0$: stores that charge higher prices should, on average, sell fewer units. The EDA in Lab 2 confirmed this with $r \approx -0.44$.
+
+### Simple Regression: Sales ~ Price
+
+```{r baseline-fit}
+#| code-fold: false
+library(moderndive)
+
+# Fit model
+mod_baseline <- tbl_carseats %>%
+  lm(Sales ~ Price, data = .)
+
+# Regression table
+mod_baseline %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic,
+                         p_value, lower_ci, upper_ci),
+             decimals = 4) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff8e1"),
+    locations = cells_body(rows = term == "Price")
+  ) %>%
+  tab_options(table.font.size = "14px") %>%
+  tab_footnote("Yellow = slope coefficient for Price | Columns 2–6 relevant only in an inferential (sampling) context — see PVA2")
+```
+
+:::{.callout-note}
+## Reading the Regression Table — Today's Focus
+
+| Column | Meaning | Today |
+|--------|---------|-------|
+| `estimate` | Coefficient $\hat\beta$ — the slope/intercept | ✅ Focus here |
+| `std_error` | Standard error (sampling concept) | → PVA2 |
+| `statistic` | t-value (sampling concept) | → PVA2 |
+| `p_value` | p-value (sampling concept) | → PVA2 |
+| `lower_ci` / `upper_ci` | Confidence interval (sampling concept) | → PVA2 |
+
+Since we are working with a population (all 400 stores), the coefficients are **parameters**, not estimates. Standard errors, t-values, p-values and confidence intervals only become meaningful in PVA2 when we adopt a sampling perspective.
+:::
+
+### Model Quality
+
+```{r baseline-summary}
+mod_baseline %>%
+  get_regression_summaries() %>%
+  select(r_squared, adj_r_squared, rmse, sigma, nobs) %>%
+  gt() %>%
+  fmt_number(columns = c(r_squared, adj_r_squared, rmse, sigma),
+             decimals = 4) %>%
+  tab_options(table.font.size = "14px")
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A1: Interpret the Coefficients
+
+Write out the regression equation and interpret the coefficients:
+
+$$\widehat{\text{Sales}} = \hat\beta_0 + \hat\beta_1 \cdot \text{Price}$$
+
+1. **Intercept $\hat\beta_0$:** What does this value mean in context?
+   Is it sensibly interpretable (price = 0)?
+
+2. **Slope $\hat\beta_1$:** How does the predicted sales change
+   when the price increases by 1 USD? By 10 USD?
+
+3. **$R^2$:** What percentage of the sales variance does the model explain?
+   What does this say about the quality of the model?
+
+4. **RMSE:** What does the Root Mean Squared Error tell us about the
+   average prediction accuracy (in which units)?
+:::
+
+### Visualisation: The Regression Line
+
+```{r scatter-fit}
+tbl_carseats %>%
+  ggplot(aes(x = Price, y = Sales)) +
+  geom_point(alpha = 0.35, color = "#7d0a52", size = 1.8) +
+  geom_smooth(method = "lm", color = "#D50006",
+              se = TRUE, linewidth = 1.2) +
+  annotate("text", x = 70, y = 16,
+           label = paste0("Sales = ",
+                          round(coef(mod_baseline)[1], 2), " + ",
+                          round(coef(mod_baseline)[2], 2), " × Price\n",
+                          "R² = ", round(summary(mod_baseline)$r.squared, 3)),
+           color = "#D50006", size = 3.5, hjust = 0, fontface = "bold") +
+  labs(
+    title    = "Baseline Model: Sales ~ Price",
+    subtitle = "Regression line = conditional mean E[Sales | Price]",
+    x = "Price (USD)", y = "Sales (thousands of units)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+---
+
+## Step 2: Residual Analysis
+
+### Compute and Display Residuals
+
+```{r residuals}
+#| code-fold: false
+reg_points <- mod_baseline %>%
+  get_regression_points()
+
+# First 10 observations
+reg_points %>%
+  head(10) %>%
+  gt() %>%
+  fmt_number(columns = c(Sales, Price, Sales_hat, residual),
+             decimals = 3) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = residual < -2)
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#f0fff0"),
+    locations = cells_body(rows = residual > 2)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Red = strongly negative residual (underperformer) | Green = strongly positive (outperformer)")
+```
+
+:::{.callout-note}
+## The Residual as a Measure of Underperformance
+
+$$e_i = y_i - \hat{y}_i = \text{Sales}_i - \widehat{\text{Sales}}_i$$
+
+- **$e_i < 0$:** Store sells **less** than the price benchmark predicts → underperformer
+- **$e_i > 0$:** Store sells **more** than expected → outperformer
+- **$e_i \approx 0$:** Store is at the market average
+
+The residual quantifies the **deviation from the market standard** —
+this is the score for our performance mining (→ Lab 4).
+:::
+
+### Residual Plot
+
+```{r residual-plots}
+pts <- augment(mod_baseline, data = tbl_carseats)
+
+# Plot 1: Residuals vs. Fitted Values
+p1 <- pts %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.4, color = "#7d0a52", size = 1.5) +
+  geom_hline(yintercept = 0, color = "#D50006",
+             linewidth = 1.1, linetype = "dashed") +
+  geom_smooth(method = "loess", color = "#502479",
+              se = FALSE, linewidth = 0.8) +
+  labs(title = "Residuals vs. Fitted Values",
+       subtitle = "Ideal: random scatter around 0",
+       x = "Predicted value (Ŝales)", y = "Residual") +
+  theme_minimal(base_size = 10)
+
+# Plot 2: Residuals coloured by ShelveLoc
+p2 <- pts %>%
+  ggplot(aes(x = .fitted, y = .resid, color = ShelveLoc)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  geom_hline(yintercept = 0, color = "#686868",
+             linewidth = 1, linetype = "dashed") +
+  scale_color_manual(values = c("Bad"    = "#D50006",
+                                "Medium" = "#b3b2b2",
+                                "Good"   = "#502479")) +
+  labs(title = "Residuals coloured by shelf location",
+       subtitle = "Systematic pattern = missing variable!",
+       x = "Predicted value", y = "Residual",
+       color = "ShelveLoc") +
+  theme_minimal(base_size = 10)
+
+p1 + p2
+```
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A2: Interpret the Residual Plot
+
+1. **Left plot:** Does the residual plot show a random pattern or a systematic structure?
+   What would an ideal residual plot look like?
+
+2. **Right plot:** Describe the pattern after colouring by ShelveLoc.
+   - Where do the red points (Bad) tend to cluster?
+   - Where do the purple points (Good) cluster?
+   - What does this tell us about a missing variable in the model?
+
+3. **Omitted Variable Bias:** If a confounder (ShelveLoc) correlates with both the regressor
+   (Price) and the target variable (Sales) — in which direction is the price coefficient biased?
+
+```r
+# Check: Does ShelveLoc correlate with Price?
+tbl_carseats %>%
+  group_by(ShelveLoc) %>%
+  summarise(mean_price = mean(Price),
+            mean_sales = mean(Sales))
+```
+:::
+
+---
+
+## Step 3: OVB Diagnosis and Log Transformation
+
+### Compute R² Manually
+
+```{r r2-manual}
+#| code-fold: false
+ssq <- reg_points %>%
+  summarise(
+    TSS = sum((Sales - mean(Sales))^2),
+    SSR = sum(residual^2),
+    ESS = TSS - SSR,
+    R2  = 1 - SSR / TSS
+  )
+ssq %>%
+  gt() %>%
+  fmt_number(columns = everything(), decimals = 2) %>%
+  tab_options(table.font.size = "14px")
+```
+
+### Comparison: Linear vs. Log-Linear Model
+
+The log-linear model modifies the specification as follows:
+
+$$\ln(\widehat{\text{Sales}}_i) = \hat\beta_0 + \hat\beta_1 \cdot \text{Price}_i$$
+
+Here $\hat\beta_1$ is no longer a unit change in Sales per unit of Price, but an approximate **percentage change** in Sales per unit of Price:
+
+$$\hat\beta_1 \approx \frac{\Delta \text{Sales\%}}{1 \text{ USD price increase}}$$
+
+```{r log-comparison}
+# Model with log(Sales)
+tbl_carseats_log <- tbl_carseats %>%
+                      filter(Sales > 0) %>%   # log(0) is undefined
+                      mutate(log_sales = log(Sales))
+
+mod_log <- tbl_carseats_log %>%
+  lm(log_sales ~ Price, data = .)
+
+# Comparison
+tibble(
+  Model    = c("Sales ~ Price (linear)", "log(Sales) ~ Price (log-linear)"),
+  R2       = c(summary(mod_baseline)$r.squared,
+               summary(mod_log)$r.squared),
+  `β_Price` = c(coef(mod_baseline)[2],
+                coef(mod_log)[2]),
+  Interpretation = c(
+    "1 USD more → β̂ thousand units more Sales",
+    "1 USD more → β̂ × 100% more log(Sales) ≈ % change in Sales"
+  )
+) %>%
+  gt() %>%
+  fmt_number(columns = c(R2, `β_Price`), decimals = 4) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note}
+## Interpretation of the Log-Linear Coefficient
+
+In the log-linear model, for small $\hat\beta$:
+
+$$\hat\beta_1 \approx \frac{\Delta \text{Sales\%}}{1 \text{ USD price}}$$
+
+Exactly: $e^{\hat\beta_1} - 1 =$ percentage change in Sales per 1 USD price increase.
+
+```r
+# Exact percentage change
+(exp(coef(mod_log)[2]) - 1) * 100
+```
+:::
+
+:::{.callout-caution icon=false}
+## `r fontawesome::fa("pen")` A3: Model Comparison and OVB
+
+1. Compare $R^2$ of both models. Does the log transformation improve model fit?
+
+2. **OVB formula:** The bias in the price coefficient can be written as:
+$$\hat\beta_{\text{Price, biased}} = \beta_{\text{Price}} + \underbrace{\beta_{\text{ShelveLoc}} \cdot \frac{\text{Cov(Price, ShelveLoc)}}{\text{Var(Price)}}}_{\text{Bias}}$$
+
+   Check empirically: how much does $\hat\beta_{\text{Price}}$ change when ShelveLoc
+   is added to the model?
+
+```r
+# Model WITHOUT ShelveLoc
+mod_without <- lm(Sales ~ Price, data = tbl_carseats)
+
+# Model WITH ShelveLoc
+mod_with    <- lm(Sales ~ Price + ShelveLoc, data = tbl_carseats)
+
+# Compare price coefficients
+coef(mod_without)["Price"]
+coef(mod_with)["Price"]
+```
+
+3. In which direction is the coefficient biased? Is this consistent with your
+   expectation from A2?
+:::
+
+---
+
+## Bonus Tasks
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B1: Visualise the Variance Decomposition
+
+Visualise TSS, ESS, and SSR for the first 20 observations:
+
+```r
+first20 <- reg_points %>% slice(1:20) %>%
+  mutate(
+    ybar   = mean(tbl_carseats$Sales),
+    x_rank = row_number()
+  )
+
+ggplot(first20, aes(x = x_rank)) +
+  # TSS: deviation from the mean
+  geom_segment(aes(xend = x_rank, y = ybar, yend = Sales),
+               color = "#b3b2b2", linewidth = 1) +
+  # SSR: residuals
+  geom_segment(aes(xend = x_rank, y = Sales_hat, yend = Sales),
+               color = "#D50006", linewidth = 1.2) +
+  # ESS: explained deviation
+  geom_segment(aes(xend = x_rank, y = ybar, yend = Sales_hat),
+               color = "#502479", linewidth = 1.2) +
+  geom_point(aes(y = Sales), color = "#7d0a52", size = 2) +
+  geom_point(aes(y = Sales_hat), color = "#D50006", shape = 17, size = 2) +
+  geom_hline(yintercept = mean(tbl_carseats$Sales),
+             linetype = "dashed", color = "#686868") +
+  labs(title = "Variance decomposition: TSS = ESS + SSR",
+       subtitle = "Grey = TSS | Purple = ESS (explained) | Red = SSR (residual)",
+       x = "Observation", y = "Sales") +
+  theme_minimal()
+```
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B2: Coefficient of Determination and Correlation
+
+Show empirically that in the case of simple regression:
+$$R^2 = r_{x,y}^2$$
+
+```r
+r_xy <- cor(tbl_carseats$Price, tbl_carseats$Sales)
+r_xy^2
+summary(mod_baseline)$r.squared
+```
+
+Why does this equality hold **only** for simple regression, not for multiple regression?
+:::
+
+:::{.callout-tip icon=false}
+## `r fontawesome::fa("star")` B3: Identify Underperformers
+
+Create a first ranking of underperforming stores based on the baseline model:
+
+```r
+reg_points %>%
+  arrange(residual) %>%
+  head(10) %>%
+  select(ID, Sales, Price, Sales_hat, residual) %>%
+  gt() %>%
+  fmt_number(columns = c(Sales, Sales_hat, residual), decimals = 2) %>%
+  tab_style(
+    style = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = residual < -3)
+  )
+```
+
+What do the top underperformers have in common? Look at their ShelveLoc category.
+:::
+
+---
+
+## Summary
+
+```{r summary-comparison}
+#| echo: false
+tibble::tribble(
+  ~Criterion,            ~`Baseline (Sales ~ Price)`,   ~`Expected with ShelveLoc`,
+  "R²",                  paste0(round(summary(mod_baseline)$r.squared, 3)),
+                         "~0.50 (substantially better)",
+  "β_Price",             paste0(round(coef(mod_baseline)[2], 3), " USD/thousand"),
+                         "Changes due to OVB correction",
+  "Residual plot",       "Systematic pattern (ShelveLoc)",
+                         "Random scatter around 0",
+  "Usability",           "Too inaccurate for decisions",
+                         "Better benchmark quality",
+  "Main problem",        "Omitted Variable Bias via ShelveLoc",
+                         "Resolved by multiple regression"
+) %>%
+  gt() %>%
+  tab_style(
+    style     = cell_fill(color = "#f5f0fa"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style     = cell_fill(color = "#fff0f0"),
+    locations = cells_body(rows = Criterion == "Main problem")
+  ) %>%
+  tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important}
+## Key Messages of This Lab
+
+1. **Regression = conditional mean** — not a causal model, but a benchmark.
+
+2. **Descriptive perspective:** Since all 400 stores form our population, the coefficients
+   are **parameters** (not estimates). Standard errors, p-values, and confidence intervals
+   shown by R require a sampling context and become relevant in PVA2.
+
+3. **R² = `r round(summary(mod_baseline)$r.squared, 2)`** — price alone explains only a small share of sales variance. This is not a flaw — it is a signal that important variables are missing.
+
+4. **The residual plot diagnoses OVB** — the systematic ShelveLoc pattern shows that the price coefficient is biased by a missing variable.
+
+5. **Log transformation** improves model assumptions for right-skewed outcomes and makes coefficients interpretable as (approximate) elasticities.
+:::
+
+:::{.callout-note}
+## Transition to the Live Demo
+
+In the **live demo**, the instructor shows what happens when we add `ShelveLoc` and `Advertising`
+to the model:
+
+- $R^2$ rises from ~0.15 to ~0.50
+- The price coefficient changes (OVB correction)
+- The residual plot loses its systematic pattern
+
+This is the **multiple regression model** — and it leads directly to Lab 4: Performance Mining.
+:::
+
+## References {.unnumbered}

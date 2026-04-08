@@ -1,0 +1,2274 @@
+---
+title: "Data Science and Strategy for Business"
+subtitle: "(Re-)Sampling and Hypothesis Testing"
+author: "Prof. Dr. Jörg Schoder"
+institute: "FFHS" 
+date: "`r Sys.Date()`"
+bibliography: ../../lit/my_bib.bib
+lang: en
+reference-section-title: References
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css: 
+         - default
+         - ../../css/ffhs-theme_js.css
+         - xaringan-themer.css
+    includes:
+      after_body: ../../css/insert-logo.html
+    lib_dir: ../../libs
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false
+    
+
+    
+---
+class: title-slide
+
+```{r xaringan-themer, include=FALSE}
+library(xaringanthemer)
+style_xaringan(text_color = "#d50006",inverse_text_color = "#FFFFFF",inverse_background_color = "#d50006", title_slide_background_color = "#d50006",header_background_color = "#d50006",header_color = "#FFFFFF",header_h1_font_size = "32px",
+  header_h2_font_size = "26px",link_color="#502479",
+  header_h3_font_size = "20px",text_slide_number_color = "#d50006",text_slide_number_font_size = "0.5em")
+```
+
+```{r xaringanExtra, echo=FALSE}
+xaringanExtra::use_progress_bar(color = "#d50006", location = "bottom")
+xaringanExtra::use_xaringan_extra(c("tile_view","scribble","panelset","tachyons"))
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+#xaringanExtra::use_search(show_icon = TRUE)
+#weitere: "share_again","animate_css", "webcam","freezeframe","clipboard","fit_screen","extra-styles" 
+xaringanExtra::use_editable(expires = 1)
+xaringanExtra::use_freezeframe(trigger = "hover")
+``` 
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi = 150)  # oder 300
+options(htmltools.dir.version = FALSE)
+library(latex2exp)
+library(fontawesome)
+library(tidyverse)
+library(kableExtra)
+source(xfun::from_root("lit","helper.R"))
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           style = "markdown",
+           dashed = TRUE)
+bib <- ReadBib(xfun::from_root("lit","my_bib.bib"))
+Zitiere <- function(bib, key, ...) {
+  gsub(" and ", " and ", Citet(bib, key, ...))
+}
+```
+
+
+
+# ER014 - Data Science and Strategy for Business
+
+## Session 2
+
+### Inference, Uncertainty & Decision Logic
+
+ 
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+### FS 2026
+<br>
+### Prof. Dr. Jörg Schoder
+.mycontacts[
+`r fa('github')` @FFHS-EconomicResearch
+`r fa('linkedin')` @jfschoder
+]
+
+
+---
+layout: true
+
+<div class="my-footer"></div>       
+
+<div style="position: absolute;left:400px;bottom:10px;font-size:9px">`r fa('creative-commons')``r rmarkdown::metadata$author`</div>
+
+
+
+
+
+
+
+
+---
+class: left
+
+.blockquote[Agenda]
+
+## Session 2 Overview
+
+<div style="display:grid; grid-template-columns:80px 1fr; gap:0.3em 1em;
+            font-size:0.82em; margin-top:0.5em; align-items:center;">
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('rotate-left')` <strong>Recap & Homework Debrief</strong> — Buli EDA, interaction term, open questions</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('layer-group')` <strong>Population vs. Sample</strong> — stochastic regression, sampling distribution</div>
+
+<div style="color:#D50006; font-weight:bold;">40'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 1</strong> — Only One Test: Bootstrap + Permutation with infer</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('comments')` <strong>Debrief</strong> — Critical Validator Building Blocks A+B · Galak Analogy</div>
+
+<div style="color:#686868; font-style:italic;">10'</div>
+<div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 2</strong> — p-Hacking Simulation · FDR</div>
+
+<div style="color:#686868;">35'</div>
+<div>`r fa('scale-balanced')` <strong>Type I/II Errors as Economic Risks</strong> · Expected Value Framework</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('ruler')` <strong>Statistical vs. Practical Significance</strong> · Effect Size · Session 3 Preview</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('flag-checkered')` <strong>Debrief & Preview</strong></div>
+
+</div>
+
+???
+* Common thread: the Bundesliga model from the homework is examined from a different angle in each act
+* Goal: from descriptive findings to inferential statistical reasoning
+
+
+* `r fa('rotate-left')` **Recap & Homework Debrief**: Buli EDA, interaction term, open questions
+
+* `r fa('layer-group')` **Population vs. Sample**: stochastic regression, sampling distribution
+
+* `r fa('flask')` **Lab 1**: Only One Test: Bootstrap & Permutation with infer
+
+* `r fa('comments')` **Debrief**: Critical Validator Building Blocks A+B · Galak Analogy
+
+
+---
+class: inverse, center, middle
+
+## Recap
+
+### What did we learn in Session 1 — and what is still missing?
+
+---
+class: left
+
+.blockquote[Recap Session 1]
+
+## Homework Debrief: Bundesliga Market Values
+
+.panelset[
+.panel[.panel-name[Task]
+`r fa('circle-right')` Exploratory data analysis of Bundesliga players
+
+`r fa('circle-right')` Simple + multiple regression: What explains market value?
+
+`r fa('circle-right')` Residual = Arbitrage opportunity: Who is under-/overvalued?
+
+]
+.panel[.panel-name[Key Finding]
+
+### Population Season 2022/23
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+library(tidyverse)
+library(moderndive)
+library(infer)
+library(gt)
+## Load Bundesliga data
+date <- '2023-09-06'
+my_in_file <- glue::glue('buli_raw_{date}.rds')
+tbl_buli_raw <- read_rds(file = xfun::from_root("data","raw",my_in_file))
+tbl_buli <- tbl_buli_raw %>%
+              mutate(age = lubridate::year(Sys.Date()) -
+                          lubridate::year(player_dob),
+                     log_value = log(player_market_value_euro),
+                     pos_bin = if_else(player_position == "Goalkeeper",
+                                       "Goalkeeper", "Outfield")) %>%
+              rename(name = player_name, mv = player_market_value_euro) %>%
+              filter(!is.na(mv), !is.na(age))
+options(scipen = 999)
+```
+
+
+```{r}
+#| label: recap-coef
+#| echo: false
+#| message: false
+## Regression model (full season population)
+lm_full <- tbl_buli %>% lm(log_value ~ age, data = .)
+lm_interaction <- tbl_buli %>%
+                    lm(log_value ~ age * pos_bin, data = .)
+```
+
+.pull-left[
+### Simple Regression
+```{r}
+#| echo: false
+lm_full %>%
+  get_regression_table() %>%
+  select(term, estimate, p_value) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, p_value), decimals = 3) %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = str_detect(term, "age")))
+```
+]
+.pull-right[
+### 2 Regressors with Interaction Term
+```{r}
+#| echo: false
+lm_interaction %>%
+  get_regression_table() %>%
+  select(term, estimate, p_value) %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, p_value), decimals = 3) %>%
+  tab_style(style = cell_fill(color = "#fff8e1"),
+            locations = cells_body(rows = str_detect(term, "age:pos")))
+```
+
+]
+
+`r fa('question-circle')` Coefficient interpretation? `r fa('circle-right')` **Elasticity:**
+
+.center[ $$\Delta\log(mv)\approx\frac{\Delta mv}{mv}$$
+]
+
+]
+.panel[.panel-name[Model Equation]
+### Model Equation with Interaction
+
+$$\widehat{\log(\text{mv})} = b_0 + b_1 \cdot \text{age} + b_2 \cdot \mathbb{I}_{\text{OF}} + b_3 \cdot \text{age} \times \mathbb{I}_{\text{OF}}$$
+
+**For Goalkeepers** ($\mathbb{I}_{\text{OF}} = 0$):
+$$\widehat{\log(\text{mv})} = b_0 + b_1 \cdot \text{age}$$
+
+**For Outfield Players (OF)** ($\mathbb{I}_{\text{OF}} = 1$):
+$$\widehat{\log(\text{mv})} = (b_0 + b_2) + (b_1 + b_3) \cdot \text{age}$$
+]
+.panel[.panel-name[Data Viz]
+
+```{r}
+#| label: recap-plot
+#| echo: false
+#| message: false
+#| out-width: '50%'
+#| fig-align: 'center'
+tbl_buli %>%
+  ggplot(aes(x = age, y = log_value, color = pos_bin)) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.2) +
+  scale_color_manual(values = c("Goalkeeper" = "#502479",
+                                "Outfield"   = "#D50006")) +
+  labs(x = "Age", y = "log(Market Value)",
+       color = NULL, title = "Interaction Model: Age × Position") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+]
+.panel[.panel-name[Interpretation]
+
+* $\widehat{\log(\text{mv})}$ as **conditional mean** of log market value (given age and position)
+
+* $b_1$: Marginal effect of age on log market value (for goalkeepers = reference category)
+
+* $b_1+b_3$: Marginal effect of age on log market value (for outfield players)
+
+* Interaction term $b_3$: Difference in age effect between outfield players and goalkeepers.
+
+`r fa('circle-right')` In our data goalkeepers benefit more from the age effect than outfield players.
+]
+]
+
+???
+
+* Ein marginaler Effekt zeigt die Veränderung der abhängigen Variable bei Erhöhung der unabhängigen Variable um eine Einheit. In Ihrem Interaktionsmodell ergibt sich dieser durch die Ableitung nach age, was für Outfield-Player ($1$) zu $b_1 + b_3$ führt.
+
+* Strength of the log transformation — coefficients become directly readable as elasticities or percentage effects, not as absolute euro amounts:
+  * The exact percentage change is obtained via:
+$$e^0.0905−1=1.0947−1=9.47\% $$
+* So 9.47% more market value per year of age for outfield players
+
+* Interpretation as **conditional mean** (population data)
+
+* When using `mv` instead of `log_value` the age effect was negative
+* Contradictory: Possible reasons:
+  * Substantively: Survivorship Bias = selection effect
+  * Only exceptionally good players remain in the data
+
+* Data Drought (Thomas et al): For a true causal model we would need longitudinal data on player careers (career trajectories, performance data), not a cross-section of one season. That is exactly what Thomas et al. mean by Data Drought — the data we would need.
+
+
+* Without interaction: parallel lines — same age effect for both positions
+* With interaction: different slopes — age effect differs
+
+<br>
+
+.blockquote[
+But: This season is **one realization** of a random experiment. If we looked at a different season — would we get the same result?
+.tr[`r fa('arrow-right')` That is exactly what **inferential statistics** asks]
+]
+
+
+
+---
+class: left
+
+.blockquote[Big Picture & Statistical Uncertainty]
+
+## Do Goalkeepers **generally** benefit? A Shift in Model Interpretation
+
+.pull-left[
+### Descriptive Regression
+$$y_i = b_0 + b_1 x_i + e_i$$
+
+- Data as population data (no randomness, no error term in the stochastic sense)
+- **Summary** of observed data
+- $\hat{y}_i$: Prediction as a conditional mean
+- Coefficients: Marginal effects (ceteris paribus)
+- Residual $e_i$: Variance *not explained* by the model
+
+*→ That was our world in PVA 1.*
+]
+
+.pull-right[
+### Stochastic regression model
+
+$$Y_i = \beta_0 + \beta_1 X_i + \varepsilon_i$$
+
+- **Model for a data-generating process (DGP)** (bowl analogy in [moderndive.com](https://www.moderndive.com))
+- $\beta_j$: (unknown!) parameters of the *population* 
+- $\varepsilon_i \sim (0, \sigma^2)$: **stochastic** error term. Should ideally be only "noise" (contain no systematic information about Y → Session 3)
+- Goal: Infer about the population from the *sample*
+
+*→ This is the shift in today’s PVA.*
+]
+
+
+---
+class: left
+
+.blockquote[From Description to Modeling]
+
+## Why Model? Three Perspectives
+
+```{r purpose-table}
+#| echo: false
+tibble(
+  ` ` = c("🔬 Statistics / Econometrics", "🤖 Data Science / ML", "⛏ Data Mining"),
+  `Goal` = c("Inference (conclusions about the population)", 
+             "Prediction (forecasting new cases)",
+             "Pattern recognition (exploration)"),
+  `Focus` = c("β coefficients, confidence intervals, tests", 
+              "ŷ — Out-of-sample performance",
+              "Hidden structures, clusters, associations"),
+  `Typical question` = c("Does the advertisement work? (causal)", 
+                       "Who will buy tomorrow? (predictive)",
+                       "What customer groups exist? (descriptive)"),
+  `Key criterion` = c("Predictability, consistency",
+                           "Cross-validation, RMSE, AUC",
+                           "Interpretability, Novelty")
+) %>%
+  kable(format = "html", escape = FALSE) %>%
+  kable_styling(font_size = 15, full_width = TRUE) %>%
+  row_spec(0, bold = TRUE, background = "#16213e", color = "white")
+```
+
+📌 **Inference and prediction place different demands on models!** → Session 3
+
+
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Statistics vs. Data Science — Two Schools of Thought
+
+<style>
+.vs2-hdr {
+  color: white; font-family: sans-serif; font-size: 12px; font-weight: bold;
+  padding: 6px 12px; border-radius: 4px; text-align: center;
+}
+.vs2-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0.55em; margin-top: 0.28em;
+}
+.vs2-dim {
+  font-family: sans-serif; font-size: 9px; font-weight: bold;
+  text-transform: uppercase; letter-spacing: 0.05em; color: #777;
+  padding: 2px 8px; background: #f5f5f5; border-radius: 3px;
+  grid-column: 1 / -1;
+}
+.vs2-cell {
+  border-radius: 4px; padding: 5px 9px;
+  font-size: 0.74em; line-height: 1.42;
+}
+.vs2-chip {
+  background: rgba(0,0,0,0.07); border-radius: 3px;
+  padding: 1px 4px; font-size: 0.87em;
+  display: inline-block; margin: 1px;
+}
+</style>
+
+<!-- Header -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
+  <div class="vs2-hdr" style="background:#502479;">
+    `r fa('chart-line', fill='white')` &nbsp;Classical Statistics
+  </div>
+  <div class="vs2-hdr" style="background:#D50006;">
+    `r fa('robot', fill='white')` &nbsp;Data Science / ML
+  </div>
+</div>
+
+<!-- Dim 1: Research Objective — AKTIV -->
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Research Objective</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
+    <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Test</span><br>
+    <span style="color:#666;">Understand parameters · "Why?"</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
+    <span class="vs2-chip">Prediction</span><span class="vs2-chip">Automation</span><span class="vs2-chip">Correlation</span><br>
+    <span style="color:#666;">Maximize accuracy · "What comes next?"</span>
+  </div>
+</div>
+
+<!-- Dim 2–4: grayed out -->
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('chart-area', fill='#777')` &nbsp;Handling Uncertainty</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('database', fill='#777')` &nbsp;Data</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+
+???
+* Shmueli (2010): kanonische Referenz — Explain braucht Theorie, Predict braucht stabile Muster
+* Storchen-Beispiel: korreliert mit Geburtenrate — gut für Prognose, falsch für Causality
+* Statistik: Data auf die „Anklagebank" — Effekte gelten als null bis Gegenteil bewiesen
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Statistics vs. Data Science — Two Schools of Thought
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
+  <div class="vs2-hdr" style="background:#502479;">`r fa('chart-line', fill='white')` &nbsp;Classical Statistics</div>
+  <div class="vs2-hdr" style="background:#D50006;">`r fa('robot', fill='white')` &nbsp;Data Science / ML</div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Research Objective</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
+    <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Test</span><br>
+    <span style="color:#666;">Understand parameters · "Why?"</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
+    <span class="vs2-chip">Prediction</span><span class="vs2-chip">Automation</span><span class="vs2-chip">Correlation</span><br>
+    <span style="color:#666;">Maximize accuracy · "What comes next?"</span>
+  </div>
+</div>
+
+<!-- Dim 2: Unsicherheit — AKTIV -->
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('chart-area', fill='#777')` &nbsp;Handling Uncertainty</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('signal')` Theoretical</strong> &nbsp;
+    <span class="vs2-chip">CLT</span><span class="vs2-chip">α-Level</span><span class="vs2-chip">Type I Error</span><br>
+    <span style="color:#666;">Normal distribution · strict assumptions</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('arrows-rotate')` Data-Driven</strong> &nbsp;
+    <span class="vs2-chip">Bootstrap</span><span class="vs2-chip">Resampling</span><span class="vs2-chip">FDR</span><br>
+    <span style="color:#666;">No distributional assumptions · False Discovery Rate</span>
+  </div>
+</div>
+
+<!-- Dim 3–4: grayed out -->
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('database', fill='#777')` &nbsp;Data</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+
+???
+* ModernDive (Ismay & Kim): Resampling-based inference — bootstrap CI without CLT assumption
+* infer package: tidyverse-compatible permutation test — same logic as DS, classical question
+* FDR: with 10,000 tests I expect 500 false discoveries at α=0.05 — FDR controls the proportion
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Statistics vs. Data Science — Two Schools of Thought
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
+  <div class="vs2-hdr" style="background:#502479;">`r fa('chart-line', fill='white')` &nbsp;Classical Statistics</div>
+  <div class="vs2-hdr" style="background:#D50006;">`r fa('robot', fill='white')` &nbsp;Data Science / ML</div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Research Objective</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
+    <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Test</span><br>
+    <span style="color:#666;">Understand parameters · "Why?"</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
+    <span class="vs2-chip">Prediction</span><span class="vs2-chip">Automation</span><span class="vs2-chip">Correlation</span><br>
+    <span style="color:#666;">Maximize accuracy · "What comes next?"</span>
+  </div>
+</div>
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('chart-area', fill='#777')` &nbsp;Handling Uncertainty</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('signal')` Theoretical</strong> &nbsp;
+    <span class="vs2-chip">CLT</span><span class="vs2-chip">α-Level</span><span class="vs2-chip">Type I Error</span><br>
+    <span style="color:#666;">Normal distribution · strict assumptions</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('arrows-rotate')` Data-Driven</strong> &nbsp;
+    <span class="vs2-chip">Bootstrap</span><span class="vs2-chip">Resampling</span><span class="vs2-chip">FDR</span><br>
+    <span style="color:#666;">No distributional assumptions · False Discovery Rate</span>
+  </div>
+</div>
+
+<!-- Dim 3: Methoden — AKTIV -->
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('superscript')` OLS · GLM</strong> &nbsp;
+    <span class="vs2-chip">R²</span><span class="vs2-chip">p-Wert</span><span class="vs2-chip">In-Sample</span><br>
+    <span style="color:#666;">Significance · model fit on training data</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neuronale Netze</strong> &nbsp;
+    <span class="vs2-chip">Cross-Validation</span><span class="vs2-chip">Out-of-Sample</span><br>
+    <span style="color:#666;">Avoid overfitting · predict on new data</span>
+  </div>
+</div>
+
+<!-- Dim 4: grayed out -->
+<div class="vs2-row" style="opacity:0.13;">
+  <div class="vs2-dim">`r fa('database', fill='#777')` &nbsp;Data</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8; min-height:36px;"></div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8; min-height:36px;"></div>
+</div>
+
+???
+* Lasso/Ridge: mathematically statistics (penalization), but used with DS logic
+* AIC/BIC anticipate out-of-sample logic — parsimony as a bridge
+* Cross-validation: known in statistics as leave-one-out, in DS as k-fold standard
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Statistics vs. Data Science — Two Schools of Thought
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
+  <div class="vs2-hdr" style="background:#502479;">`r fa('chart-line', fill='white')` &nbsp;Classical Statistics</div>
+  <div class="vs2-hdr" style="background:#D50006;">`r fa('robot', fill='white')` &nbsp;Data Science / ML</div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Research Objective</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('magnifying-glass')` Explain</strong> &nbsp;
+    <span class="vs2-chip">Inference</span><span class="vs2-chip">Causality</span><span class="vs2-chip">Hypothesis Test</span><br>
+    <span style="color:#666;">Understand parameters · "Why?"</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('wand-magic-sparkles')` Predict</strong> &nbsp;
+    <span class="vs2-chip">Prediction</span><span class="vs2-chip">Automation</span><span class="vs2-chip">Correlation</span><br>
+    <span style="color:#666;">Maximize accuracy · "What comes next?"</span>
+  </div>
+</div>
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('chart-area', fill='#777')` &nbsp;Handling Uncertainty</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('signal')` Theoretical</strong> &nbsp;
+    <span class="vs2-chip">CLT</span><span class="vs2-chip">α-Level</span><span class="vs2-chip">Type I Error</span><br>
+    <span style="color:#666;">Normal distribution · strict assumptions</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('arrows-rotate')` Data-Driven</strong> &nbsp;
+    <span class="vs2-chip">Bootstrap</span><span class="vs2-chip">Resampling</span><span class="vs2-chip">FDR</span><br>
+    <span style="color:#666;">No distributional assumptions · False Discovery Rate</span>
+  </div>
+</div>
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('flask', fill='#777')` &nbsp;Methods &amp; Evaluation</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('superscript')` OLS · GLM</strong> &nbsp;
+    <span class="vs2-chip">R²</span><span class="vs2-chip">p-Wert</span><span class="vs2-chip">In-Sample</span><br>
+    <span style="color:#666;">Significance · model fit on training data</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('tree')` RF · Lasso · Neuronale Netze</strong> &nbsp;
+    <span class="vs2-chip">Cross-Validation</span><span class="vs2-chip">Out-of-Sample</span><br>
+    <span style="color:#666;">Avoid overfitting · predict on new data</span>
+  </div>
+</div>
+
+<!-- Dim 4: Data — AKTIV -->
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('database', fill='#777')` &nbsp;Data</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong style="color:#502479;">`r fa('table')` Low-Dimensional</strong> &nbsp;
+    <span class="vs2-chip">n ≫ p</span><span class="vs2-chip">structured</span><span class="vs2-chip">flat file</span><br>
+    <span style="color:#666;">Classical assumptions hold · Carseats: 400 × 11</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong style="color:#D50006;">`r fa('layer-group')` High-Dimensional</strong> &nbsp;
+    <span class="vs2-chip">p ≈ n</span><span class="vs2-chip">unstructured</span><span class="vs2-chip">Big Data</span><br>
+    <span style="color:#666;">Text · Image · Sensor · Web Logs</span>
+  </div>
+</div>
+
+???
+* Low-Dimensional: n≫p — OLS has a unique solution, classical statistics works
+* High-Dimensional: p≈n → OLS breaks down, regularization needed (→ Session 3)
+* Shmueli (2010): Statistical Science 25(3), 289–310
+* In this module: we start classical — next slide shows where ER014 sits
+
+---
+class: left
+
+.blockquote[Big Picture & Data Strategy]
+
+## Positioning ER014: Bridge between Statistics and Data Science
+
+<svg viewBox="0 0 860 315" width="100%" style="display:block; margin-top:0.1em;">
+  <defs>
+    <marker id="darr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#686868"/>
+    </marker>
+  </defs>
+
+  <!-- ── Background zones ── -->
+  <rect x="10"  y="10" width="195" height="175" rx="8"
+        fill="#f5f0fa" stroke="#502479" stroke-width="1.5"/>
+  <rect x="215" y="10" width="435" height="175" rx="8"
+        fill="#fff8e1" stroke="#D5A000" stroke-width="2.5"/>
+  <rect x="660" y="10" width="190" height="175" rx="8"
+        fill="#fff0f0" stroke="#D50006" stroke-width="1.5"/>
+
+  <!-- ── Zone titles ── -->
+  <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#502479;text-anchor:middle"
+        x="107" y="30">Classical Statistics</text>
+  <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#b07800;text-anchor:middle"
+        x="432" y="30">ER014 — Modern Statistics &amp; Transition</text>
+  <text style="font-family:sans-serif;font-size:11.5px;font-weight:bold;fill:#D50006;text-anchor:middle"
+        x="755" y="30">Data Science / ML</text>
+
+  <!-- ── Tags Classical ── -->
+  <rect x="22"  y="42" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="56">EDA · Visualisierung</text>
+  <rect x="112" y="42" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="56">OLS · Regression</text>
+  <rect x="22"  y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="84">t-Test · ANOVA</text>
+  <rect x="112" y="70" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="84">p-Wert · α</text>
+  <rect x="22"  y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="62" y="112">CLT · Normalvert.</text>
+  <rect x="112" y="98" width="80" height="20" rx="3" fill="#502479" fill-opacity="0.15" stroke="#502479" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#502479;text-anchor:middle" x="152" y="112">Multiple Regression</text>
+
+  <!-- ── Tags ER014 bridge: 3 blocks ── -->
+
+  <!-- Block 1: EDA & Modellierung -->
+  <rect x="222" y="38" width="132" height="140" rx="5"
+        fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle"
+        x="288" y="54">① EDA &amp; Modeling</text>
+  <rect x="230" y="60" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="73">EDA vs. Data Mining</text>
+  <rect x="230" y="82" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="95">Simple Regression</text>
+  <rect x="230" y="104" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="117">Conditional Mean</text>
+  <rect x="230" y="126" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="139">Population Model</text>
+  <rect x="230" y="148" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="288" y="161">Residual Analysis</text>
+
+  <!-- Block 2: Inference -->
+  <rect x="362" y="38" width="132" height="140" rx="5"
+        fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle"
+        x="428" y="54">② Inference (modern)</text>
+  <rect x="370" y="60" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="73">Only One Test (Resampling)</text>
+  <rect x="370" y="82" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="95">Bootstrap · infer Package</text>
+  <rect x="370" y="104" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="117">Type I/II Error · FDR</text>
+  <rect x="370" y="126" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="139">p-Hacking · Effect Size</text>
+  <rect x="370" y="148" width="116" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="428" y="161">Significance vs. Relevance</text>
+
+  <!-- Block 3: Multiple Regression & Outlook -->
+  <rect x="502" y="38" width="140" height="140" rx="5"
+        fill="#D5A000" fill-opacity="0.12" stroke="#D5A000" stroke-width="1.2"/>
+  <text style="font-family:sans-serif;font-size:9px;font-weight:bold;fill:#6b4f00;text-anchor:middle"
+        x="572" y="54">③ Regression &amp; Outlook</text>
+  <rect x="510" y="60" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="73">Multiple Regression</text>
+  <rect x="510" y="82" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="95">Multicollinearity</text>
+  <rect x="510" y="104" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="117">Overfitting · Regularization</text>
+  <rect x="510" y="126" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="139">Lasso · Ridge</text>
+  <rect x="510" y="148" width="124" height="18" rx="3" fill="#D5A000" fill-opacity="0.25"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#5a4000;text-anchor:middle" x="572" y="161">Causal Engineering ➝</text>
+
+  <!-- ── Tags DS ── -->
+  <rect x="668" y="42" width="174" height="20" rx="3" fill="#D50006" fill-opacity="0.12" stroke="#D50006" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#D50006;text-anchor:middle" x="755" y="56">Logist. Reg. · Supervised ML</text>
+  <rect x="668" y="70" width="174" height="20" rx="3" fill="#D50006" fill-opacity="0.12" stroke="#D50006" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#D50006;text-anchor:middle" x="755" y="84">Unsupervised ML · Clustering</text>
+  <rect x="668" y="98" width="174" height="20" rx="3" fill="#D50006" fill-opacity="0.12" stroke="#D50006" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#D50006;text-anchor:middle" x="755" y="112">Time Series · Panel Data</text>
+  <rect x="668" y="126" width="174" height="20" rx="3" fill="#D50006" fill-opacity="0.12" stroke="#D50006" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#D50006;text-anchor:middle" x="755" y="140">Random Forest · Deep Learning</text>
+  <rect x="668" y="154" width="174" height="20" rx="3" fill="#D50006" fill-opacity="0.12" stroke="#D50006" stroke-width="1"/>
+  <text style="font-family:sans-serif;font-size:9.5px;fill:#D50006;text-anchor:middle" x="755" y="168">LLM · GenAI · Big Data</text>
+
+  <!-- ── Arrow ── -->
+  <line x1="30" y1="200" x2="830" y2="200"
+        stroke="#b3b2b2" stroke-width="1.5" stroke-dasharray="5,3"
+        marker-end="url(#darr)"/>
+  <text style="font-family:sans-serif;font-size:8.5px;fill:#aaa;text-anchor:middle"
+        x="430" y="213">methodological evolution</text>
+
+  <!-- ── ER014 bracket below ── -->
+  <line x1="215" y1="220" x2="215" y2="235" stroke="#D5A000" stroke-width="2"/>
+  <line x1="215" y1="235" x2="650" y2="235" stroke="#D5A000" stroke-width="2"/>
+  <line x1="650" y1="220" x2="650" y2="235" stroke="#D5A000" stroke-width="2"/>
+  <rect x="355" y="238" width="150" height="22" rx="4" fill="#D5A000"/>
+  <text style="font-family:sans-serif;font-size:11px;font-weight:bold;fill:white;text-anchor:middle"
+        x="430" y="253">ER014 — this course</text>
+
+  <!-- ── Follow-up modules right ── -->
+  <text style="font-family:sans-serif;font-size:9px;fill:#D50006;text-anchor:middle;font-style:italic"
+        x="755" y="253">ER017 · ER018</text>
+
+</svg>
+
+???
+* Block ①: EDA vs. Data Mining — explorative Analyse ohne Hypothese vs. structurede Suche
+* Conditional Mean E[Y|X]: Kernkonzept der Regression — was erwarte ich im Durchschnitt gegeben X?
+* Population model: difference between sample statistic and population parameter
+* Block ②: Only One Test Framework (Ismay & Kim / ModernDive) — permutation test as universal approach
+* p-Hacking: selective testing until p<0.05 — methodological problem in research and practice
+* Effect size (Cohen's d, η²): statistical significance ≠ practical relevance
+* FDR: Benjamini-Hochberg — control the proportion of false discoveries in multiple testing
+* Block ③: Multicollinearity: korrelierte Prädiktoren → instabile Koeffizientenschätzungen
+* Regularization (Lasso/Ridge): penalty term prevents overfitting, Lasso = automatic variable selection
+* Causal Engineering as outlook: control variables, DAGs, backdoor criterion (Pearl)
+
+
+
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Five Statistical Foundations — and Their Transfer to Data Science
+
+<style>
+.bridge-wrap { margin-top: -0.7em; }
+.bridge-row {
+  display: grid;
+  grid-template-columns: 1fr 38px 1fr;
+  gap: 0;
+  margin-top: 0.08em;
+  align-items: stretch;
+}
+.bridge-left {
+  border-radius: 4px 0 0 4px;
+  padding: 4px 8px;
+  font-size: 0.70em;
+  line-height: 1.33;
+  background: #f5f0fa;
+  border: 1px solid #c9a8e0;
+  border-right: none;
+}
+.bridge-right {
+  border-radius: 0 4px 4px 0;
+  padding: 4px 8px;
+  font-size: 0.70em;
+  line-height: 1.33;
+  background: #fff0f0;
+  border: 1px solid #f0a8a8;
+  border-left: none;
+}
+.bridge-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #4a4a4a;
+  font-family: sans-serif;
+  font-size: 7.5px;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+  line-height: 1.25;
+  padding: 3px 2px;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+.bridge-kw-l { color: #502479; font-weight: bold; font-size: 1.03em; }
+.bridge-kw-r { color: #D50006; font-weight: bold; font-size: 1.03em; }
+.bridge-chip-l {
+  background: rgba(80,36,121,0.12); border-radius: 3px;
+  padding: 1px 4px; font-size: 0.87em;
+  display: inline-block; margin: 1px;
+}
+.bridge-chip-r {
+  background: rgba(213,0,6,0.12); border-radius: 3px;
+  padding: 1px 4px; font-size: 0.87em;
+  display: inline-block; margin: 1px;
+}
+.bridge-hdr {
+  display: grid;
+  grid-template-columns: 1fr 38px 1fr;
+  gap: 0;
+  margin-bottom: 0.12em;
+}
+.bridge-hdr-l {
+  background: #502479; color: white; font-family: sans-serif;
+  font-size: 11px; font-weight: bold; padding: 4px 9px;
+  border-radius: 4px 0 0 4px; text-align: center;
+}
+.bridge-hdr-c { background: #4a4a4a; }
+.bridge-hdr-r {
+  background: #D50006; color: white; font-family: sans-serif;
+  font-size: 11px; font-weight: bold; padding: 4px 9px;
+  border-radius: 0 4px 4px 0; text-align: center;
+}
+.bridge-ghost {
+  opacity: 0.13;
+}
+</style>
+
+<div class="bridge-wrap">
+
+<!-- Header -->
+<div class="bridge-hdr">
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-c"></div>
+  <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
+</div>
+
+<!-- 1: AKTIV -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression Line</span><span class="bridge-chip-l">Population Model</span><br>
+    <span style="color:#666;">Regression estimates the mean of Y given X</span>
+  </div>
+  <div class="bridge-arrow">Market benchmark</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">Any ML Model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Quantify under-/overvaluation</span>
+  </div>
+</div>
+
+<!-- 2–5: grayed out -->
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling Distribution</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('scale-balanced')` Expected Value &amp; Error Types</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('code-branch')` Correlation ≠ Causality</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('flask')` A/B-Test · Causal ML</span></div>
+</div>
+
+</div>
+
+???
+* Residual as underperformance measure is the core of the Carseats case study
+* E[Y|X]: every ML model — no matter how complex — ultimately estimates this expected value
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Five Statistical Foundations — and Their Transfer to Data Science
+
+<div class="bridge-wrap">
+<div class="bridge-hdr">
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-c"></div>
+  <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
+</div>
+
+<!-- 1 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression Line</span><span class="bridge-chip-l">Population Model</span><br>
+    <span style="color:#666;">Regression estimates the mean of Y given X</span>
+  </div>
+  <div class="bridge-arrow">Market benchmark</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">Any ML Model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Quantify under-/overvaluation</span>
+  </div>
+</div>
+
+<!-- 2: AKTIV -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling Distribution</span><br>
+    <span class="bridge-chip-l">Standard Error</span><span class="bridge-chip-l">Confidence Interval</span><span class="bridge-chip-l">CLT</span><br>
+    <span style="color:#666;">"What if we kept drawing new samples?"</span>
+  </div>
+  <div class="bridge-arrow">Measure uncertainty</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br>
+    <span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br>
+    <span style="color:#666;">Computing power replaces formulas — for any algorithm</span>
+  </div>
+</div>
+
+<!-- 3–5: grayed out -->
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('scale-balanced')` Expected Value &amp; Error Types</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('code-branch')` Correlation ≠ Causality</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('flask')` A/B-Test · Causal ML</span></div>
+</div>
+</div>
+
+???
+* Bootstrap = "thought experiment with computing power" — same logic as CLT, no normality assumption needed
+* infer package: tidyverse-compatible, same syntax for permutation test and bootstrap
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Five Statistical Foundations — and Their Transfer to Data Science
+
+<div class="bridge-wrap">
+<div class="bridge-hdr">
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-c"></div>
+  <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
+</div>
+
+<!-- 1 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression Line</span><span class="bridge-chip-l">Population Model</span><br>
+    <span style="color:#666;">Regression estimates the mean of Y given X</span>
+  </div>
+  <div class="bridge-arrow">Market benchmark</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">Any ML Model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Quantify under-/overvaluation</span>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling Distribution</span><br>
+    <span class="bridge-chip-l">Standard Error</span><span class="bridge-chip-l">Confidence Interval</span><span class="bridge-chip-l">CLT</span><br>
+    <span style="color:#666;">"What if we kept drawing new samples?"</span>
+  </div>
+  <div class="bridge-arrow">Measure uncertainty</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br>
+    <span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br>
+    <span style="color:#666;">Computing power replaces formulas — for any algorithm</span>
+  </div>
+</div>
+
+<!-- 3: AKTIV -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('scale-balanced')` Expected Value &amp; Error Types</span><br>
+    <span class="bridge-chip-l">E[X] = Σ pᵢ·xᵢ</span><span class="bridge-chip-l">Type I Error</span><span class="bridge-chip-l">Error 2. Art</span><br>
+    <span style="color:#666;">Weigh decisions under uncertainty</span>
+  </div>
+  <div class="bridge-arrow">ROI Calculus</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span><br>
+    <span class="bridge-chip-r">Model Probability</span><span class="bridge-chip-r">Cost/Benefit</span><br>
+    <span style="color:#666;">"70% churn probability" → financial ROI?</span>
+  </div>
+</div>
+
+<!-- 4–5: grayed out -->
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span></div>
+</div>
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('code-branch')` Correlation ≠ Causality</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('flask')` A/B-Test · Causal ML</span></div>
+</div>
+</div>
+
+???
+* Managerial relevance: model provides probability, manager decides with cost/benefit
+* False Positive (Type I Error) in churn model: unnecessary discount campaign → costs
+* False Negative (Type II Error): customer churns unnoticed → lost revenue
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Five Statistical Foundations — and Their Transfer to Data Science
+
+<div class="bridge-wrap">
+<div class="bridge-hdr">
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-c"></div>
+  <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
+</div>
+
+<!-- 1 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression Line</span><span class="bridge-chip-l">Population Model</span><br>
+    <span style="color:#666;">Regression estimates the mean of Y given X</span>
+  </div>
+  <div class="bridge-arrow">Market benchmark</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">Any ML Model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Quantify under-/overvaluation</span>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling Distribution</span><br>
+    <span class="bridge-chip-l">Standard Error</span><span class="bridge-chip-l">Confidence Interval</span><span class="bridge-chip-l">CLT</span><br>
+    <span style="color:#666;">"What if we kept drawing new samples?"</span>
+  </div>
+  <div class="bridge-arrow">Measure uncertainty</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br>
+    <span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br>
+    <span style="color:#666;">Computing power replaces formulas — for any algorithm</span>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('scale-balanced')` Expected Value &amp; Error Types</span><br>
+    <span class="bridge-chip-l">E[X] = Σ pᵢ·xᵢ</span><span class="bridge-chip-l">Type I Error</span><span class="bridge-chip-l">Error 2. Art</span><br>
+    <span style="color:#666;">Weigh decisions under uncertainty</span>
+  </div>
+  <div class="bridge-arrow">ROI Calculus</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span><br>
+    <span class="bridge-chip-r">Model Probability</span><span class="bridge-chip-r">Cost/Benefit</span><br>
+    <span style="color:#666;">"70% churn probability" → financial ROI?</span>
+  </div>
+</div>
+
+<!-- 4: AKTIV -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span><br>
+    <span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Test</span><span class="bridge-chip-l">1 Test</span><br>
+    <span style="color:#666;">For one test: 5% error rate acceptable</span>
+  </div>
+  <div class="bridge-arrow">Signal vs. Noise</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span><br>
+    <span class="bridge-chip-r">1000 tests → 50 false hits</span><span class="bridge-chip-r">Benjamini-Hochberg</span><br>
+    <span style="color:#666;">False Discovery Rate controls the rate of false alarms</span>
+  </div>
+</div>
+
+<!-- 5: grayed out -->
+<div class="bridge-row bridge-ghost">
+  <div class="bridge-left"><span class="bridge-kw-l">`r fa('code-branch')` Correlation ≠ Causality</span></div>
+  <div class="bridge-arrow">—</div>
+  <div class="bridge-right"><span class="bridge-kw-r">`r fa('flask')` A/B-Test · Causal ML</span></div>
+</div>
+</div>
+
+???
+* p-Hacking: selective testing until p<0.05 — methodological problem in research and practice
+* With 20 tests at α=0.05 I expect 1 false hit by chance
+* FDR: Benjamini-Hochberg controls the proportion of false discoveries — not individual p-values
+
+---
+class: left
+count: false
+
+.blockquote[Big Picture & Data Strategy]
+
+## Five Statistical Foundations — and Their Transfer to Data Science
+
+<div class="bridge-wrap">
+<div class="bridge-hdr">
+  <div class="bridge-hdr-l">`r fa('chart-line', fill='white')` &nbsp;Classical Concept</div>
+  <div class="bridge-hdr-c"></div>
+  <div class="bridge-hdr-r">`r fa('robot', fill='white')` &nbsp;Data Science Transfer</div>
+</div>
+
+<!-- 1 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('equals')` E[Y|X] — Conditional Expected Value</span><br>
+    <span class="bridge-chip-l">OLS</span><span class="bridge-chip-l">Regression Line</span><span class="bridge-chip-l">Population Model</span><br>
+    <span style="color:#666;">Regression estimates the mean of Y given X</span>
+  </div>
+  <div class="bridge-arrow">Market benchmark</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('bullseye')` Residual as Arbitrage Opportunity</span><br>
+    <span class="bridge-chip-r">Any ML Model</span><span class="bridge-chip-r">Underperformance</span><br>
+    <span style="color:#666;">e = y − ŷ &nbsp;→&nbsp; Quantify under-/overvaluation</span>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('arrows-rotate')` Sampling Distribution</span><br>
+    <span class="bridge-chip-l">Standard Error</span><span class="bridge-chip-l">Confidence Interval</span><span class="bridge-chip-l">CLT</span><br>
+    <span style="color:#666;">"What if we kept drawing new samples?"</span>
+  </div>
+  <div class="bridge-arrow">Measure uncertainty</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('shuffle')` Bootstrap · infer</span><br>
+    <span class="bridge-chip-r">Resampling</span><span class="bridge-chip-r">no distributional assumption</span><br>
+    <span style="color:#666;">Computing power replaces formulas — for any algorithm</span>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('scale-balanced')` Expected Value &amp; Error Types</span><br>
+    <span class="bridge-chip-l">E[X] = Σ pᵢ·xᵢ</span><span class="bridge-chip-l">Type I Error</span><span class="bridge-chip-l">Error 2. Art</span><br>
+    <span style="color:#666;">Weigh decisions under uncertainty</span>
+  </div>
+  <div class="bridge-arrow">ROI Calculus</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('coins')` Expected Value Framework</span><br>
+    <span class="bridge-chip-r">Model Probability</span><span class="bridge-chip-r">Cost/Benefit</span><br>
+    <span style="color:#666;">"70% churn probability" → financial ROI?</span>
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('filter')` p-Wert · α-Level · Multiplizität</span><br>
+    <span class="bridge-chip-l">α = 0.05</span><span class="bridge-chip-l">Hypothesis Test</span><span class="bridge-chip-l">1 Test</span><br>
+    <span style="color:#666;">For one test: 5% error rate acceptable</span>
+  </div>
+  <div class="bridge-arrow">Signal vs. Noise</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('triangle-exclamation')` FDR · p-Hacking</span><br>
+    <span class="bridge-chip-r">1000 tests → 50 false hits</span><span class="bridge-chip-r">Benjamini-Hochberg</span><br>
+    <span style="color:#666;">False Discovery Rate controls the rate of false alarms</span>
+  </div>
+</div>
+
+<!-- 5: AKTIV -->
+<div class="bridge-row">
+  <div class="bridge-left">
+    <span class="bridge-kw-l">`r fa('code-branch')` Correlation ≠ Causality</span><br>
+    <span class="bridge-chip-l">Confounder</span><span class="bridge-chip-l">Omitted Variable Bias</span><br>
+    <span style="color:#666;">A third variable can create a spurious association</span>
+  </div>
+  <div class="bridge-arrow">Intervention</div>
+  <div class="bridge-right">
+    <span class="bridge-kw-r">`r fa('flask')` A/B-Test · Causal ML</span><br>
+    <span class="bridge-chip-r">RCT</span><span class="bridge-chip-r">Conditional Ignorability</span><span class="bridge-chip-r">DAG</span><br>
+    <span style="color:#666;">ML versagt bei Interventionen — Causality ist unverzichtbar</span>
+  </div>
+</div>
+</div>
+
+???
+* ML predicts well when future = past — with price changes this breaks down
+* RCT (A/B test): randomization eliminates confounders — gold standard for causal inference
+* DAG (Directed Acyclic Graph): Pearl's Framework — which variables must be controlled?
+* Conditional Ignorability: causal effect identifiable when all confounders are observed and controlled
+* All 5 concepts are anchored in ER014 and are prerequisites for ER017/ER018
+
+
+
+---
+class: inverse, center, middle
+
+# Act 1 · Population vs. Sample
+
+## Stochastic Regression and Sampling Distribution
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## Bundesliga Data: Population or Sample?
+
+.pull-left[
+### What did we actually analyze?
+
+`r fa('circle-right')` **All players** of the Bundesliga season 2022/23
+
+`r fa('circle-right')` This sounds like a **population** — no inference needed?
+
+]
+
+.pull-right[
+
+### But: Which population?
+
+`r fa('circle-right')` Season 2022/23 = **one sample** from the process "Bundesliga football"
+
+`r fa('circle-right')` Had we analyzed 2021/22 or 2023/24 — different coefficients
+
+`r fa('circle-right')` We are interested in the **stable, generative mechanism** — not a single season
+]
+
+
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## Sampling Using the Bundesliga Example
+
+.panelset[
+.panel[.panel-name[Alternative Regression Lines]
+```{r}
+#| label: pop-vs-sample
+#| echo: false
+#| message: false
+#| out-width: '50%'
+#| fig-align: 'center'
+set.seed(23)
+buli_s1 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(7)
+buli_s2 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(42)
+buli_s3 <- tbl_buli %>% slice_sample(n = 30)
+
+tbl_buli %>%
+  ggplot(aes(x = age, y = log_value)) +
+  geom_point(alpha = 0.15, color = "#b3b2b2", size = 0.7) +
+  geom_smooth(method = "lm", se = FALSE,
+              color = "#333", linewidth = 1.4, linetype = "solid") +
+  geom_smooth(data = buli_s1, method = "lm", se = FALSE,
+              color = "#D50006", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s2, method = "lm", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s3, method = "lm", se = FALSE,
+              color = "#7d0a52", linewidth = 0.9, linetype = "dashed") +
+  labs(x = "Age", y = "log(Market Value)",
+       title = "Population (black) vs. 3 random samples (colored)") +
+  theme_minimal(base_size = 11)
+```
+]
+.panel[.panel-name[Code Sampling]
+```{r}
+#| label: code-pop-vs-sample
+#| echo: true
+#| eval: false
+#| message: false 
+set.seed(23) #for reproducibility. why 23? check out https://www.youtube.com/watch?v=N_8nlOvfCJU
+buli_s1 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(7) # alternative seed (2nd draw)
+buli_s2 <- tbl_buli %>% slice_sample(n = 30)
+set.seed(42) # another seed (3rd draw)
+buli_s3 <- tbl_buli %>% slice_sample(n = 30)
+```
+]
+.panel[.panel-name[Code Data Viz]
+
+```{r}
+#| label: plot-pop-vs-sample
+#| echo: true
+#| eval: false
+#| message: false 
+tbl_buli %>%
+  ggplot(aes(x = age, y = log_value)) +
+  geom_point(alpha = 0.15, color = "#b3b2b2", size = 0.7) +
+  geom_smooth(method = "lm", se = FALSE,
+              color = "#333", linewidth = 1.4, linetype = "solid") +
+  geom_smooth(data = buli_s1, method = "lm", se = FALSE,
+              color = "#D50006", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s2, method = "lm", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  geom_smooth(data = buli_s3, method = "lm", se = FALSE,
+              color = "#7d0a52", linewidth = 0.9, linetype = "dashed") +
+  labs(x = "Age", y = "log(Market Value)",
+       title = "Population (black) vs. 3 random samples (colored)") +
+  theme_minimal(base_size = 11)
+```
+
+]
+]
+
+???
+* Each dashed line = regression line of a different sample
+* All are similar but not identical — that is sampling variability
+* The black coefficient is "true" for this season — but is it stable?
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## Stochastic Regression Analysis: The Basic Idea
+
+.pull-left[
+### Descriptive Regression (Session 1)
+`r fa('circle-right')` OLS minimiert Errorquadratsumme **in den vorliegenden Data**
+
+`r fa('circle-right')` Coefficient = conditional mean **of this sample**
+
+`r fa('circle-right')` No statement about generalizability
+]
+
+.pull-right[
+
+### Stochastic Regression (Session 2)
+`r fa('circle-right')` Coefficient = **estimate** of an unknown population parameter $\beta$: $$\underbrace{\hat\beta}_{\text{Sample}} \approx \underbrace{\beta}_{\text{Population}}$$
+
+`r fa('circle-right')` Question: How precise is this estimate?
+
+`r fa('circle-right')` Antwort: **Standard Error** und **Confidence Interval**
+]
+
+
+???
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## Quantifying Uncertainty as a Quality Feature
+
+.blockquote[
+Every model is just one possible fit based on a sample. Quantifying uncertainty separates serious analyses from mere guessing. 
+]
+
+`r fa('circle-right')` **Two approaches** to quantifying uncertainty:
+
+1. Classical Statistics (e.g. t-test, F-test): Based on a **theoretical distribution** (assumption)
+
+
+2. Modern statistics (Bootstrap, Permutation): **Resampling** works without distributional assumptions (but requires powerful computers)
+
+
+???
+
+* Transition to Lab 1: we will compare both approaches using the Bundesliga example
+* Key finding: both approaches yield similar results — that is the strength of "Only One Test"
+
+
+
+---
+class: left
+
+.blockquote[Population vs. Sample]
+
+## Point Estimators and Their Properties
+
+<table class="table" style="font-size: 16px; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+<span id="tab:table-ch8"></span>Possible point estimators based on samples
+</caption>
+<thead>
+<tr>
+<th style="text-align:right;">
+Case
+</th>
+<th style="text-align:left;">
+Population Parameter
+</th>
+<th style="text-align:left;">
+Notation
+</th>
+<th style="text-align:left;">
+Point Estimate
+</th>
+<th style="text-align:left;">
+Symbol(s)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;width: 0.5in; ">
+1
+</td>
+<td style="text-align:left;width: 1.2in; ">
+Population proportion
+</td>
+<td style="text-align:left;width: 0.8in; ">
+<span class="math inline">\(p\)</span>
+</td>
+<td style="text-align:left;width: 1.5in; ">
+Sample proportion
+</td>
+<td style="text-align:left;width: 0.6in; ">
+<span class="math inline">\(\widehat{p}\)</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:right;width: 0.5in; ">
+2
+</td>
+<td style="text-align:left;width: 1.2in; ">
+Population mean
+</td>
+<td style="text-align:left;width: 0.8in; ">
+<span class="math inline">\(\mu\)</span>
+</td>
+<td style="text-align:left;width: 1.5in; ">
+Sample mean
+</td>
+<td style="text-align:left;width: 0.6in; ">
+<span class="math inline">\(\overline{x}\)</span> oder <span class="math inline">\(\widehat{\mu}\)</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:right;width: 0.5in; ">
+3
+</td>
+<td style="text-align:left;width: 1.2in; ">
+Difference of population proportions
+</td>
+<td style="text-align:left;width: 0.8in; ">
+<span class="math inline">\(p_1 - p_2\)</span>
+</td>
+<td style="text-align:left;width: 1.5in; ">
+Difference of sample proportions
+</td>
+<td style="text-align:left;width: 0.6in; ">
+<span class="math inline">\(\widehat{p}_1 - \widehat{p}_2\)</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:right;width: 0.5in; ">
+4
+</td>
+<td style="text-align:left;width: 1.2in; ">
+Difference of population means
+</td>
+<td style="text-align:left;width: 0.8in; ">
+<span class="math inline">\(\mu_1 - \mu_2\)</span>
+</td>
+<td style="text-align:left;width: 1.5in; ">
+Differenz von Sample meanen
+</td>
+<td style="text-align:left;width: 0.6in; ">
+<span class="math inline">\(\overline{x}_1 - \overline{x}_2\)</span> oder <span class="math inline">\(\widehat{\mu}_1 - \widehat{\mu}_2\)</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:right;width: 0.5in; ">
+5
+</td>
+<td style="text-align:left;width: 1.2in; ">
+Regression coefficient (population)
+</td>
+<td style="text-align:left;width: 0.8in; ">
+<span class="math inline">\(\beta_1\)</span>
+</td>
+<td style="text-align:left;width: 1.5in; ">
+Fitted regression coefficient (sample)
+</td>
+<td style="text-align:left;width: 0.6in; ">
+<span class="math inline">\(b_1\)</span> oder <span class="math inline">\(\widehat{\beta}_1\)</span>
+</td>
+</tr>
+</tbody>
+</table>
+
+
+
+.quelle[vgl. `r Cite(bib,"ismay_statistical_2024")`]
+
+
+???
+
+* `r fa('circle-right')` **Case 5** is our focus today — the regression coefficient as estimator for $\beta$
+
+* All point estimators share the same logic: sample statistic as approximation of population parameter
+* Sampling variability: a new draw would yield a different value
+* Standard Error quantifiziert diese Variabilität
+
+---
+class: left
+.blockquote[Population vs. Sample]
+## `r fa('flask', fill='#D50006')` Lab 1 — Reference
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 1: Only One Test — Bootstrap &amp; Permutation with infer
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Lernziel:</strong> Bootstrap confidence interval and permutation test for the
+regression coefficient in the Bundesliga model and compare with the
+traditional t-test.
+
+<br>
+
+<strong>Datasatz:</strong> <code>buli_raw_2023-09-06.rds</code>
+(Bundesliga players, season 2022/23) &nbsp;·&nbsp;
+<strong>Model:</strong> <code>log_value ~ age</code>
+
+<br>
+
+`r fa('clock')` <strong>40 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual work or pairs</strong>
+
+<br>
+
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session 2_Lab1_InferenceResampling.qmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Debrief: Critical Validator Building Blocks A+B</strong>]]
+
+???
+* Lab takes approx. 40 minutes
+* Required tasks: Bootstrap CI + permutation test + comparison t-test
+* Bonus tasks: interaction model, reps=100 vs. 1000, underpowered sample
+* Save results: obs_slope, boot_dist, ci_pct, ci_se, null_dist are not needed in Lab 2
+---
+class: left
+
+.blockquote[Debrief Lab 1 + Critical Validator]
+
+## Debrief: Inference als Filter — Galaks Darts-Analogie
+
+.panelset[
+.panel[.panel-name[Darts Analogy]
+### The Darts Analogy (Galak)
+
+`r fa('bullseye')` **One throw** = one sample — does it hit the center by chance?
+
+`r fa('circle-right')` Only **many throws** reveal the true precision
+
+`r fa('circle-right')` Standard Error = durchschnittliche Streuung der Würfe
+
+`r fa('circle-right')` Confidence Interval = Bereich, der bei 95% aller Dartspiele die wahre Mitte enthält
+
+]
+.panel[.panel-name[Transfer Lab 1]
+
+### Transfer to Lab 1
+
+`r fa('circle-right')` Bootstrap-KI: Was passiert wenn wir 1000× neu aus den Buli-Data ziehen?
+
+`r fa('circle-right')` Does the CI contain zero? → Is the age effect significant?
+
+`r fa('circle-right')` Permutation test: simulate the null world — how extreme is our observed coefficient?
+]
+
+.panel[.panel-name[Critical Validator]
+### Critical Validator — Building Blocks A+B
+
+**Baustein A: Inference als Filter**
+.small[
+> "Statistische Inference filtert echtes Signal von zufälligem Rauschen — wie ein Dart-Spieler, der nach vielen Würfen beurteilt wird, nicht nach einem einzigen."
+]
+
+**Building Block B: Erroneous Decisions**
+.small[
+> Fire alarm model: alarm goes off (FP) vs. fire goes undetected (FN)
+>
+> In the Bundesliga context: buying a player who is not actually undervalued (FP) vs. missing a real arbitrage opportunity (FN)
+]
+
+`r fa('circle-right')` **Which error is more costly?** → That depends on the costs — not on the p-value!
+]
+
+]
+
+
+???
+* Discuss Critical Validator posting: What did the teams find for building blocks A+B?
+* Galak video was preparation — anchor it concretely here
+* Transition: how do we formalize the costs of erroneous decisions? → Expected Value Framework
+
+---
+class: inverse, center, middle
+
+# ☕ Break
+
+---
+class: inverse, center, middle
+
+# Act 3 · Type I and Type II Errors
+
+## Economic Risks and Expected Value Framework
+
+---
+class: left
+
+.blockquote[Type I and Type II Errors]
+
+## The Confusion Matrix: Four Possible Outcomes
+
+<div style="display:grid; grid-template-columns:180px 1fr 1fr; gap:0;
+            margin-top:0.8em; font-size:0.82em; text-align:center;">
+
+<div style="padding:8px;"></div>
+<div style="background:#502479; color:white; padding:8px; font-weight:bold; border-radius:4px 0 0 0;">
+  $H_0$ is true<br><small>(no real effect)</small>
+</div>
+<div style="background:#D50006; color:white; padding:8px; font-weight:bold; border-radius:0 4px 0 0;">
+  $H_A$ is true<br><small>(real effect present)</small>
+</div>
+
+<div style="background:#f5f5f5; padding:8px; font-weight:bold; border-right:1px solid #ddd;">
+  Test: not significant<br><small>(H₀ not rejected)</small>
+</div>
+<div style="background:#f0fff0; padding:8px; border:1px solid #90c090;">
+  `r fa('check', fill='#2a7a2a')` <strong>Correct Decision</strong><br>
+  True Negative<br>
+  <span style="color:#555;">No alarm, no fire</span>
+</div>
+<div style="background:#fff0f0; padding:8px; border:1px solid #f09090;">
+  `r fa('xmark', fill='#D50006')` <strong>Type II Error (β)</strong><br>
+  False Negative<br>
+  <span style="color:#555;">Fire overlooked!</span>
+</div>
+
+<div style="background:#f5f5f5; padding:8px; font-weight:bold; border-right:1px solid #ddd;">
+  Test: significant<br><small>(H₀ rejected)</small>
+</div>
+<div style="background:#fff0f0; padding:8px; border:1px solid #f09090;">
+  `r fa('xmark', fill='#D50006')` <strong>Type I Error (α)</strong><br>
+  False Positive<br>
+  <span style="color:#555;">False alarm!</span>
+</div>
+<div style="background:#f0fff0; padding:8px; border:1px solid #90c090;">
+  `r fa('check', fill='#2a7a2a')` <strong>Correct Decision</strong><br>
+  True Positive<br>
+  <span style="color:#555;">Fire detected!</span>
+</div>
+
+</div>
+
+<br>
+
+.center[
+`r fa('circle-right')` **Classical statistics** controls α (Type I Error) with the significance level &nbsp;|&nbsp;
+`r fa('circle-right')` **β** (Type II Error) = 1 − statistical power
+]
+
+???
+* Formalize the fire alarm analogy from Galak here
+* Important: Type I and Type II errors are in a trade-off — lowering α increases β
+* For managers: which error is more costly? That is an economic, not a statistical question
+
+---
+class: left
+
+.blockquote[Type I and Type II Errors]
+
+## Expected Value Framework: Quantifying Error Costs
+
+.panelset[
+.panel[.panel-name[Expected Value Framework]
+vgl. `r Zitiere(bib, "provost_data_2013")`, Kap. 7
+
+$$\text{EV} = \sum_i p_i \cdot v_i$$
+
+For a binary classification model:
+
+$$\text{EV} = \underbrace{p(\text{TP}) \cdot v(\text{TP})}_{\text{true hit}} + \underbrace{p(\text{FP}) \cdot v(\text{FP})}_{\text{false alarm}} + \underbrace{p(\text{FN}) \cdot v(\text{FN})}_{\text{missed hit}}$$
+
+### Bundesliga Application
+`r fa('circle-right')` **FP**: Buying a player who is not undervalued
+→ Cost: transfer fee − actual market value
+
+`r fa('circle-right')` **FN**: Missing a real arbitrage opportunity
+→ Cost: lost competitive advantage
+]
+
+.panel[.panel-name[Example]
+
+### Example: Churn model gives 70% probability
+
+| Decision | Cost | Probability |
+|---|---|---|
+| Intervention (correct) | +150 € saved | 70% |
+| Intervention (wrong) | −30 € discount | 30% |
+| No intervention (FN) | −200 € lost revenue | — |
+
+$$\text{EV}_{\text{Intervention}} = 0.7 \cdot 150 + 0.3 \cdot (-30) = 96 €$$
+
+<br>
+
+`r fa('circle-right')` **Model is valuable if EV > 0** — regardless of the p-value!
+
+.blockquote[
+The p-value does not tell you whether an intervention is worthwhile. The Expected Value Framework does.
+]
+
+]
+]
+
+???
+* Provost & Fawcett Ch. 7 was preparation (Building Block B)
+* Key point: statistically significant ≠ economically relevant
+* Transition: how do we decide what is "significant" when running many tests simultaneously?
+
+---
+class: left
+
+.blockquote[Type I and Type II Errors]
+
+## `r fa('flask', fill='#D50006')` Lab 2 — Reference
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 2: p-Hacking Simulation &amp; False Discovery Rate
+</div>
+
+<div style="font-size:0.85em; line-height:1.8;">
+
+<strong>Learning objective:</strong> Experience p-hacking through simulation and apply the
+Benjamini-Hochberg procedure to control the False Discovery Rate.
+
+<br>
+
+<strong>Scenario:</strong> You test 100 random variables for association
+with Bundesliga market value. How many are purely randomly significant at α = 0.05?
+
+<br>
+
+`r fa('circle-right')` <strong>Separate lab document:</strong>
+<code>Session 2_Lab2_pHacking_FDR.Rmd</code>
+
+</div>
+</div>
+
+<br>
+
+.center[.small[Continue after the lab → <strong>Statistical vs. Practical Significance</strong>]]
+
+
+???
+* Lab 2 takes approx. 25 minutes
+* Key experience: With 100 tests at α=0.05 I expect ~5 false hits by chance
+* Benjamini-Hochberg: adjusted p-values — controls proportion of false discoveries
+
+---
+class: inverse, center, middle
+
+# Act 4 · p-Hacking & FDR
+
+## The Multiplicity Problem
+
+---
+class: left
+
+.blockquote[p-Hacking & FDR]
+
+## The Multiplicity Problem
+
+.pull-left[
+### The Problem
+
+With **one** test at α = 0.05:
+- Error probability: 5%
+- Acceptable ✅
+
+With **1,000** tests at α = 0.05:
+- Expected false hits: **50**
+- These 50 "discoveries" are **pure noise** ❌
+
+<br>
+
+### p-Hacking in Practice
+`r fa('circle-right')` Add variables until p < 0.05
+
+`r fa('circle-right')` Increase sample size until significance is reached
+
+`r fa('circle-right')` Test different model specifications
+
+`r fa('circle-right')` Publish only "interesting" results
+]
+
+.pull-right[
+### Lab 2 Finding: Simulation
+
+```{r phacking-sim, echo=FALSE, message=FALSE, fig.align='center', out.width='90%'}
+set.seed(42)
+n_tests <- 100
+n_obs   <- nrow(tbl_buli)
+p_values <- map_dbl(1:n_tests, function(i) {
+  rand_var <- rnorm(n_obs)
+  tbl_sim  <- tbl_buli %>% mutate(rand = rand_var)
+  lm(log_value ~ rand, data = tbl_sim) %>%
+    get_regression_table() %>%
+    filter(term == "rand") %>%
+    pull(p_value)
+})
+
+tibble(p = p_values, significant = p < 0.05) %>%
+  ggplot(aes(x = p, fill = significant)) +
+  geom_histogram(bins = 20, color = "white") +
+  scale_fill_manual(values = c("TRUE" = "#D50006", "FALSE" = "#b3b2b2"),
+                    labels = c("TRUE" = "p < 0.05 (falsely significant!)",
+                               "FALSE" = "p ≥ 0.05")) +
+  geom_vline(xintercept = 0.05, color = "#D50006",
+             linetype = "dashed", linewidth = 1) +
+  labs(x = "p-value", y = "Number of Tests", fill = NULL,
+       title = glue::glue("{sum(p_values < 0.05)} of 100 random variables significant at α=0.05")) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+]
+
+???
+* Key experience: With 100 random tests I expect 5 false hits — that is not an error but mathematics
+* Im Bundesliga-Datasatz: 20+ Variablen → wenn wir alle testen, sind einige zufällig signifikant
+* That is the problem of data mining without hypotheses
+
+---
+class: left
+
+.blockquote[p-Hacking & FDR]
+
+## The False Discovery Rate (FDR): Benjamini-Hochberg
+
+.pull-left[
+### Idea of the FDR
+
+Instead of controlling each individual α: control the **proportion of false discoveries** among all discoveries.
+
+$$\text{FDR} = \frac{\text{False Discoveries}}{\text{All Discoveries}}$$
+
+**Benjamini-Hochberg Procedure:**
+1. Sort p-values in ascending order: $p_{(1)} \leq p_{(2)} \leq \cdots \leq p_{(m)}$
+2. For desired FDR level $q$: find the largest $k$ with $p_{(k)} \leq \frac{k}{m} \cdot q$
+3. Declare all tests $1, \ldots, k$ as significant
+
+<br>
+
+`r fa('circle-right')` In R: `p.adjust(p_values, method = "BH")`
+]
+
+.pull-right[
+### When to Use Which Method?
+
+| Situation | Method |
+|-----------|---------|
+| **1 test**, clear hypothesis | α = 0.05 classical |
+| **Few tests** (~5–20), exploratory analysis | Bonferroni correction |
+| **Many tests** (>50), discovery context | FDR (Benjamini-Hochberg) |
+| **ML-Feature-Selektion** | FDR oder Cross-Validation |
+
+<br>
+
+.blockquote[
+"In a world of Big Data and thousands of variables, classical testing at the 5% level inevitably leads to ruin."
+.tr[`r Zitiere(bib, "taddy_business_2019")`, Kap. 1]
+]
+]
+
+???
+* FDR is the standard method in genomics (testing thousands of genes simultaneously)
+* For Bundesliga: if we test all transfer market variables, we need FDR
+* Transition: even if an effect is "truly" significant — is it large enough to be relevant?
+
+---
+class: inverse, center, middle
+
+# Act 5 · Significance vs. Relevance
+
+## Effect Sizes and Practical Significance
+
+---
+class: left
+
+.blockquote[Significance vs. Relevance]
+
+## The Paradox of Large Samples
+
+.pull-left[
+### The Problem
+
+$$\text{SE} = \frac{s}{\sqrt{n}} \quad \Rightarrow \quad \text{t} = \frac{\hat\beta}{\text{SE}} = \frac{\hat\beta \cdot \sqrt{n}}{s}$$
+
+**With growing n**:
+- SE decreases
+- t-statistic increases
+- p-value decreases
+
+`r fa('circle-right')` With 10 million observations **every** tiny effect becomes significant!
+
+<br>
+
+### Example Click Rate
+- Campaign A: 2.00% click rate
+- Campaign B: 2.01% click rate
+- n = 10 Millionen: p < 0.001 ✅
+- Difference: 0.01% — **is it worth it?**
+]
+
+.pull-right[
+### Effect Sizes as a Solution
+
+**Cohen's d** (for mean comparisons):
+$$d = \frac{\mu_1 - \mu_2}{\sigma_{\text{pooled}}}$$
+
+| d | Interpretation |
+|---|---|
+| 0.2 | small effect |
+| 0.5 | medium effect |
+| 0.8 | large effect |
+
+**For regression: $R^2$ and partial $\eta^2$**
+
+```{r rsquared, echo=FALSE, message=FALSE}
+lm_full %>%
+  get_regression_summaries() %>%
+  select(r_squared, adj_r_squared, rmse) %>%
+  gt() %>%
+  fmt_number(decimals = 3) %>%
+  tab_options(table.font.size = "13px")
+```
+
+`r fa('circle-right')` $R^2 = $ `r round(summary(lm_full)$r.squared, 3)`: Age explains `r round(summary(lm_full)$r.squared*100, 1)`% of the variation in log market value
+]
+
+???
+* Large samples make almost everything significant — that is not a problem of statistics, but of interpretation
+* For managers: always report effect size, not just p-value
+* Bundesliga: age effect is significant AND practically relevant (explains ~X% of variation)
+
+---
+class: left
+.blockquote[Type I and Type II Errors]
+## Expected Value Framework: Bundesliga Application
+.panelset[
+.panel[.panel-name[Decision Situation]
+`r fa('circle-right')` Model identifies player with **strongly negative residual**
+
+`r fa('circle-right')` Market value per model: **€6M** — Transfer price: **€5M**
+
+`r fa('circle-right')` Value increase with real arbitrage: **+20% = +€1M**
+
+`r fa('circle-right')` Opportunity cost of bad purchase: **8% p.a. = €400k**
+]
+.panel[.panel-name[Error Types]
+### Error Types in Context
+
+<table style="font-size:0.82em; width:100%; border-collapse:collapse;">
+<thead>
+<tr>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd; text-align:left;">Error</th>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd; text-align:left;">Situation</th>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd; text-align:left;">Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding:6px 10px; border:1px solid #ddd; background:#fff0f0;"><strong>Type I Error</strong> (FP)</td>
+  <td style="padding:6px 10px; border:1px solid #ddd;">Buy — arbitrage was random</td>
+  <td style="padding:6px 10px; border:1px solid #ddd;">−€400k opportunity cost</td>
+</tr>
+<tr>
+  <td style="padding:6px 10px; border:1px solid #ddd; background:#fff0f0;"><strong>Type II Error</strong> (FN)</td>
+  <td style="padding:6px 10px; border:1px solid #ddd;">Do not buy — arbitrage was real</td>
+  <td style="padding:6px 10px; border:1px solid #ddd;">−€1M foregone profit</td>
+</tr>
+</tbody>
+</table>
+
+<br>
+Let $p_{\text{A}}$ = probability that arbitrage is real.
+]
+.panel[.panel-name[Decision Matrix]
+### Decision Matrix
+
+<table style="font-size:0.84em; width:100%; border-collapse:collapse; margin-bottom:0.6em;">
+<thead>
+<tr>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd;"></th>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd; text-align:center;"><strong>Arbitrage real</strong></th>
+  <th style="padding:6px 10px; background:#f5f5f5; border:1px solid #ddd; text-align:center;"><strong>Model wrong</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="padding:6px 10px; border:1px solid #ddd; background:#f5f5f5;"><strong>Buy</strong></td>
+  <td style="padding:6px 10px; border:1px solid #ddd; text-align:center; background:#f0fff0;">+1.0 Mio. € ✅</td>
+  <td style="padding:6px 10px; border:1px solid #ddd; text-align:center; background:#fff8e1;">−0.4 Mio. € ⚠️</td>
+</tr>
+<tr>
+  <td style="padding:6px 10px; border:1px solid #ddd; background:#f5f5f5;"><strong>Do not buy</strong></td>
+  <td style="padding:6px 10px; border:1px solid #ddd; text-align:center; background:#fff0f0;">−1.0 Mio. € ❌</td>
+  <td style="padding:6px 10px; border:1px solid #ddd; text-align:center; background:#f0fff0;">0 € ✅</td>
+</tr>
+</tbody>
+</table>
+<small>Not buying with real arbitrage = foregone profit of €1M</small>
+]
+.panel[.panel-name[Expected Value]
+### Expected Value
+
+$$\text{EV}(\text{Kaufen}) = p_{\text{A}} \cdot 1.0 - (1-p_{\text{A}}) \cdot 0.4$$
+
+$$\text{EV}(\text{Nicht kaufen}) = -p_{\text{A}} \cdot 1.0 + (1-p_{\text{A}}) \cdot 0$$
+
+**Buying is worthwhile when** EV(Buy) > EV(Do not buy):
+
+$$p_{\text{A}} > \frac{0.4}{0.4 + 2} \approx \mathbf{17\%}$$
+
+<div style="background:#f0fff0; border-left:3px solid #2a7a2a;
+            padding:8px 12px; font-size:0.84em; border-radius:0 4px 4px 0;
+            margin-top:0.6em;">
+`r fa('circle-right')` Even at <strong>17% conviction</strong> the transfer is worthwhile —
+because not buying also has costs when arbitrage is real.
+</div>
+]
+]
+
+???
+* Type II Error has a real price: foregone arbitrage profit of €1M
+* Therefore the decision threshold at 17% is much lower than α = 0.05 suggests
+* Moneyball logic: asymmetric payoff + low break-even → data-driven transfers pay off even with model uncertainty
+* p-value of 3.4% justifies the age effect as real — p_A is estimated by the manager
+* Key message: α = 0.05 is an arbitrary convention — the real decision threshold depends on the costs of both error types
+
+---
+class: left
+
+.blockquote[Significance vs. Relevance]
+
+## Bundesliga: Significance AND Relevance in the Interaction Model
+
+```{r sig-relevanz, echo=FALSE, message=FALSE}
+lm_interaction %>%
+  get_regression_table() %>%
+  gt() %>%
+  fmt_number(columns = c(estimate, std_error, statistic, p_value,
+                         lower_ci, upper_ci), decimals = 3) %>%
+  tab_style(
+    style = list(cell_fill(color = "#fff0f0"),
+                 cell_text(weight = "bold")),
+    locations = cells_body(rows = p_value < 0.05)
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f5f5f5"),
+    locations = cells_body(rows = p_value >= 0.05)
+  ) %>%
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Red = significant (p < 0.05); Gray = not significant")
+```
+
+.center[
+`r fa('circle-right')` Check significance (p-value) · Confirm direction (sign) · Assess magnitude (estimate + CI) · Evaluate relevance ($R^2$, RMSE)
+]
+
+???
+* Full interpretation: age coefficient significant and economically meaningful
+* Interaction term: significant → goalkeeper age effect truly differs
+* Confidence Interval nicht bei Null → stabiler Befund
+
+---
+class: left
+
+.blockquote[Session 3 Preview]
+
+## What Comes Next?
+
+.pull-left[
+### Session 2 — Today's Summary
+
+✅ Population vs. sample — stochastic regression
+
+✅ Only One Test — Bootstrap + Permutation with `infer`
+
+✅ Traditional tests — t-test, F-test, regression table
+
+✅ Error 1./2. Art als ökonomische Risiken
+
+✅ Expected Value Framework
+
+✅ p-Hacking und FDR
+
+✅ Statistical vs. practical significance
+
+]
+
+.pull-right[
+### Session 3 — Preview
+
+`r fa('circle-right')` **Multiple regression** with many predictors
+
+`r fa('circle-right')` **Multicollinearity**: when predictors correlate too strongly
+
+`r fa('circle-right')` **Overfitting**: model "memorizes" training data
+
+`r fa('circle-right')` **Ridge regression**: solving multicollinearity
+
+`r fa('circle-right')` **Causal Engineering**: confounding and control variables
+
+<br>
+
+.blockquote[
+**Homework Session 3:** Multiple regression on the Bundesliga model — which predictors are stable?
+]
+
+`r fa('circle-right')` Preparatory reading: `r Zitiere(bib, "taddy_business_2019")` Ch. 3 (Regularization)
+]
+
+???
+* Bridge to Session 3: today we worked with simple regression
+* Multiple Regression multipliziert das Inferenceproblem — mehr Prädiktoren = mehr Fehlentscheidungs-Risiko
+* Regularization as an answer to overfitting and multicollinearity
+
+---
+class: left
+
+.blockquote[Debrief]
+
+## Learning Objectives — Check
+
+<div style="display:grid; grid-template-columns:30px 1fr; gap:0.4em 0.8em;
+            font-size:0.83em; margin-top:0.5em; align-items:start;">
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>Ich kann <strong>Inference als Methode zur Messung von Unsicherheit</strong> in statistischen Schätzungen erklären.</div>
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>I master the principle of <strong>"Only one test"</strong> and can practically implement bootstrapping and permutation tests.</div>
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>I can classify traditional tests (<strong>t-test, F-test</strong>) and correctly interpret regression tables.</div>
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>Ich kann <strong>Error 1. und 2. Art als ökonomische Risiken</strong> interpretieren und deren Kosten im Business-Kontext (Expected Value) gegeneinander abwägen.</div>
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>I recognize the dangers of <strong>p-hacking</strong> and understand the application of the <strong>False Discovery Rate (FDR)</strong>.</div>
+
+<div>`r fa('check', fill='#2a7a2a')`</div>
+<div>I can distinguish between <strong>statistical significance and practical relevance</strong> by using effect sizes.</div>
+
+</div>
+
+<br>
+
+.center[`r fa('circle-right')` **Questions? Open issues? Feedback?**]
+
+???
+* Go through learning objectives together with students
+* Brief self-assessment: 👍 understood / 🤔 unclear / ❓ questions
