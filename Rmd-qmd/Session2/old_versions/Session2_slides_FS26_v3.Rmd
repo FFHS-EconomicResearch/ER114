@@ -124,7 +124,7 @@ class: left
 <div>`r fa('layer-group')` <strong>Population vs. Sample</strong> — stochastic regression, sampling distribution</div>
 
 <div style="color:#D50006; font-weight:bold;">40'</div>
-<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 1</strong> — Resampling &amp; Only One Test</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 1</strong> — Only One Test: Bootstrap + Permutation with infer</div>
 
 <div style="color:#686868;">15'</div>
 <div>`r fa('comments')` <strong>Debrief</strong> — Critical Validator Building Blocks A+B · Galak Analogy</div>
@@ -171,7 +171,7 @@ class: left
 
 * `r fa('layer-group')` **Population vs. Sample**: stochastic regression, sampling distribution
 
-* `r fa('flask')` **Lab 1**: Resampling & Only One Test
+* `r fa('flask')` **Lab 1**: Only One Test: Bootstrap & Permutation with infer
 
 * `r fa('comments')` **Debrief**: Critical Validator Building Blocks A+B · Galak Analogy
 
@@ -1343,7 +1343,7 @@ $$y_i = \beta_0 + \beta_1 x_i + \varepsilon_i$$
 
 .center[
 `r fa('circle-right')` Question: How precise is this estimate?
-`r fa('circle-right')` Answer: **Standard Error** and **Confidence Interval**
+`r fa('circle-right')` Answer: **Standard Error** und **Confidence Interval**
 ]
 ]
 
@@ -1355,7 +1355,7 @@ $$y_i = \beta_0 + \beta_1 x_i + \varepsilon_i$$
 
 `r fa('circle-right')` Question: How precise is this estimate?
 
-`r fa('circle-right')` Answer: **Standard Error** and **Confidence Interval**
+`r fa('circle-right')` Answer: **Standard Error** und **Confidence Interval**
 
 ---
 class: left
@@ -1464,7 +1464,7 @@ Every model is just one possible fit based on a sample. Quantifying uncertainty 
 ???
 
 * Transition to Lab 1: we will compare both approaches using the Bundesliga example
-* Key finding: both approaches yield similar results for clear effects — but at the boundary (p ≈ 0.03-0.05), bootstrap CIs and t-test CIs can diverge. This is explored in Lab 1.
+* Key finding: both approaches yield similar results — that is the strength of "Only One Test"
 
 
 
@@ -1530,7 +1530,7 @@ Population mean
 Sample mean
 </td>
 <td style="text-align:left;width: 0.6in; ">
-<span class="math inline">\(\overline{x}\)</span> or <span class="math inline">\(\widehat{\mu}\)</span>
+<span class="math inline">\(\overline{x}\)</span> oder <span class="math inline">\(\widehat{\mu}\)</span>
 </td>
 </tr>
 <tr>
@@ -1561,10 +1561,10 @@ Difference of population means
 <span class="math inline">\(\mu_1 - \mu_2\)</span>
 </td>
 <td style="text-align:left;width: 1.5in; ">
-Difference of sample means
+Differenz von Sample meanen
 </td>
 <td style="text-align:left;width: 0.6in; ">
-<span class="math inline">\(\overline{x}_1 - \overline{x}_2\)</span> or <span class="math inline">\(\widehat{\mu}_1 - \widehat{\mu}_2\)</span>
+<span class="math inline">\(\overline{x}_1 - \overline{x}_2\)</span> oder <span class="math inline">\(\widehat{\mu}_1 - \widehat{\mu}_2\)</span>
 </td>
 </tr>
 <tr>
@@ -1581,7 +1581,7 @@ Regression coefficient (population)
 Fitted regression coefficient (sample)
 </td>
 <td style="text-align:left;width: 0.6in; ">
-<span class="math inline">\(b_1\)</span> or <span class="math inline">\(\widehat{\beta}_1\)</span>
+<span class="math inline">\(b_1\)</span> oder <span class="math inline">\(\widehat{\beta}_1\)</span>
 </td>
 </tr>
 </tbody>
@@ -1700,7 +1700,7 @@ class: left
 
 `r fa('check', fill='#2a7a2a')` **Permutation** tests whether $\hat\beta$ could be zero → p-value
 
-`r fa('check', fill='#2a7a2a')` The `get_regression_table()` gives **similar numbers** via formulas — but not always identical (see Lab 1 borderline case)
+`r fa('check', fill='#2a7a2a')` The `get_regression_table()` gives the **same numbers** via formulas
 
 `r fa('circle-right')` But we treated that table as a black box. In Lab 2 we open it: **What do SE, t, p, CI actually mean?** And how do they connect to the population model $Y = \beta_0 + \beta_1 X + \varepsilon$?
 ]
@@ -2172,7 +2172,7 @@ $$\text{FDR} = \frac{\text{False Discoveries}}{\text{All Discoveries}}$$
 | **1 test**, clear hypothesis | α = 0.05 classical |
 | **Few tests** (~5–20), exploratory analysis | Bonferroni correction |
 | **Many tests** (>50), discovery context | FDR (Benjamini-Hochberg) |
-| **ML feature selection** | FDR or cross-validation |
+| **ML-Feature-Selektion** | FDR oder Cross-Validation |
 
 <br>
 
@@ -2478,7 +2478,7 @@ lm_interaction %>%
 ???
 * Full interpretation: age coefficient significant and economically meaningful
 * Interaction term: significant → goalkeeper age effect truly differs
-* Confidence interval does not include zero → stable finding
+* Confidence Interval nicht bei Null → stabiler Befund
 
 ---
 class: left
@@ -2496,11 +2496,11 @@ class: left
 
 ✅ Traditional tests — t-test, F-test, regression table
 
-✅ Type I/II errors as economic risks
+✅ Type of Error  (I/II) as economic risk
 
 ✅ Expected Value Framework
 
-✅ p-Hacking and FDR
+✅ p-Hacking uad FDR
 
 ✅ Statistical vs. practical significance
 
@@ -2509,7 +2509,7 @@ class: left
 .pull-right[
 ### Session 3 — Preview
 
-`r fa('circle-right')` **Inference vs. Prediction** as purpose of regression/modelling
+`r fa('circle-right')` **Inference vs. Prediction** as puropose of regression/modeling
 
 `r fa('circle-right')` **Multicollinearity**: when predictors correlate too strongly
 
@@ -2525,7 +2525,7 @@ class: left
 
 ???
 * Bridge to Session 3: today we worked with simple regression
-* Multiple regression multiplies the inference problem — more predictors = more risk of erroneous decisions
+* Multiple Regression multipliziert das Inferenceproblem — mehr Prädiktoren = mehr Fehlentscheidungs-Risiko
 * Regularization as an answer to overfitting and multicollinearity
 
 ---
@@ -2539,7 +2539,7 @@ class: left
             font-size:0.83em; margin-top:0.5em; align-items:start;">
 
 <div>`r fa('check', fill='#2a7a2a')`</div>
-<div>I can explain <strong>inference as a method to assess (statistical!) uncertainty</strong>.</div>
+<div>Ich can explain <strong>Inference as method to assess (statistical!) uncertainty</strong>.</div>
 
 <div>`r fa('check', fill='#2a7a2a')`</div>
 <div>I master the principle of <strong>"Only one test"</strong> and can practically implement bootstrapping and permutation tests.</div>
@@ -2548,7 +2548,7 @@ class: left
 <div>I can classify traditional tests (<strong>t-test, F-test</strong>) and correctly interpret regression tables.</div>
 
 <div>`r fa('check', fill='#2a7a2a')`</div>
-<div>I can interpret <strong>Type I/II errors as economic risks</strong> and weigh the cost in a business-context (Expected Value) against each other.</div>
+<div>Ich can interpret <strong>Type I/II Error as economic risk</strong> and weigh the cost in a business-context (Expected Value) against each other.</div>
 
 <div>`r fa('check', fill='#2a7a2a')`</div>
 <div>I recognize the dangers of <strong>p-hacking</strong> and understand the application of the <strong>False Discovery Rate (FDR)</strong>.</div>

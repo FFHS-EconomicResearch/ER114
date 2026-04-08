@@ -36,7 +36,6 @@ library(tidyverse)    # data wrangling & plotting
 library(moderndive)   # get_regression_table/summaries/points
 library(infer)        # specify-generate-fit
 library(gt)           # formatted tables
-library(ggfortify)    # autoplot() for lm diagnostics
 
 date <- '2023-09-06'
 my_in_file <- glue::glue('buli_raw_{date}.rds')
@@ -59,7 +58,7 @@ options(scipen = 999)
 
 ## Scenario & Orientation
 
-In Lab 1 we explored whether the age effect is significant — via bootstrap, permutation, and t-test. The result was not as clear-cut as expected: the t-test said *yes*, the bootstrap CIs were borderline. But we treated `get_regression_table()` as a black box. This lab opens that box.
+In Lab 1 we established *that* the age effect is significant — via bootstrap, permutation, and t-test. But we treated `get_regression_table()` as a black box. This lab opens that box.
 
 We start with a fundamental distinction: in Session 1, regression was **descriptive** — we computed the best-fitting line through the data we had. Now we treat that line as an **estimate** of an unknown population relationship. This shift — from conditional mean to conditional expected value — is the conceptual foundation of all statistical inference in regression.
 
@@ -83,7 +82,7 @@ tibble::tribble(
 :::{.callout-note}
 ## Learning Objectives
 
-- Distinguish between the **population model** (Level 1: Greek letters), the **estimator** (Level 2: Greek with hat), and the **estimate** (Level 3: Latin letters) — the three levels of the Stocker notation
+- Distinguish between the **population model** (Greek letters) and the **sample model** (Latin letters)
 - Interpret all columns of `get_regression_table()`, `get_regression_summaries()`, and `get_regression_points()` — connecting each to its resampling counterpart from Lab 1
 - Use `infer::fit()` to compute bootstrap CIs and permutation p-values for **multiple regression**
 - Assess regression assumptions via **residual diagnostics** and understand when resampling is preferable
@@ -108,79 +107,39 @@ tibble::tribble(
 
 ## Step 1: Population Model vs. Sample Model — The Stocker Notation
 
-The key conceptual shift in this lab is understanding that every fitted regression operates on **three conceptual levels** (following Stocker, *Angewandte Ökonometrie*, Uni Innsbruck).
+The key conceptual shift in this lab is understanding that every fitted regression is a **sample-based estimate** of an unknown **population relationship**.
 
-### Three Levels, Three Notations {.unnumbered}
+### 1.1 Two Models, Two Notations
 
 ```{r notation-table}
 #| echo: false
 tibble::tribble(
-  ~Element,
-  ~`Level 1: Population (unknown)`,
-  ~`Level 2: Estimator (random variable)`,
-  ~`Level 3: Estimate (realisation)`,
-
-  "Model equation",
-  "$$Y_i = \\beta_0 + \\beta_1 X_i + \\varepsilon_i$$",
-  "$$\\hat{\\beta}_0 + \\hat{\\beta}_1 X_i + \\hat{\\varepsilon}_i$$",
-  "$$\\hat{y}_i = b_0 + b_1 x_i + e_i$$",
-
-  "Coefficients",
-  "$$\\beta_0, \\beta_1$$ — fixed, unknown",
-  "$$\\hat{\\beta}_0, \\hat{\\beta}_1$$ — random variables",
-  "$$b_0, b_1$$ — computed numbers",
-
-  "Error / Residual",
-  "$$\\varepsilon_i$$ — unobservable",
-  "$$\\hat{\\varepsilon}_i$$ — random variable",
-  "$$e_i = y_i - \\hat{y}_i$$ — observable",
-
-  "Error variance",
-  "$$\\sigma^2$$ — unknown constant",
-  "$$\\hat{\\sigma}^2 = S^2$$ — random variable",
-  "$$s^2 = \\frac{\\sum e_i^2}{n-k-1}$$ — computed",
-
-  "Meaning of line",
-  "$$E[Y|X]$$ (cond. expected value)",
-  "Sampling distribution",
-  "$$\\bar{y}|x$$ (cond. sample mean)",
-
-  "Nature",
-  "Constants — one true value",
-  "Functions of random sample",
-  "Fixed numbers — one per sample"
+  ~Element,                ~`Population (unknown parameters)`,                      ~`Sample (statistics as estimators)`,
+  "Model equation",        "$$Y = \\beta_0 + \\beta_1 X + \\varepsilon$$",
+                                                                         "$$\\hat{y} = \\hat{\\beta}_0 + \\hat{\\beta}_1 x + e$$",
+  "Intercept",             "$$\\beta_0$$",                   "$$\\hat{\\beta}_0$$",
+  "Slope",                 "$$\\beta_1$$",                   "$$\\hat{\\beta}_1$$",
+  "Error term",            "$$\\varepsilon$$ (epsilon — unobservable)",   "$$\\hat{\\varepsilon} = y - \\hat{y}$$ ",
+  "Error variance",        "$$\\sigma^2$$ (unknown)",                     "$$s^2 = \\frac{\\sum \\hat{\\varepsilon}_i^2}{n-k-1}$$ (estimated)",
+  "Meaning of the line",   "Conditional expected value: $$E[Y|X]$$",     "Conditional mean: $$\\bar{y}|x$$",
+  "Coefficients are...",   "Fixed parameters (constants of nature)",      "Random variables (vary across samples)"
 ) %>%
   gt() %>%
   fmt_markdown(columns = everything()) %>%
   tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
   tab_style(cell_text(weight = "bold"), cells_body(columns = Element)) %>%
-  tab_options(table.font.size = "11px") %>%
-  tab_footnote("Level 1 = Greek (unknown); Level 2 = Greek with hat (random); Level 3 = Latin (computed)")
+  tab_options(table.font.size = "13px") %>%
+  tab_footnote("Greek letters = population (unknown); Latin letters = sample (estimated)")
 ```
 
-The three levels serve different purposes:
-
-- **Level 1 (Population):** What we want to know — the true $\beta_1$. We can never observe it.
-- **Level 2 (Estimator):** The *procedure* $\hat{\beta}_1$ that maps any random sample to an estimate. It is a random variable with a distribution (the sampling distribution from Lab 1).
-- **Level 3 (Estimate):** The *number* $b_1$ that R reports. It is what `get_regression_table()` shows in the `estimate` column.
+The population model is what we want to know but can never observe directly. The sample model is what we compute from data. **Every number in a regression output is a sample quantity** — an estimate of an unknown population parameter.
 
 :::{.callout-important}
 ## The Fundamental Shift
-In Session 1, the regression line was a **description** of the data: the conditional mean $\bar{y}|x$ (Level 3). Now it becomes an **estimate** of the conditional expected value $E[Y|X]$ (Level 1). Same line, different interpretation — and the difference is precisely the uncertainty we quantified via bootstrap in Lab 1. The bootstrap distribution approximates the **Level 2** distribution of $\hat{\beta}_1$.
+In Session 1, the regression line was a **description** of the data: the conditional mean $\bar{y}|x$. Now it becomes an **estimate** of the conditional expected value $E[Y|X]$. Same line, different interpretation — and the difference is precisely the uncertainty we quantified via bootstrap in Lab 1.
 :::
 
-:::{.callout-note collapse="true"}
-## 📚 Background: Why Three Levels, Not Two?
-Many textbooks collapse Levels 2 and 3, writing $\hat{\beta}_1$ for both the estimator and its realisation. Stocker (following Abadir & Magnus, 2002) keeps them separate because the distinction matters conceptually:
-
-- When we say "the standard error of $\hat{\beta}_1$" we refer to the **Level 2** distribution.
-- When we say "$b_1 = 0.091$" we refer to the **Level 3** number from our data.
-- The statement "$b_1$ is a realisation of $\hat{\beta}_1$" connects the two.
-
-In practice: R reports Level 3 numbers ($b_1$), the SE describes Level 2 variability, and both are used to make inferences about Level 1 ($\beta_1$).
-:::
-
-### The Conditional Mean Is Only One Parameter {.unnumbered}
+### 1.2 The Conditional Mean Is Only One Parameter
 
 OLS regression estimates **one feature** of the conditional distribution of $Y|X$: the mean. But a distribution has many other features — spread, shape, tails.
 
@@ -224,9 +183,9 @@ The `moderndive` package provides three functions that extract everything from a
 
 | Function | Returns | Population counterpart |
 |----------|---------|----------------------|
-| `get_regression_table()` | $b_j$, SE, t, p, CI | Inference about $\beta_j$ (Level 1 via Level 3) |
-| `get_regression_summaries()` | $R^2$, adj. $R^2$, RMSE, F-stat | Model-level fit and global significance |
-| `get_regression_points()` | Fitted values $\hat{y}_i$ and residuals $e_i$ | Level 3 counterparts of $\varepsilon_i$ |
+| `get_regression_table()` | Coefficients, SE, t, p, CI | Inference on $\beta_j$ |
+| `get_regression_summaries()` | $R^2$, adj. $R^2$, RMSE, F-stat | Model-level diagnostics |
+| `get_regression_points()` | Fitted values $\hat{y}$ and residuals $e$ | Estimates of $\varepsilon$ |
 
 ### 2.1 Coefficients: `get_regression_table()`
 
@@ -250,25 +209,21 @@ get_regression_table(lm_age) %>%
 
 Each column maps to a concept from Lab 1:
 
-| Column | Stocker Level | What it is | Lab 1 counterpart |
-|--------|:---:|-----------|-------------------|
-| `estimate` | 3 | $b_1$ — the computed slope from our sample | `obs_slope` from `calculate(stat = "slope")` |
-| `std_error` | 2 | $\text{SE}(\hat{\beta}_1)$ — estimated SD of the sampling distribution | Width of the bootstrap distribution |
-| `statistic` | 2→1 | $t = b_1 / \text{SE}(\hat{\beta}_1)$ — how many SEs is $b_1$ from zero? | Position of `obs_slope` relative to null distribution |
-| `p_value` | 1 | Prob. of $|t|$ this large if $\beta_1 = 0$ | Permutation p-value |
-| `lower_ci`, `upper_ci` | 1 | 95% CI for $\beta_1$ using the t-distribution | Bootstrap percentile CI |
-
-The `estimate` column gives a Level 3 number ($b_1$). The `std_error` describes Level 2 variability. Together they enable inference about Level 1 ($\beta_1$).
+| Column | What it is | Lab 1 counterpart |
+|--------|-----------|-------------------|
+| `estimate` | $b_1$ — the sample slope | `obs_slope` from `calculate(stat = "slope")` |
+| `std_error` | $\text{SE}(b_1)$ — estimated standard deviation of the sampling distribution | Width of the bootstrap distribution |
+| `statistic` | $t = b_1 / \text{SE}(b_1)$ — how many SEs away from zero | Position of `obs_slope` relative to the null distribution |
+| `p_value` | Probability of seeing $|t|$ this large if $\beta_1 = 0$ | Permutation p-value |
+| `lower_ci`, `upper_ci` | 95% CI assuming normality: $b_1 \pm 1.96 \cdot \text{SE}$ | Bootstrap percentile CI |
 
 :::{.callout-note collapse="true"}
 ## 📚 Background: Where Does the Standard Error Come From?
 The classical SE of the slope coefficient is:
 
-$$\text{SE}(\hat{\beta}_1) = \frac{s}{\sqrt{\sum(x_i - \bar{x})^2}}$$
+$$\text{SE}(b_1) = \frac{s}{\sqrt{\sum(x_i - \bar{x})^2}}$$
 
-where $s = \sqrt{\frac{\sum e_i^2}{n - 2}}$ is the residual standard error (a Level 3 estimate of $\sigma$). This formula **assumes** that the errors $\varepsilon_i$ are i.i.d. with constant variance (homoskedasticity). If that assumption fails, the formula gives the wrong SE — and the bootstrap from Lab 1 is more reliable.
-
-Note: the CI uses the t-distribution with $n - 2$ degrees of freedom (not the normal approximation $\pm 1.96$), though for large $n$ the difference is negligible.
+where $s = \sqrt{\frac{\sum e_i^2}{n - 2}}$ is the residual standard error. This formula **assumes** that the errors $\varepsilon$ are i.i.d. with constant variance (homoskedasticity). If that assumption fails, the formula gives the wrong SE — and the bootstrap from Lab 1 is more reliable.
 :::
 
 ### 2.2 Model-Level Summary: `get_regression_summaries()`
@@ -295,7 +250,7 @@ get_regression_summaries(lm_age) %>%
 | `adj_r_squared` | Adjusted for number of predictors | Penalises adding useless predictors |
 | `mse` | Mean squared error | Average squared residual |
 | `rmse` | $\sqrt{\text{MSE}}$ | Residual standard error $s$ — in the units of $y$ |
-| `sigma` | Same as RMSE for simple models | Level 3 estimate of $\sigma$ (population error SD) |
+| `sigma` | Same as RMSE for simple models | Estimate of $\sigma$ (population error SD) |
 | `statistic` | F-statistic | Global test: are *all* slopes jointly zero? (Lab 1, Step 5.2) |
 | `p_value` | p-value for F-test | Significance of the overall model |
 | `df` | Degrees of freedom | Number of estimated slope parameters |
@@ -318,25 +273,25 @@ reg_points %>%
   tab_style(cell_fill("#fff8e1"),
             cells_body(columns = c(log_value_hat, residual))) %>%
   tab_options(table.font.size = "13px") %>%
-  tab_footnote("Yellow: ŷ (fitted value) and e = y − ŷ (residual) — both are Level 3 quantities")
+  tab_footnote("Yellow: ŷ (fitted value) and e = y − ŷ (residual)")
 ```
 
-Every row is a player. The `log_value_hat` column is $\hat{y}_i = b_0 + b_1 x_i$ — the model's prediction (Level 3). The `residual` column is $e_i = y_i - \hat{y}_i$ — the **Level 3 observable counterpart** of the **Level 1 unobservable** disturbance $\varepsilon_i$. It is the basis for all diagnostics in Step 5.
+Every row is a player. The `residual` column is the **observable counterpart** of the unobservable population error $\varepsilon$ — and it is the basis for all diagnostics in Step 5.
 
 ---
 
 ## Step 3: Interpreting SE, t, p, CI — The Bridge to Lab 1
 
-Having seen the three tables, we now connect every classical quantity to its resampling counterpart. The point is not that one is "better" — it is that **they estimate the same underlying quantity**, though they may arrive at slightly different numerical answers, as we saw in Lab 1's borderline case.
+Having seen the three tables, we now connect every classical quantity to its resampling counterpart. The point is not that one is "better" — it is that **they measure the same thing**.
 
 ```{r bridge-table}
 #| echo: false
 tibble::tribble(
-  ~`Classical (parametric)`,                       ~`Resampling (Lab 1)`,                          ~`What it estimates`,
-  "SE from formula",                                "SD of bootstrap distribution",                 "Level 2: precision of the estimator β̂₁",
-  "t = b₁ / SE(β̂₁)",                               "Position of obs_stat in null distribution",    "Signal-to-noise ratio",
-  "p-value from t-distribution",                    "Permutation p-value",                          "Extremity of b₁ under H₀: β₁ = 0",
-  "CI from t-distribution",                         "Bootstrap percentile CI",                      "Level 1: plausible range for β₁",
+  ~`Classical (parametric)`,                       ~`Resampling (Lab 1)`,                          ~`What it measures`,
+  "SE from formula",                                "SD of bootstrap distribution",                 "Precision of the estimate",
+  "t = estimate / SE",                              "Position of obs_stat in null distribution",    "Signal-to-noise ratio",
+  "p-value from t-distribution",                    "Permutation p-value",                          "Extremity under H₀",
+  "CI = estimate ± 1.96 · SE",                      "Bootstrap percentile CI",                      "Plausible range for β",
   "F-statistic (get_regression_summaries)",          "Permutation F-stat (Lab 1, Step 5.3)",         "Global model significance"
 ) %>%
   gt() %>%
@@ -345,7 +300,7 @@ tibble::tribble(
   tab_options(table.font.size = "13px")
 ```
 
-When do the two approaches **diverge**? When the classical assumptions (normality, homoskedasticity) are violated — or when the sample is small enough that the t-distribution approximation is imperfect. We check those assumptions in Step 5, and we will see an instructive case of divergence in Step 4.
+When do the two approaches **diverge**? When the classical assumptions (normality, homoskedasticity) are violated. We check those assumptions in Step 5.
 
 ---
 
@@ -380,18 +335,18 @@ get_regression_table(lm_inter) %>%
 #| cache: true
 set.seed(2024)
 
-# --- observed coefficients (Level 3: b values) ---
+# --- observed coefficients ---
 obs_fit <- tbl_buli %>%
              specify(log_value ~ age * pos_bin) %>%
              fit()
 
-# --- bootstrap (approximates Level 2 distribution of β̂) ---
+# --- bootstrap ---
 boot_fit <- tbl_buli %>%
               specify(log_value ~ age * pos_bin) %>%
               generate(reps = 1000, type = "bootstrap") %>%
               fit()
 
-# --- bootstrap CIs (inference about Level 1: β) ---
+# --- bootstrap CIs ---
 ci_fit <- boot_fit %>%
             get_confidence_interval(
               point_estimate = obs_fit,
@@ -409,7 +364,6 @@ boot_fit %>%
   shade_confidence_interval(endpoints = ci_fit) +
   facet_wrap(~ term, scales = "free_x") +
   labs(title = "Bootstrap CIs for all coefficients (interaction model)",
-       subtitle = "Each panel shows the Level 2 distribution of one estimator",
        x     = "Coefficient value",
        y     = "Count") +
   theme_minimal(base_size = 10)
@@ -446,45 +400,22 @@ null_fit %>%
   theme_minimal(base_size = 10)
 ```
 
-### 4.4 Classical vs. Resampling — Do All Three Methods Agree? {.unnumbered}
+### 4.4 Classical vs. Resampling — Side by Side
 
 ```{r compare-ci}
 #| echo: false
-
-# --- harmonize term names ---
-# get_regression_table() uses e.g. "pos_bin: Outfield"
-# infer::fit() uses e.g. "pos_binOutfield"
-# We need a common key for the join.
-
-harmonize_terms <- function(df) {
-  df %>% mutate(
-    term_key = term %>%
-      str_replace_all(":\\s+", "") %>%        # "pos_bin: Outfield" → "pos_binOutfield"
-      str_to_lower()                           # case-insensitive matching
-  )
-}
-
 trad_ci <- get_regression_table(lm_inter) %>%
              select(term, lower_ci_trad = lower_ci, upper_ci_trad = upper_ci,
-                    p_trad = p_value) %>%
-             harmonize_terms()
+                    p_trad = p_value)
 
 boot_ci <- ci_fit %>%
-             rename(lower_ci_boot = lower_ci, upper_ci_boot = upper_ci) %>%
-             harmonize_terms() %>%
-             select(-term)
+             rename(lower_ci_boot = lower_ci, upper_ci_boot = upper_ci)
 
-p_boot <- p_fit %>%
-            rename(p_boot = p_value) %>%
-            harmonize_terms() %>%
-            select(-term)
+p_boot <- p_fit %>% rename(p_boot = p_value)
 
-tbl_compare <- trad_ci %>%
-  left_join(boot_ci, by = "term_key") %>%
-  left_join(p_boot, by = "term_key") %>%
-  select(-term_key)
-
-tbl_compare %>%
+trad_ci %>%
+  left_join(boot_ci, by = "term") %>%
+  left_join(p_boot, by = "term") %>%
   gt() %>%
   fmt_number(decimals = 4) %>%
   tab_spanner("Classical (t-test)", columns = c(lower_ci_trad, upper_ci_trad, p_trad)) %>%
@@ -495,64 +426,80 @@ tbl_compare %>%
   tab_style(cell_fill("#fff8e1"),
             cells_body(rows = (p_trad < 0.05) != (p_boot < 0.05))) %>%
   tab_options(table.font.size = "12px") %>%
-  tab_footnote("Green = both methods agree on significance; Yellow = methods disagree")
+  tab_footnote("Green = both methods agree; Yellow = methods disagree")
 ```
 
-In Lab 1 we asked "three methods, one answer?" — and discovered that the answer is *not always yes*. For the simple age model, the bootstrap CIs barely included zero while the t-test CI did not. Does the interaction model show the same pattern, or do the methods agree more clearly here?
-
-Look at the comparison table. For each coefficient, check whether the classical and bootstrap verdicts match. Where they diverge, recall that three factors can cause discrepancies:
-
-1. The **classical CI** relies on the t-distribution, which assumes normally distributed residuals with constant variance. These are Level 2 assumptions about the distribution of $\hat{\beta}$.
-2. The **bootstrap CI** makes no distributional assumptions, but depends on the specific 1,000 resamples drawn. With only 1,000 replicates, the tails of the bootstrap distribution are estimated imprecisely — exactly where borderline significance lives.
-3. The **permutation p-value** shuffles the data differently from bootstrap and may push borderline cases across the α = 0.05 threshold.
-
-:::{.callout-important}
-## The Didactic Point
-When a coefficient is clearly significant (e.g. `age`, p ≈ 0.001) or clearly not significant, all methods agree. Discrepancies appear at the **boundary** — for effects that are just barely significant. In such cases:
-
-- Do **not** cherry-pick the method that gives p < 0.05
-- Do report both results honestly
-- The real question is not "is it significant?" but "is the effect *large enough to matter*?" — which brings us back to the quantile regression plot in Step 1 and the Expected Value Framework in Lab 3
-:::
+When both methods agree (green rows), we can be confident in the result. If they ever disagree (yellow), the classical assumptions may be violated — and the resampling result is more trustworthy.
 
 ---
 
 ## Step 5: Residual Diagnostics — When Do Classical Assumptions Matter?
 
-The classical formulas for SE, t, p, and CI rest on assumptions about the **Level 1** error term $\varepsilon_i$. We can only check these assumptions through the **Level 3** residuals $e_i$. If these assumptions fail, the formulas may give wrong answers — while bootstrap/permutation remain valid.
+The classical formulas for SE, t, p, and CI rest on assumptions about the residuals. If these assumptions fail, the formulas may give wrong answers — while bootstrap/permutation remain valid. We check three assumptions:
 
-The `ggfortify` package provides `autoplot()` which generates the standard four diagnostic plots from an `lm` object in one call:
+### 5.1 Linearity: Residuals vs. Fitted
 
-```{r diag-autoplot}
+```{r resid-fitted}
 #| code-fold: false
-library(ggfortify)
-autoplot(lm_inter, which = 1:4, nrow = 2, ncol = 2) +
-  theme_minimal(base_size = 10)
+reg_points_inter <- get_regression_points(lm_inter)
 ```
 
-We now walk through each plot and connect it to the parametric vs. resampling question.
+```{r resid-fitted-plot}
+#| echo: false
+reg_points_inter %>%
+  ggplot(aes(x = log_value_hat, y = residual)) +
+  geom_point(alpha = 0.3, color = "#686868", size = 0.8) +
+  geom_hline(yintercept = 0, color = "#D50006", linewidth = 0.8) +
+  geom_smooth(method = "loess", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  labs(x     = expression(hat(y)~"(fitted value)"),
+       y     = expression(e~"(residual)"),
+       title = "Residuals vs. Fitted Values",
+       subtitle = "Purple dashed = LOESS smoother; should be flat if linearity holds") +
+  theme_minimal(base_size = 11)
+```
 
-### 5.1 Residuals vs. Fitted (top left)
+If the LOESS smoother deviates strongly from the horizontal red line, the linearity assumption is questionable.
 
-Shows residuals $e_i$ against fitted values $\hat{y}_i$. The smoother should be flat if the linearity assumption holds. A curved pattern would suggest that the relationship between $X$ and $E[Y|X]$ is not linear — the Level 1 model is misspecified.
+### 5.2 Normality: QQ-Plot
 
-### 5.2 Normal Q-Q (top right)
+```{r qq-plot}
+#| echo: false
+reg_points_inter %>%
+  ggplot(aes(sample = residual)) +
+  stat_qq(alpha = 0.3, color = "#686868", size = 0.8) +
+  stat_qq_line(color = "#D50006", linewidth = 0.8) +
+  labs(x     = "Theoretical quantiles",
+       y     = "Sample quantiles",
+       title = "Normal Q-Q Plot of Residuals",
+       subtitle = "Points should follow the red line if normality holds") +
+  theme_minimal(base_size = 11)
+```
 
-Points should follow the diagonal line if $\varepsilon_i \sim N(0, \sigma^2)$ holds. Deviations in the tails are common with real data. Moderate deviations are acceptable for large samples (the CLT protects the t-test). Severe deviations — S-shaped or banana-shaped patterns — indicate that the classical SE formula may give incorrect results, and bootstrap CIs are preferable.
+Deviations in the tails are common with real data. Moderate deviations are acceptable for large samples (CLT protects the t-test); severe deviations favour the bootstrap.
 
-### 5.3 Scale-Location (bottom left)
+### 5.3 Homoskedasticity: Scale-Location Plot
 
-Shows $\sqrt{|e_i|}$ against $\hat{y}_i$. If the smoother slopes upward, the error variance is not constant (heteroskedasticity). In that case, the classical SE formula underestimates the true SE for some observations and overestimates it for others. The bootstrap SE remains valid because it does not assume constant variance.
+```{r scale-location}
+#| echo: false
+reg_points_inter %>%
+  mutate(sqrt_abs_resid = sqrt(abs(residual))) %>%
+  ggplot(aes(x = log_value_hat, y = sqrt_abs_resid)) +
+  geom_point(alpha = 0.3, color = "#686868", size = 0.8) +
+  geom_smooth(method = "loess", se = FALSE,
+              color = "#502479", linewidth = 0.9, linetype = "dashed") +
+  labs(x     = expression(hat(y)~"(fitted value)"),
+       y     = expression(sqrt("|e|")),
+       title = "Scale-Location Plot",
+       subtitle = "If spread increases with fitted values → heteroskedasticity") +
+  theme_minimal(base_size = 11)
+```
 
-### 5.4 Residuals vs. Leverage (bottom right)
-
-Identifies influential observations — points with high leverage (unusual $x$-values) *and* large residuals. Observations beyond Cook's distance contours (dashed curves) have a disproportionate effect on the Level 3 estimates $b_j$. These are worth investigating: are they data errors, or genuine cases that the model cannot explain?
+If the purple smoother slopes upward, the error variance is not constant — the classical SEs are biased. Bootstrap SEs remain valid.
 
 :::{.callout-note collapse="true"}
 ## 📚 Background: Parametric vs. Nonparametric — and BLUE
-The classical OLS estimator $\hat{\beta}_1$ is **BLUE** — Best Linear Unbiased Estimator — under the Gauss-Markov assumptions (linearity, exogeneity, homoskedasticity, no multicollinearity). "Best" means smallest variance among all linear unbiased estimators.
-
-Importantly, BLUE refers to the **Level 2** property of the estimator $\hat{\beta}_1$, not to any specific Level 3 realisation $b_1$. It says: *if the assumptions hold, no other linear unbiased procedure produces a sampling distribution with smaller spread.*
+The classical OLS estimator is **BLUE** — Best Linear Unbiased Estimator — under the Gauss-Markov assumptions (linearity, exogeneity, homoskedasticity, no multicollinearity). "Best" means smallest variance among all linear unbiased estimators.
 
 When these assumptions hold, the parametric SE is more *efficient* (smaller) than the bootstrap SE. When they fail, the parametric SE is *wrong* — and bootstrap is more *honest*.
 
@@ -561,11 +508,10 @@ This is why we always check residual diagnostics: not to decide whether to use r
 
 :::{.callout-note}
 ## Practical Rule of Thumb
-| Diagnostics | Recommendation |
+| Diagnostics look clean | Use classical SEs — they are more efficient |
 |---|---|
-| Look clean | Use classical SEs — they are more efficient (smaller) |
-| Look problematic | Use bootstrap CIs — they are more robust |
-| Not sure | Report both — if they agree, the result is solid; if they disagree, trust the bootstrap |
+| Diagnostics look problematic | Use bootstrap CIs — they are more robust |
+| Not sure | Report both — if they agree, the result is solid |
 :::
 
 ---
@@ -573,13 +519,13 @@ This is why we always check residual diagnostics: not to decide whether to use r
 ## Mandatory Tasks
 
 :::{.callout-important icon=false}
-## ⚠️ A1: The Three Stocker Levels
+## ⚠️ A1: Population vs. Sample Notation
 
-Look at the notation table in Step 1.
+Look at the notation table in Step 1.1.
 
-1. In your own words: what is the difference between $\beta_1$ (Level 1), $\hat{\beta}_1$ (Level 2), and $b_1$ (Level 3)?
-2. When R reports `estimate = 0.091` in `get_regression_table()` — is that $\beta_1$, $\hat{\beta}_1$, or $b_1$?
-3. The bootstrap distribution from Lab 1 approximated the distribution of which level?
+1. What is the key difference between $\beta_1$ and $b_1$?
+2. Why is $\varepsilon$ "unobservable" while $e$ is "observable"?
+3. A colleague writes: "The slope of our model is 0.067." Is this a statement about $\beta_1$ or $b_1$? Why does the distinction matter?
 :::
 
 :::{.callout-important icon=false}
@@ -587,7 +533,7 @@ Look at the notation table in Step 1.
 
 Look at the regression table for `lm_age` in Step 2.1.
 
-1. What does the `std_error` for age tell you? At which Stocker level does it operate? Relate it to the bootstrap distribution from Lab 1.
+1. What does the `std_error` for age tell you? Relate it to the bootstrap distribution from Lab 1.
 2. The `statistic` column shows a t-value. What is it — conceptually — and when is it "large enough"?
 3. The CI is [`r round(get_regression_table(lm_age) %>% filter(term == "age") %>% pull(lower_ci), 4)`, `r round(get_regression_table(lm_age) %>% filter(term == "age") %>% pull(upper_ci), 4)`]. Does it match the bootstrap CI from Lab 1? Why might they differ slightly?
 :::
@@ -603,26 +549,24 @@ Look at the model summary in Step 2.2.
 :::
 
 :::{.callout-important icon=false}
-## ⚠️ A4: Interaction Model — Do the Methods Agree?
+## ⚠️ A4: Interaction Model — Classical vs. Resampling
 
 Look at the comparison table in Step 4.4.
 
 1. For which coefficients do both methods agree on significance?
-2. For any coefficient where they disagree (or nearly disagree): what explains the discrepancy? Refer to the three reasons listed in Step 4.4.
-3. The interaction term `age:pos_binOutfield` — what does its sign tell you about the age effect for outfield players vs. goalkeepers?
-4. Given the diagnostic plots in Step 5: which set of CIs (classical or bootstrap) would you trust more for this model?
+2. The interaction term `age:pos_binOutfield` — what does its sign tell you about the age effect for outfield players vs. goalkeepers?
+3. If the two methods disagreed for a coefficient, which would you trust more? Why?
 :::
 
 :::{.callout-important icon=false}
 ## ⚠️ A5: Residual Diagnostics
 
-Examine the four diagnostic plots in Step 5.
+Examine the three diagnostic plots in Step 5.
 
-1. Does the Residuals-vs-Fitted plot (top left) suggest a linearity problem?
-2. Does the QQ-plot (top right) suggest serious non-normality?
-3. Does the Scale-Location plot (bottom left) suggest heteroskedasticity?
-4. Does the Residuals-vs-Leverage plot (bottom right) flag any influential observations?
-5. Given your answers: are the classical SEs from `get_regression_table()` trustworthy for this model? What is the implication for the borderline case in A4?
+1. Does the residuals-vs-fitted plot suggest a linearity problem?
+2. Does the QQ-plot suggest serious non-normality?
+3. Does the scale-location plot suggest heteroskedasticity?
+4. Given your answers: are the classical SEs from `get_regression_table()` trustworthy for this model?
 :::
 
 :::{.callout-important icon=false}
@@ -678,14 +622,7 @@ How variable is $R^2$ across samples? Does it ever reach zero?
 :::{.callout-tip icon=false}
 ## 💡 B3: Residual Diagnostics for the Simple Model
 
-Repeat the diagnostic plots from Step 5 for the simple model `lm_age` (without interaction):
-
-```r
-autoplot(lm_age, which = 1:4, nrow = 2, ncol = 2) +
-  theme_minimal(base_size = 10)
-```
-
-Do the diagnostics look better or worse than for the interaction model? What does this tell you about the interaction term's role?
+Repeat the three diagnostic plots from Step 5 for the simple model `lm_age` (without interaction). Do the diagnostics look better or worse? What does this tell you about the interaction term's role?
 :::
 
 :::{.callout-tip icon=false}
@@ -709,13 +646,13 @@ get_regression_points(lm_inter) %>%
 #| echo: false
 tibble::tribble(
   ~`Finding`,                            ~`Key Result`,                                      ~`Implication`,
-  "Stocker notation (3 levels)",         "β (unknown) → β̂ (random) → b (computed)",          "Every regression output is a Level 3 estimate of a Level 1 parameter",
-  "get_regression_table()",              "SE, t, p, CI — all have resampling counterparts",   "Classical and resampling estimate the same Level 2 quantities",
+  "Population vs. sample notation",      "Greek = unknown; Latin = estimated",                "Every regression output is an estimate, not truth",
+  "get_regression_table()",              "SE, t, p, CI — all have resampling counterparts",   "Classical and resampling measure the same things",
   "get_regression_summaries()",          paste0("R² = ", round(get_regression_summaries(lm_age) %>% pull(r_squared), 3)),
-                                                                                              "Low R² ≠ useless model; the mean is only one parameter",
+                                                                                              "Low R² ≠ useless model; mean ≠ whole distribution",
   "fit() for multiple regression",       "Bootstrap CIs for all coefficients at once",         "Scales resampling to any model complexity",
-  "Classical vs. Resampling",            "Agree for clear cases; may diverge at the boundary", "Borderline results require diagnostic assessment",
-  "Residual diagnostics",               "4 plots via ggfortify::autoplot()",                   "Determines which SEs to trust → BLUE in Session 3"
+  "Classical ≈ Resampling (when valid)", "CIs agree when assumptions hold",                   "Diagnostics determine which SEs to trust",
+  "Residual diagnostics",               "Check linearity, normality, homoskedasticity",       "→ BLUE assumptions revisited in Session 3"
 ) %>%
   gt() %>%
   tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%

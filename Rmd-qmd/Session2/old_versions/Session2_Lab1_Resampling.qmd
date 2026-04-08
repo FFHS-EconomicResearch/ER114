@@ -374,7 +374,7 @@ visualize(boot_dist_full) +
 
 :::
 
-Look carefully at the lower bounds of both intervals. Do they contain zero? We will return to this question in Step 6.
+Neither interval contains zero → the age effect is **statistically significant** at the 5% level.
 
 :::{.callout-important}
 ## Correct Interpretation of the CI
@@ -614,55 +614,28 @@ get_regression_table(reg_buli) %>%
   tab_footnote("Yellow: age coefficient — compare CI with bootstrap result from Step 3")
 ```
 
-### Three Methods, One Answer? {.unnumbered}
+### Three Methods, One Answer? {--}
 
 ```{r three-methods}
 #| echo: false
 trad_age <- get_regression_table(reg_buli) %>% filter(term == "age")
 
 tibble::tribble(
-  ~Method,                    ~`CI Lower`,                ~`CI Upper`,  ~`Contains zero?`,
+  ~Method,                    ~`CI Lower`,                ~`CI Upper`,  ~`Significant?`,
   "Bootstrap (Percentile)",    round(ci_pct$lower_ci, 4),
-                               round(ci_pct$upper_ci, 4),
-                               if_else(ci_pct$lower_ci <= 0 & ci_pct$upper_ci >= 0,
-                                       "Yes ⚠️", "No"),
+                               round(ci_pct$upper_ci, 4),               "Yes",
   "Bootstrap (SE)",            round(ci_se$lower_ci, 4),
-                               round(ci_se$upper_ci, 4),
-                               if_else(ci_se$lower_ci <= 0 & ci_se$upper_ci >= 0,
-                                       "Yes ⚠️", "No"),
+                               round(ci_se$upper_ci, 4),                "Yes",
   "Traditional (t-test)",      round(trad_age$lower_ci, 4),
-                               round(trad_age$upper_ci, 4),
-                               if_else(trad_age$lower_ci <= 0 & trad_age$upper_ci >= 0,
-                                       "Yes ⚠️", "No")
+                               round(trad_age$upper_ci, 4),             "Yes"
 ) %>%
   gt() %>%
   tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
-  tab_style(cell_fill("#f0fff0"),
-            cells_body(rows = `Contains zero?` == "No")) %>%
-  tab_style(cell_fill("#fff8e1"),
-            cells_body(rows = `Contains zero?` != "No")) %>%
-  tab_options(table.font.size = "14px") %>%
-  tab_footnote("Green = CI excludes zero (significant); Yellow = CI includes zero (not significant at 5%)")
+  tab_style(cell_fill("#f0fff0"), cells_body()) %>%
+  tab_options(table.font.size = "14px")
 ```
 
-This is an instructive result. The three methods do **not** give the same clear-cut answer:
-
-- The **traditional t-test CI** narrowly excludes zero — the age effect is significant at 5%.
-- The **bootstrap CIs** narrowly *include* zero — by this criterion, the effect is not significant at 5%.
-- The **permutation p-value** (`r round(p_val$p_value, 4)`) is below 0.05 — significant.
-
-How can bootstrap CIs include zero while the permutation test says "significant"? Because they answer **different questions**: the CI estimates a *range*, the p-value estimates a *probability*. With only 1,000 resamples, the tails of the bootstrap distribution are imprecise — and this is a borderline case where the effect sits right at the boundary.
-
-:::{.callout-important}
-## The Didactic Takeaway
-When an effect is clearly large (e.g. p = 0.001), all methods agree. At the **boundary** (p ≈ 0.03–0.05), methods may diverge — not because one is "wrong," but because the signal is genuinely weak. In such cases:
-
-- The exact verdict ("significant" vs. "not significant") depends on method and random seed
-- The *direction* and *magnitude* of the estimate are more informative than the binary verdict
-- This motivates the discussion of **effect sizes** and **practical significance** in the lecture
-:::
-
-<!-- Original claim "All three converge" removed — the data shows otherwise. -->
+<!-- All three converge. This is **not** a coincidence — they all estimate the same quantity (the standard error of the slope), just by different routes. -->
 
 ---
 
@@ -696,7 +669,6 @@ The permutation p-value is `r round(p_val$p_value, 4)`.
 1. In your own words: what does the null distribution in Step 4 represent?
 2. Why is the null distribution centred at zero?
 3. The p-value from `get_regression_table()` is `r round(trad_age$p_value, 4)`. Are they consistent?
-4. The permutation test says "significant" (p < 0.05), but the bootstrap CI from A2 includes zero. How can both be true at the same time? (Hint: think about what each method estimates and how 1,000 resamples affect precision in the tails.)
 :::
 
 :::{.callout-important icon=false}
@@ -765,23 +737,22 @@ Open the [hypothesis testing flowchart in ModernDive Appendix D](https://modernd
 tibble::tribble(
   ~`Finding`,                       ~`Key Result`,                                ~`Implication for Lab 2`,
   "Sampling ≈ Bootstrap",           "Bootstrap approximates the sampling dist.",   "Justifies resampling for inference",
-  "Bootstrap CI vs. t-test CI",     "Bootstrap barely includes zero; t-test excludes it", "Borderline cases reveal method differences",
-  "Permutation p-value",            paste0("p = ", round(p_val$p_value, 4), " (< 0.05)"),  "Significant — but bootstrap CI disagrees",
-  "Boundary lesson",                "Binary verdict depends on method at the boundary",  "→ effect sizes & practical significance matter",
+  "Bootstrap CI excludes zero",     "Age effect is statistically significant",     "→ interpret coefficients in Lab 2",
+  "Permutation confirms CI",        paste0("p = ", round(p_val$p_value, 4)),       "Two routes to the same verdict",
   "t-test = regression",            "Identical estimates, t-stats, p-values",      "Regression is the universal framework",
   "ANOVA = regression with factor", "F-test = global significance test",           "→ multiple regression in Session 3"
 ) %>%
   gt() %>%
   tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
-  tab_style(cell_fill("#f0fff0"), cells_body(rows = c(1, 5, 6))) %>%
-  tab_style(cell_fill("#fff8e1"), cells_body(rows = c(2, 3, 4))) %>%
+  tab_style(cell_fill("#f0fff0"), cells_body(rows = c(1, 2, 4))) %>%
+  tab_style(cell_fill("#fff8e1"), cells_body(rows = c(3, 5))) %>%
   tab_options(table.font.size = "13px")
 ```
 
 :::{.callout-note}
 ## What Comes Next
 
-The age effect is borderline — the traditional t-test calls it significant, the bootstrap CI is ambiguous. In **Lab 2** we open the black box of `get_regression_table()` and connect every column (SE, t, p, CI) to its resampling counterpart using the **Stocker notation** (population vs. estimator vs. estimate). We also introduce `infer::fit()` for the interaction model and use **residual diagnostics** to decide which standard errors to trust.
+In **Lab 2** we move from resampling to the full machinery of **stochastic regression analysis**: the population model vs. the sample model (Stocker notation), all three `moderndive` helper functions, and the `infer::fit()` function for multiple regression. The resampling logic from this lab remains the foundation — Lab 2 simply adds the classical counterparts.
 
 **Dataset used:** `buli_raw_2023-09-06.rds` (Bundesliga players, season 2022/23)
 :::
