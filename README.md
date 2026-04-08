@@ -13,7 +13,7 @@ Materials accompanying Module ER114 - Data Science and Strategy for Business at 
   
 ## Live Session 2
 
-* [Slides](https://ffhs-economicresearch.github.io/ER114/Rmd-qmd/Session1/Session2_slides_FS26.html#1)
+* [Slides](https://ffhs-economicresearch.github.io/ER114/Rmd-qmd/Session2/Session2_slides_FS26.html#1)
 
 * Lab Materials
   * Lab 1: [html](), [R-Skript]() 
