@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 800" width="100%" height="100%">
+  <defs>
+    <style>
+      /* Global Font Setup */
+      text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+      /* Typography Classes */
+      .main-title { font-size: 26px; font-weight: 700; fill: #1e293b; text-anchor: middle; }
+      .main-subtitle { font-size: 16px; fill: #64748b; text-anchor: middle; font-weight: 400; }
+
+      .box-title { font-size: 16px; font-weight: 600; fill: #0f172a; text-anchor: middle; }
+      .box-text { font-size: 13px; fill: #475569; text-anchor: middle; }
+
+      .arrow-label { font-size: 13px; fill: #64748b; font-style: italic; }
+      .arrow-label-center { font-size: 13px; fill: #64748b; font-style: italic; text-anchor: middle; }
+
+      .section-label { font-size: 16px; font-weight: 600; fill: #334155; text-anchor: middle; }
+
+      .card-title { font-size: 18px; font-weight: 700; text-anchor: middle; }
+      .card-subtitle { font-size: 14px; text-anchor: middle; font-style: italic; }
+      .card-bullet { font-size: 15px; fill: #334155; font-weight: 400; }
+      .card-footer { font-size: 13px; font-weight: 600; text-anchor: middle; fill: #94a3b8; }
+
+      .citation { font-size: 12px; fill: #94a3b8; text-anchor: middle; letter-spacing: 0.5px; }
+
+      /* Path Classes */
+      .connector { stroke: #94a3b8; stroke-width: 2; fill: none; stroke-linecap: round; }
+      .connector-dashed { stroke: #94a3b8; stroke-width: 2; fill: none; stroke-dasharray: 6, 6; stroke-linecap: round; }
+
+      /* Box Classes */
+      .concept-box { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; rx: 8; }
+      .highlight-box { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 2; rx: 8; }
+
+      .card-e1 { fill: #fff1f2; stroke: #e11d48; stroke-width: 2; rx: 12; }
+      .card-e2 { fill: #faf5ff; stroke: #9333ea; stroke-width: 2; rx: 12; }
+      .card-p { fill: #f8fafc; stroke: #475569; stroke-width: 2; rx: 12; }
+    </style>
+
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <text x="575" y="40" class="main-title">Conceptual Framework: From Data Generation to Inference</text>
+
+  <rect x="425" y="80" width="300" height="70" class="highlight-box" />
+  <text x="575" y="110" class="box-title">Data-Generating Process (DGP)</text>
+  <text x="575" y="132" class="box-text">The unobservable true probabilistic mechanism</text>
+
+  <rect x="425" y="220" width="300" height="70" class="concept-box" />
+  <text x="575" y="250" class="box-title">Observed Sample</text>
+  <text x="575" y="272" class="box-text">Single finite dataset (size n)</text>
+
+  <rect x="820" y="80" width="260" height="70" class="concept-box" />
+  <text x="950" y="105" class="box-title">Sampling Distribution</text>
+  <text x="950" y="125" class="box-text">Theoretical distribution across</text>
+  <text x="950" y="142" class="box-text">all hypothetical samples</text>
+
+  <rect x="820" y="220" width="260" height="70" class="concept-box" />
+  <text x="950" y="245" class="box-title">Bootstrap Distribution</text>
+  <text x="950" y="265" class="box-text">Empirical distribution of resamples</text>
+  <text x="950" y="282" class="box-text">drawn from observed data</text>
+
+  <line x1="575" y1="150" x2="575" y2="212" class="connector" marker-end="url(#arrowhead)" />
+  <text x="585" y="186" class="arrow-label">generates</text>
+
+  <line x1="725" y1="255" x2="812" y2="255" class="connector" marker-end="url(#arrowhead)" />
+  <text x="772" y="245" class="arrow-label-center">resampling</text>
+
+  <line x1="950" y1="220" x2="950" y2="158" class="connector" marker-end="url(#arrowhead)" />
+  <text x="960" y="194" class="arrow-label">approximates</text>
+
+  <line x1="725" y1="115" x2="812" y2="115" class="connector-dashed" marker-end="url(#arrowhead)" />
+  <text x="772" y="105" class="arrow-label-center">theoretical basis</text>
+
+
+  <line x1="575" y1="290" x2="575" y2="310" class="connector" />
+
+  <rect x="350" y="310" width="450" height="30" fill="#ffffff" />
+  <text x="575" y="330" class="section-label">Three distinct paths approach the DGP via the sample</text>
+
+  <line x1="575" y1="340" x2="575" y2="360" class="connector" />
+
+  <line x1="215" y1="360" x2="935" y2="360" class="connector" />
+
+  <line x1="215" y1="360" x2="215" y2="392" class="connector" marker-end="url(#arrowhead)" />
+  <line x1="575" y1="360" x2="575" y2="392" class="connector" marker-end="url(#arrowhead)" />
+  <line x1="935" y1="360" x2="935" y2="392" class="connector" marker-end="url(#arrowhead)" />
+
+
+  <g transform="translate(60, 400)">
+    <rect width="310" height="260" class="card-e1" />
+    <text x="155" y="45" class="card-title" fill="#e11d48">Path E1 — Explain</text>
+    <text x="155" y="70" class="card-subtitle" fill="#be123c">under assumed exogeneity</text>
+    <line x1="30" y1="95" x2="280" y2="95" stroke="#fda4af" stroke-width="1.5" />
+
+    <text x="40" y="140" class="card-bullet">• Estimate structural β</text>
+    <text x="40" y="175" class="card-bullet">• OLS — BLUE conditions</text>
+    <text x="40" y="210" class="card-bullet">• Diagnostics, robust SE</text>
+
+    <text x="155" y="245" class="card-footer">Lab 1 Step 1</text>
+  </g>
+
+  <g transform="translate(420, 400)">
+    <rect width="310" height="260" class="card-e2" />
+    <text x="155" y="45" class="card-title" fill="#9333ea">Path E2 — Explain</text>
+    <text x="155" y="70" class="card-subtitle" fill="#7e22ce">via study design</text>
+    <line x1="30" y1="95" x2="280" y2="95" stroke="#d8b4fe" stroke-width="1.5" />
+
+    <text x="40" y="140" class="card-bullet">• Identify causal β</text>
+    <text x="40" y="175" class="card-bullet">• RCT, DiD, IV</text>
+    <text x="40" y="210" class="card-bullet">• Intervention in the DGP</text>
+
+    <text x="155" y="245" class="card-footer">Lab 3</text>
+  </g>
+
+  <g transform="translate(780, 400)">
+    <rect width="310" height="260" class="card-p" />
+    <text x="155" y="45" class="card-title" fill="#334155">Path P — Predict</text>
+    <text x="155" y="70" class="card-subtitle" fill="#475569">under stable relationships</text>
+    <line x1="30" y1="95" x2="280" y2="95" stroke="#cbd5e1" stroke-width="1.5" />
+
+    <text x="40" y="140" class="card-bullet">• Replicate DGP output</text>
+    <text x="40" y="175" class="card-bullet">• OOS-evaluation, CV</text>
+    <text x="40" y="210" class="card-bullet">• Lasso, Ridge, regularization</text>
+
+    <text x="155" y="245" class="card-footer">Lab 1 Step 3 • Lab 2</text>
+  </g>
+
+  <text x="575" y="720" class="citation">
+    Shmueli (2010) — To Explain or to Predict?   •   Breiman (2001) — Two Cultures   •   Mullainathan &amp; Spiess (2017) — Machine Learning Econometrics
+  </text>
+</svg>

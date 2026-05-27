@@ -1,0 +1,720 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Line references are approximate; search for the marker text.
+
+  ~Line 18    Moodle download link for dominicks_full.rds
+  ~Line 19    Moodle download link for dominicks_demo.rds
+  ~Line 65    Folder name for current cohort (default: "ER114_FS26")
+
+============================================================ -->
+---
+title: "Session 3 · Lab 1: BLUE Bridge — Predict or Explain?"
+subtitle: "CRISP-DM Phases 5–6 --- Evaluation & Deployment"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+bibliography: ../../lit/my_bib.bib
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)        # data wrangling and plotting
+library(gt)               # publication-quality tables
+library(broom)            # tidy model output
+library(patchwork)        # combine ggplots
+library(car)              # VIF for multicollinearity diagnostics
+
+# shared visual identity
+theme_set(theme_minimal(base_size = 11))
+
+# colour palette
+col_primary   <- "#D50006"   # main highlight
+col_secondary <- "#502479"   # second highlight
+col_neutral   <- "#686868"   # grey reference
+
+# load data (provided as .rds files in data/raw/)
+tbl_full <- readRDS(xfun::from_root("data", "raw", "dominicks_full.rds"))
+tbl_demo <- readRDS(xfun::from_root("data", "raw", "dominicks_demo.rds"))
+
+# convenient aliases
+tbl <- tbl_full
+```
+
+## Scenario
+
+You work as a data analyst for **Dominick's Finer Foods**, a Chicago
+supermarket chain. The marketing department has asked for your help on
+two upcoming decisions. The two questions look similar on the surface
+— but they require very different methodological approaches.
+
+This lab is the **bridge** between two paths of modern data analysis:
+the BLUE/inference world that you know from Sessions 1 and 2, and the
+out-of-sample world of predictive modelling.
+
+```{r crisp-overview}
+#| echo: false
+
+tibble::tribble(
+  ~Phase, ~Name,                   ~Content,                                                ~Status,
+  "1",    "Business Understanding","Marketing decisions: predict and intervene",             "Done",
+  "2",    "Data Understanding",    "OJ scanner data: 83 stores × 3 brands × 112 weeks",      "Done (S1)",
+  "3",    "Data Preparation",      "Wrangled, ready",                                        "Done (S1)",
+  "4",    "Modelling",             "Linear regression with diagnostics (← here)",            "← This lab (1a)",
+  "5",    "Evaluation",            "Out-of-sample evaluation, K-fold CV (← here)",           "← This lab (3)",
+  "6",    "Deployment",            "Translator memos: what can we deliver?",                 "← This lab (4)"
+) |>
+  gt() |>
+  gt::tab_style(gt::cell_fill("#f0fff0"), gt::cells_body(rows = Phase %in% c("4","5","6"))) |>
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+## Navigation
+
+| Symbol | Box | Meaning | When to read |
+|--------|-----|---------|--------------|
+| ⚠️ | Red | Action required: mandatory tasks for the live session | Live |
+| 💡 | Green | Tip / best practice: coding hints, shortcuts | Live |
+| 📚 | Blue (collapsed) | Background theory: concepts, derivations | At home |
+| ℹ️ | Blue (open) | Short clarification | Live |
+
+---
+
+# Phase 0 — Translator Briefing
+
+*The icebreaker for this lab is the translator's task itself. The
+business request opens up the two methodological paths that the lab
+will pursue.*
+
+## The Memo from Marketing
+
+:::{.callout-note icon=false collapse="false"}
+## 📧 Memo from Sarah Chen, VP Marketing — Dominick's Finer Foods
+
+*"We have found in the previous sessions that advertising (`feat`)
+increases our sales by about 25 % — measured in Store 51, replicated
+in Store 50. Impressive.*
+
+*Now we need the model for two decisions:*
+
+***1.*** *We want a tool that **predicts the weekly OJ sales for each
+of our 83 stores** in Chicago. The tool will be used for inventory
+planning.*
+
+***2.*** *We are considering launching a **major advertising campaign**
+for the Dominick's house brand in Q4. Can we derive from the historical
+data whether this will pay off?*
+
+*How would you approach this?"*
+
+---
+
+— Sarah
+:::
+
+## Your task as Translator
+
+:::{.callout-important icon=false}
+## ⚠️ T1: Two memos to Sarah
+
+Your task is to write **two short memos back to Sarah at the end of
+this lab** — one per question. For each question:
+
+1. Translate Sarah's business question into a methodological operation.
+2. State what you can deliver and what you cannot.
+3. Reference what you would need additionally if anything is missing.
+
+**A hint on order:** The two questions look similar, but they require
+different methods. We work through **Question 2 (campaign effect) first**,
+because it builds on what you already know from Sessions 1 and 2
+(regression with inference). **Question 1 (prediction tool) comes after**,
+because it requires a different optimality criterion that we will
+develop along the way.
+:::
+
+## What we already know from Sessions 1 and 2
+
+Below is the OJ panel for **all 83 stores** of the top three brands
+(Tropicana, Minute Maid, Dominick's). This is a substantial enlargement
+of the data world we worked with so far.
+
+```{r data-summary}
+#| echo: false
+
+tbl |>
+  summarise(
+    `# stores`       = n_distinct(store),
+    `# brands`       = n_distinct(brand),
+    `# weeks`        = n_distinct(week),
+    `# observations` = n()
+  ) |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+The advertising effect we found in Session 1, replicated in Session 2,
+is the baseline that Sarah refers to in her memo.
+
+---
+
+# Phase 1a — Question 2 (Explaining the Advertising Effect): Classical Inference
+
+> **🔄 Modularity note for instructor:** This sub-phase (1a) is
+> structured as a stand-alone block. In the summer iteration (HS26),
+> this entire block is *cut out and moved to Session 2 Lab 2 (Multiple
+> Regression with Diagnostics)*. In the current semester (FS26), we
+> build up the diagnostics here, because Session 2 has not yet covered
+> them.
+
+We start with the question that is closest to what you know from
+Sessions 1 and 2: a multiple regression with inference. The translator's
+job is to give Sarah a quantitative answer on whether advertising
+*causes* sales to rise.
+
+## Naive Model — All 83 Stores
+
+Let us fit the natural starting model: weekly log-sales explained by
+advertising, price, and brand, across all 83 stores.
+
+```{r naive-model}
+#| code-fold: false
+mod_naive <- lm(logmove ~ feat + log(price) + brand, data = tbl)
+
+mod_naive |>
+  tidy(conf.int = TRUE) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+The advertising coefficient is around `r round(coef(mod_naive)["feat"], 2)`.
+That looks like Sarah's expectation: roughly a 25 % uplift from
+advertising — confirmed across 83 stores.
+
+But before we send Sarah a recommendation, we have to check whether the
+model assumptions hold. The whole inferential machinery rests on them.
+
+## A-B-C Assumptions (von Auer) — Diagnostic Checks
+
+The Gauss-Markov framework relies on a set of assumptions
+[@vonAuer_2023, ch. 4]. Let us check the ones that can be diagnosed
+empirically.
+
+:::{.callout-note collapse="true" #abc-assumptions}
+## 📚 Background: The A-B-C Assumptions in Brief
+
+**A-Assumptions (the model):**
+
+- A1 (variable selection): No relevant variable is missing, no
+  irrelevant one is included.
+- A2 (linearity): The true relationship is linear in the parameters.
+- A3 (parameter constancy): Parameters are constant across all
+  $N$ observations.
+
+**B-Assumptions (the error term):**
+
+- B1: $E(\varepsilon_i) = 0$.
+- B2 (homoscedasticity): $\text{Var}(\varepsilon_i) = \sigma^2$.
+- B3 (no autocorrelation): $\text{Cov}(\varepsilon_i, \varepsilon_j) = 0$
+  for $i \neq j$.
+- B4 (normality): $\varepsilon_i \sim N$.
+
+**C-Assumptions (the data):**
+
+- C1 (exogeneity): $\text{Cov}(X_i, \varepsilon_i) = 0$.
+- C2 (no perfect multicollinearity).
+
+In this lab, we focus on the diagnostic checks: VIF for C2, residual
+plots for the B-assumptions, and substantive reasoning for A1 and C1.
+
+What the *consequences* of a violation are — that is the topic of
+Session 3's BLUE bridge. For now, we just want to know **whether** the
+assumptions hold.
+:::
+
+### C2: Multicollinearity (VIF)
+
+```{r vif-naive}
+#| code-fold: false
+vif_naive <- car::vif(mod_naive)
+vif_naive
+```
+
+VIF values below 5 are unproblematic; values between 5 and 10 warrant
+attention; values above 10 indicate severe multicollinearity. In the
+naive model, the maximum VIF is `r round(max(vif_naive), 2)` —
+unproblematic.
+
+### B-Assumptions: Residual Plots
+
+```{r residual-plots}
+#| fig-height: 6
+#| fig-width: 9
+par(mfrow = c(2, 2))
+plot(mod_naive)
+par(mfrow = c(1, 1))
+```
+
+What do these four plots tell us?
+
+- **Residuals vs Fitted (top-left):** Looks for non-linearity (A2)
+  and heteroscedasticity (B2). A horizontal red line with even spread
+  is good.
+- **Q-Q Residuals (top-right):** Tests normality (B4). Points on the
+  diagonal mean Gaussian errors.
+- **Scale-Location (bottom-left):** Specifically for heteroscedasticity
+  (B2). A flat red line means equal variance.
+- **Residuals vs Leverage (bottom-right):** Identifies influential
+  outliers.
+
+:::{.callout-tip}
+## 💡 Reading residual plots
+
+Don't worry if the diagnostics are not "perfect". With many thousand
+observations from real scanner data, perfect Gaussian residuals are
+not expected. The question is **whether the violations are severe
+enough to invalidate inference** — and the *consequences* of violations
+are exactly what Session 3's BLUE bridge will address.
+
+In Session 2, you learned **how to check** — here in Session 3, you
+learn **what it means**.
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ T2: Diagnostic readout
+
+Looking at the four residual plots above:
+
+a. Is there visible heteroscedasticity? Where in the fitted-value
+   range is variance largest?
+b. Do the Q-Q residuals follow the diagonal — or are there
+   substantial deviations at the tails?
+c. Are there leverage points that stand out?
+
+Write down a one-sentence verdict per assumption (B2, B4, leverage).
+:::
+
+
+## A1: The Stumbling Block — feat × deal Entanglement
+
+So far, the diagnostics suggest a usable inferential model. The big
+remaining question is **A1**: are all relevant variables in the model?
+
+Here we hit a fundamental issue with the Dominick's data. Advertising
+(`feat`) and price-promotion (`deal`) are not independent — they are
+*structurally entangled*.
+
+```{r feat-deal-table}
+#| code-fold: false
+tbl |>
+  count(feat = round(feat), deal) |>
+  pivot_wider(names_from = deal, values_from = n, names_prefix = "deal=") |>
+  gt() |>
+  gt::tab_header(title = "Joint distribution of feat and deal") |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+Whenever there is advertising (`feat = 1`), there is *always* a price
+promotion (`deal = 1`). The implication is **perfect** in the data.
+
+:::{.callout-warning icon=false}
+## ⚠️ The A1 violation
+
+Our naive model includes `feat` but not `deal`. If `feat = 1` always
+co-occurs with `deal = 1`, then the estimated `feat` coefficient
+absorbs **both** effects: the advertising effect *and* the deal effect.
+This is the classic **omitted variable bias** (A1 violation).
+
+Through the domino effect, A1 violation produces a C1 violation
+(endogeneity): the omitted `deal` is now in the error term, and it is
+correlated with `feat`.
+:::
+
+### What happens when we add `deal`?
+
+```{r model-with-deal}
+#| code-fold: false
+mod_full <- lm(logmove ~ feat + deal + log(price) + brand, data = tbl)
+
+mod_full |>
+  tidy(conf.int = TRUE) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+Comparing the two models:
+
+```{r coef-comparison}
+#| code-fold: true
+#| code-summary: "Show code: coefficient comparison table"
+bind_rows(
+  tidy(mod_naive) |> mutate(model = "Naive (without deal)"),
+  tidy(mod_full)  |> mutate(model = "Full (with deal)")
+) |>
+  filter(term %in% c("feat", "deal")) |>
+  select(model, term, estimate) |>
+  pivot_wider(names_from = term, values_from = estimate) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+The `feat` coefficient has changed substantially:
+from `r round(coef(mod_naive)["feat"], 3)` (naive)
+to `r round(coef(mod_full)["feat"], 3)` (with deal).
+
+:::{.callout-important icon=false}
+## ⚠️ T3: Translator memo no. 1 (Question 2 — campaign effect)
+
+Based on what you have just seen, draft the first memo to Sarah:
+
+- Can we tell her, based on the historical data, what an advertising
+  campaign *causes* in terms of sales?
+- What is the methodological obstacle?
+- What would be needed to answer her question properly?
+
+Keep it short: 3-5 sentences in business language. Bonus points if
+you mention what kind of study design would resolve the problem
+(this is a forward reference to Lab 3).
+:::
+
+---
+
+# Phase 2 — The BLUE Bridge Becomes Operative
+
+We have hit a wall on Question 2. The classical inference machinery
+delivers a coefficient — but we cannot interpret it causally because
+the data foundation does not support it (A1 violated → C1 violated).
+
+But Sarah's **Question 1** is different. She wants a *prediction tool*
+for inventory planning. The question is not: *"What would advertising
+cause?"* It is: *"What will sales be, given conditions we observe?"*
+
+For prediction, the BLUE criterion is not what we need.
+
+:::{.callout-note collapse="true" #blue-bridge}
+## 📚 Background: BLUE for inference vs. prediction
+
+Under the Gauss-Markov assumptions, OLS is the **B**est **L**inear
+**U**nbiased **E**stimator. Note the order: *first* unbiased, *then*
+minimum variance **among the unbiased**.
+
+**For inference (explanation),** this is the gold standard. The
+coefficient should reflect the true effect — unbiasedness is
+essential.
+
+**For prediction,** the criterion is different. What we want is
+*minimum total error on new data*:
+
+$$\text{MSE}(\hat{Y}) = \text{Bias}^2(\hat{Y}) + \text{Var}(\hat{Y}) + \sigma_{\varepsilon}^2$$
+
+In prediction, accepting *some* bias for *much less variance* can
+lower the total MSE. This is the rationale for regularised methods
+like Lasso and Ridge — they are *not* BLUE by design.
+
+→ The same theoretical foundation explains both paths, with opposite
+optimality criteria. This is the **BLUE bridge**.
+:::
+
+This conceptual shift sets up the rest of the lab. We assume the
+business-relevant relationships are **stable** for inventory planning
+purposes (this is a working assumption, not a guarantee — Lucas
+critique applies if the system is later perturbed). Given that
+assumption, we now ask: how well does the model **generalise to stores
+we have not seen**?
+
+---
+
+# Phase 3 — Question 1 (Prediction): Out-of-Sample Evaluation
+
+## Step 1 — Train on Store 51, predict on Store 50
+
+We start the way Session 2 left us: with a single-store model trained
+on Store 51 and evaluated on Store 50.
+
+```{r train-51-predict-50}
+#| code-fold: false
+mod_51 <- lm(logmove ~ feat + log(price) + brand,
+             data = tbl |> filter(store == 51))
+
+tbl_50 <- tbl |> filter(store == 50)
+pred_50 <- predict(mod_51, newdata = tbl_50)
+
+rmse_50 <- sqrt(mean((pred_50 - tbl_50$logmove)^2))
+rmse_50_rounded <- round(rmse_50, 3)
+```
+
+The RMSE on Store 50 is `r rmse_50_rounded`. Given that `logmove`
+values range from roughly 3 to 12, this is a useful prediction. Not
+surprising — Stores 50 and 51 have similar demographics, as we
+chose Store 50 in Session 2 deliberately for replication.
+
+## Step 2 — Predict on stores with different demographics
+
+What happens when we apply the same Store-51-trained model to stores
+that are *demographically different*?
+
+```{r predict-all-other-stores}
+#| code-fold: true
+#| code-summary: "Show code: store-level RMSE"
+other_stores <- setdiff(unique(tbl$store), 51)
+
+store_rmses <- tibble(store = other_stores) |>
+  rowwise() |>
+  mutate(
+    rmse = {
+      d <- tbl |> filter(store == !!store)
+      sqrt(mean((predict(mod_51, newdata = d) - d$logmove)^2))
+    }
+  ) |>
+  ungroup() |>
+  arrange(desc(rmse))
+
+# Summary statistics
+rmse_summary <- store_rmses |>
+  summarise(
+    min_rmse    = round(min(rmse),    3),
+    median_rmse = round(median(rmse), 3),
+    max_rmse    = round(max(rmse),    3),
+    n_stores    = n()
+  )
+
+rmse_summary |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+The RMSE varies from `r rmse_summary$min_rmse` to
+`r rmse_summary$max_rmse` across `r rmse_summary$n_stores` stores.
+The model trained on Store 51 fits Store 50 well — but for other
+stores, the prediction error can be **substantially larger**.
+
+```{r rmse-distribution-plot}
+#| code-fold: true
+#| code-summary: "Show code: RMSE distribution"
+#| fig-height: 4
+#| fig-width: 8
+ggplot(store_rmses, aes(x = rmse)) +
+  geom_histogram(bins = 25, fill = col_primary, alpha = 0.8, colour = "white") +
+  geom_vline(xintercept = rmse_50, linetype = "dashed",
+             colour = col_secondary, linewidth = 1) +
+  annotate("text", x = rmse_50, y = Inf,
+           label = paste0("Store 50: RMSE = ", rmse_50_rounded),
+           hjust = -0.1, vjust = 2, colour = col_secondary) +
+  labs(
+    title    = "Out-of-sample RMSE when applying the Store-51 model to other stores",
+    subtitle = "The model generalises poorly to stores with different demographics",
+    x        = "RMSE on out-of-sample store",
+    y        = "Number of stores"
+  )
+```
+
+:::{.callout-warning icon=false}
+## 💥 The aha-moment
+
+We trained on Store 51, replicated on Store 50, and might have been
+tempted to conclude *"the model works"*. But out-of-sample evaluation
+on **all** other 81 stores shows that the model's predictive
+performance varies dramatically. **A single replication is not
+enough** for a prediction tool that should work in any of Sarah's
+83 stores.
+:::
+
+## Step 3 — Train/test split across stores
+
+Instead of training on one store and predicting on others, let us
+**split the set of stores** itself: 80 % of stores for training,
+20 % for testing.
+
+```{r train-test-split}
+#| code-fold: false
+set.seed(42)
+stores <- unique(tbl$store)
+test_stores <- sample(stores, size = floor(0.20 * length(stores)))
+
+tbl_train <- tbl |> filter(!store %in% test_stores)
+tbl_test  <- tbl |> filter(store  %in% test_stores)
+
+mod_train <- lm(logmove ~ feat + log(price) + brand, data = tbl_train)
+pred_test <- predict(mod_train, newdata = tbl_test)
+
+rmse_test <- sqrt(mean((pred_test - tbl_test$logmove)^2))
+rmse_train <- sqrt(mean((mod_train$residuals)^2))
+```
+
+| Metric | Value |
+|---|---|
+| In-sample RMSE (training stores) | `r round(rmse_train, 3)` |
+| Out-of-sample RMSE (test stores) | `r round(rmse_test, 3)` |
+
+:::{.callout-tip}
+## 💡 Splitting across stores, not across weeks
+
+We split the **set of stores**, not the set of weeks. Splitting at the
+week level would mean that the model has seen the same store before
+— and predictive performance would be artificially inflated. For a
+prediction tool that should work *in new stores*, we need
+store-level splitting.
+
+In time-series settings, this concept extends to **temporal CV** to
+avoid future-leakage. We will revisit this in ER017.
+:::
+
+## Step 4 — K-fold cross-validation
+
+A single 80/20 split depends on which 20 % we happened to pick.
+**K-fold CV** averages over all possible splits:
+
+```{r kfold-cv}
+#| code-fold: false
+set.seed(42)
+K <- 5
+stores_shuffled <- sample(unique(tbl$store))
+folds <- cut(seq_along(stores_shuffled), breaks = K, labels = FALSE)
+
+cv_rmses <- map_dbl(1:K, \(k) {
+  test_st  <- stores_shuffled[folds == k]
+  train_st <- stores_shuffled[folds != k]
+
+  mod_k <- lm(logmove ~ feat + log(price) + brand,
+              data = tbl |> filter(store %in% train_st))
+  pred_k <- predict(mod_k,
+                    newdata = tbl |> filter(store %in% test_st))
+  actual_k <- tbl |> filter(store %in% test_st) |> pull(logmove)
+  sqrt(mean((pred_k - actual_k)^2))
+})
+
+cv_score <- mean(cv_rmses)
+```
+
+The 5-fold CV scores per fold:
+
+```{r cv-scores-table}
+#| echo: false
+tibble(Fold = 1:K, RMSE = round(cv_rmses, 3)) |>
+  gt() |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+**Mean CV-RMSE: `r round(cv_score, 3)`** — this is our realistic
+out-of-sample performance estimate for the simple model with
+`feat + log(price) + brand`.
+
+:::{.callout-important icon=false}
+## ⚠️ T4: Translator memo no. 2 (Question 1 — prediction tool)
+
+Draft the second memo to Sarah:
+
+- Can we deliver an inventory planning tool that works across all
+  83 stores?
+- What is the realistic out-of-sample accuracy?
+- What variables are *not yet* in the model that you would add to
+  improve it? (Hint: think about what makes Store 50 different from
+  another store far away in Chicago.)
+:::
+
+---
+
+# Phase 4 — Synthesis
+
+```{r synthesis-table}
+#| echo: false
+tibble::tribble(
+  ~`Question`,                            ~`Methodological path`,                  ~`Verdict`,
+  "1. Inventory prediction tool",         "Path A: out-of-sample, CV",             "Deliverable with caveats",
+  "2. Causal effect of a Q4 campaign",    "Path B: causal identification",         "Not answerable from these data"
+) |>
+  gt() |>
+  gt::tab_style(gt::cell_fill("#f0fff0"), gt::cells_body(rows = 1)) |>
+  gt::tab_style(gt::cell_fill("#fff8e1"), gt::cells_body(rows = 2)) |>
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) |>
+  gt::tab_options(table.font.size = "13px")
+```
+
+The same dataset gave us two different methodological operations and
+two different verdicts. **This is the BLUE bridge in action:**
+
+- Path A (prediction): we accept that we cannot disentangle advertising
+  from price promotion, because for *forecasting under stable
+  structure*, that does not matter. The relationship is consistent
+  in the data, and the model predicts.
+
+- Path B (explanation/intervention): we cannot deliver a causal claim,
+  because the data foundation does not support identification. To
+  answer Sarah's Q2 properly, we need a different study design — an
+  A/B test.
+
+This is the **central lesson of the lab**: the optimality criterion
+depends on the question. Same data, two operations, two answers.
+
+:::{.callout-note collapse="true" #lucas-critique}
+## 📚 Background: Lucas critique
+
+The Path A prediction relies on a working assumption: the structure
+of the relationships does not change. If management *actively
+intervenes* (e.g. launches a big campaign), this assumption may break
+— a phenomenon known as the **Lucas critique** [@lucas_1976]. The
+historical correlations were generated under one regime; the new
+regime may behave differently.
+
+This is the deeper reason why Sarah's Q2 is fundamentally different
+from Q1: it asks about a *change* to the system, not about predicting
+within it. Path A is appropriate when the system stays as it is. Path
+B is required when we change the system.
+:::
+
+---
+
+# Bonus — For independent study
+
+The next lab (Demo: Regularisation on Demographics) will refine the
+prediction tool by adding the 12 demographic variables. As preparation,
+you can already explore:
+
+:::{.callout-important icon=false collapse="true"}
+## ⚠️ B1 (Bonus): Lasso preview on demographics
+
+Add the 12 demographic variables from `tbl_demo` (joined by `store`)
+to the model. Fit a Lasso regression with cross-validation
+(`glmnet::cv.glmnet`). Which variables survive at the optimal
+$\lambda$? How does the cross-validated RMSE compare to the simple
+model we built in Phase 3?
+
+```r
+library(glmnet)
+tbl_joined <- tbl |>
+  left_join(tbl_demo, by = "store")
+# build the design matrix, then:
+# cv_fit <- cv.glmnet(X, y, alpha = 1)
+```
+
+This is exactly the question we will work through together in the
+upcoming Demo. Coming with your own attempt makes the Demo more useful.
+:::
+
+---
+
+# What comes next
+
+| Lab | Question it answers |
+|---|---|
+| **Demo: Regularisation on Demographics** | Can we improve the prediction tool by adding demographic variables — and which of them matter? |
+| **Lab 3: A/B-Test Design** | How would we set up a study that answers Sarah's Question 2 properly? |
+

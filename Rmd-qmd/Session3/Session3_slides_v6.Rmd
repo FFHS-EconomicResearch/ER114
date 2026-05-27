@@ -1,0 +1,2454 @@
+---
+title: "Data Science and Strategy for Business"
+subtitle: "Complexity, Generalization & Causality: Predict or Intervene?"
+author: "Prof. Dr. Jörg Schoder"
+institute: "FFHS"
+date: "`r Sys.Date()`"
+bibliography: ../../lit/my_bib.bib
+lang: en-US
+reference-section-title: References
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css:
+         - default
+         - ../../css/ffhs-theme_js.css
+         - xaringan-themer.css
+    includes:
+      after_body: ../../css/insert-logo.html
+    lib_dir: ../../libs
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false
+---
+class: title-slide
+
+```{r xaringan-themer, include=FALSE}
+library(xaringanthemer)
+style_xaringan(text_color = "#d50006",
+               inverse_text_color = "#FFFFFF",
+               inverse_background_color = "#d50006",
+               title_slide_background_color = "#d50006",
+               header_background_color = "#d50006",
+               header_color = "#FFFFFF",
+               header_h1_font_size = "32px",
+               header_h2_font_size = "26px",
+               link_color = "#502479",
+               header_h3_font_size = "20px",
+               text_slide_number_color = "#d50006",
+               text_slide_number_font_size = "0.5em")
+```
+
+```{r xaringanExtra, echo=FALSE}
+xaringanExtra::use_progress_bar(color = "#d50006", location = "bottom")
+xaringanExtra::use_xaringan_extra(c("tile_view","scribble","panelset","tachyons"))
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+xaringanExtra::use_editable(expires = 1)
+xaringanExtra::use_freezeframe(trigger = "hover")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi = 150)
+options(htmltools.dir.version = FALSE)
+library(latex2exp)
+library(fontawesome)
+library(tidyverse)
+library(kableExtra)
+library(gt)
+source(xfun::from_root("lit","helper.R"))
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           style = "markdown",
+           dashed = TRUE)
+bib <- ReadBib(xfun::from_root("lit","my_bib.bib"))
+Zitiere <- function(bib, key, ...) {
+  gsub(" and ", " and ", Citet(bib, key, ...))
+}
+
+# colour palette (consistent with labs)
+col_primary   <- "#D50006"   # red — Path E1 / OLS / current
+col_secondary <- "#502479"   # purple — Path P / Lasso / Lab 2
+col_tertiary  <- "#7d0a52"   # dark accent — Path E2 / Causal / Lab 3
+col_neutral   <- "#686868"
+```
+
+
+# ER114 — Data Science and Strategy for Business
+
+## Session 3
+
+### Complexity, Generalization & Causality. *Predict or Intervene?*
+
+<br>
+<br>
+<br>
+<br>
+<br>
+### FS 2026
+<br>
+### Prof. Dr. Jörg Schoder
+.mycontacts[
+`r fa('github')` @FFHS-EconomicResearch
+`r fa('linkedin')` @jfschoder
+]
+
+
+---
+layout: true
+
+<div class="my-footer"></div>
+
+<div style="position: absolute;left:400px;bottom:10px;font-size:9px">`r fa('creative-commons')``r rmarkdown::metadata$author`</div>
+
+
+
+
+
+
+---
+class: inverse, center, middle
+
+## Recap and Agenda
+
+.blockquote[Recap Session 1 & 2]
+
+.blockquote[Today: Big Picture & Agenda]
+
+
+---
+class: left
+
+.blockquote[Recap]
+
+## Sessions 1 & 2
+
+.panelset[
+.panel[.panel-name[Session 1]
+###  *See &amp; Describe*
+
+`r fa('eye')` Descriptive regression as **conditional mean**:
+$$\hat{y} = \mathbb{E}[y\,|\,\mathbf{x}]$$
+
+`r fa('eye')` CRISP-DM as project skeleton
+
+`r fa('eye')` Tidyverse pipeline + EDA
+
+`r fa('eye')` First contact with **OVB** — missing variables bias all coefficients
+
+]
+.panel[.panel-name[Session 2]
+### *Inference*: Resampling (only one test) vs. traditional tests
+
+`r fa('dice')` Population vs. sample · **stochastic** regression
+
+`r fa('dice')` Bootstrap &amp; permutation — *"only one test"*
+
+`r fa('dice')` Type I/II errors as economic risks (EV-Framework)
+
+`r fa('dice')` p-Hacking, FDR, BH
+
+]
+]
+
+.blockquote[
+"Sessions 1 and 2 stayed on the **same dataset** with the **same model** — only the lens changed. Today we change the lens twice more."
+]
+
+???
+* The recap stresses that Sessions 1 and 2 stayed on the **same dataset** with the **same model** — only the lens changed
+* In Session 3 we change the lens twice more: out-of-sample (Lab 1+2) and counterfactual (Lab 3)
+* What the Session 3 lens shifts add is covered by the next two slides (Big picture + Agenda), so we do not repeat it here
+
+
+
+
+---
+class: left
+
+.blockquote[The thread connecting Sessions 1 → 2 → **3**]
+
+## The roadmap of this module — six milestones
+
+.center[
+```{r roadmap-start-svg}
+#| echo: false
+#| out-width: "100%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","roadmap_milestones_start.svg"))
+```
+
+]
+
+.small[Sessions 1 and 2 laid the foundation: how to fit a regression, and how the **stochastic** view of the same equation changes everything about interpretation. Today's session adds **three closely related concerns** that decide whether a model is fit for business use:]
+
+<div style="display:flex; gap:18px; margin-top:8px;">
+<div style="flex:1; font-size:0.82em;">
+<strong style="color:#3498db;">Complexity</strong><br>
+How much model is enough? When does adding parameters start to hurt rather than help?
+</div>
+<div style="flex:1; font-size:0.82em;">
+<strong style="color:#D50006;">Generalisation</strong><br>
+Will the pattern still hold tomorrow — in a store, a market, a season we have not yet seen?
+</div>
+<div style="flex:1; font-size:0.82em;">
+<strong style="color:#7d0a52;">Causality</strong><br>
+Will the pattern still hold if we *intervene*? Does the manager's planned price change actually do what the data suggests?
+</div>
+</div>
+
+.small[The three concerns are not three separate topics. They are *one chain* — and a decision-maker who skips any link makes worse decisions than one who skips them all and goes by intuition.]
+
+???
+* This slide is the navigational anchor — students will return to it mentally throughout the session
+* The "three concerns" framing is the deutsch "Komplexität, Generalisierung & Kausalität" — kept tight
+* The closing line is sharp on purpose: half-good methods is worse than no methods
+
+
+---
+class: left
+
+.blockquote[Big picture for today]
+
+## What can we believe — and act on?
+
+
+
+.center[
+### `r fa('bridge', fill='#502479')` Gauss-Markov-Assumptions as methodological Bridge
+
+
+`r fa('arrow-right', fill='#502479')` BLUE property of OLS · Inference vs. Prediction · Out-Of-Sample &amp; Sample-Splitting 
+
+`r fa('arrow-right', fill='#502479')` Path **E** vs. **P**  —  **Lab&nbsp;1**
+]
+
+
+
+.pull-left[
+### `r fa('shuffle', fill='#502479')` Will the pattern generalize?
+
+The **prediction** question — out-of-sample.
+
+`r fa('arrow-right', fill='#502479')` Cross-Validation · Multicollinearity &amp; Regularization · Bias-Variance-Trade-Off
+
+`r fa('arrow-right', fill='#502479')` Path **P**  —  **Lab&nbsp;2**
+
+]
+
+.pull-right[
+### `r fa('diagram-project', fill='#502479')` What changes if I intervene?
+
+The **causal** question — counterfactual.
+
+`r fa('arrow-right', fill='#502479')` Identification · Causal Engineering · A/B Testing
+
+`r fa('arrow-right', fill='#502479')` Path **E** (E2)  — **Lab&nbsp;3**
+
+
+]
+
+.quelle[.small[`r Citet(bib, "breiman_2001")` · `r Citet(bib, "shmueli_2010")`]]
+
+???
+* Two simple questions, one whole session
+* Lab 1 is the **gateway** — not an afterthought; it is the diagnostic bridge that exposes where each path needs to begin
+* Path E1 (classical inference, what is the partial effect?) is what Lab 1 stress-tests; both E2 (causal counterfactual) and P (prediction) inherit lessons from where E1 reaches its limits
+* Icon "shuffle" for generalize evokes "across draws / across folds" — more apt than a time-series chart
+
+
+
+
+---
+class: left
+
+.blockquote[Agenda]
+
+## Session 3 Overview
+
+<div style="display:grid; grid-template-columns:80px 1fr; gap:0.3em 1em;
+            font-size:0.82em; margin-top:0.5em; align-items:center;">
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('rotate-left')` <strong>Welcome &amp; Recap</strong> — where Sessions 1+2 left us</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('chart-line')` <strong>Part 1: Foundations</strong>Prediction vs. Explanation: Two Paths from the Data Generating Process</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('lightbulb')` <strong>Part 2: Gauss-Markov-Theorem</strong> —  What it is &amp; Why it Matters</div>
+
+<div style="color:#D50006; font-weight:bold;">45'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;1</strong> — Checking Gauss-Markov-Assumptions vs. Out-of-Sample-Evaluation </div>
+
+
+<div style="color:#686868; font-style:italic;">10'</div>
+<div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('triangle-exclamation')` <strong>Part 3: Brief Introduction to Machine Learning</strong> — BLUE, Bias-Variance-Trade-off and model selection</div>
+
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;2</strong> — Multicollinearity &amp; Regularization</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('compass')` <strong>Part 4: Brief Introduction to Causal-Inference</strong> — beyond correlation: A/B&nbsp;tests, quasi-experiments, IV, DML</div>
+
+<div style="color:#D50006; font-weight:bold;">30'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;3</strong> — Design your Experiment (Innovator's Hypothesis)</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('forward')` <strong>Outlook ER017</strong> — Machine Learning &amp; Causal+ML</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('flag-checkered')` <strong>Debrief &amp; Evaluation</strong></div>
+
+</div>
+
+???
+* Red blocks = labs (Lab 1 is longer because it covers the OLS diagnostic foundation)
+* Three connecting threads: DGP-paths E1/E2/P, Spiess credibility argument, Sarah Chen narrative
+* Total ≈ 195 min including break
+
+
+
+---
+class: inverse, center, middle
+
+## Part 1: Foundations
+
+.blockquote[Two Paths from the Data-Generating Process]
+
+
+---
+class: left
+
+.blockquote[Part 1 · Notation that does the heavy lifting]
+
+## Two worlds of regression — sample vs. population
+
+The same equation $y = b_0 + b_1 x + e$ can mean *very* different things depending on whether we read it descriptively or stochastically. Sessions 1–2 already touched this. Today the distinction becomes operational — and we will keep the notation tight throughout the labs.
+
+.pull-left[
+### Descriptive regression
+$$y_i = b_0 + b_1 x_i + e_i$$
+
+* Data treated as a **population** — no random draws, no stochastic error
+* A **summary** of observed data
+* $\hat y_i$: conditional mean / fitted value
+* $b_0, b_1$: marginal effects, ceteris paribus
+* $e_i$: residual — what the line cannot describe
+
+*This was our world in Session 1.*
+]
+
+.pull-right[
+### Stochastic regression model
+
+$$Y_i = \beta_0 + \beta_1 X_i + \varepsilon_i$$
+
+* Model for a **data-generating process** (DGP)
+* $\beta_0, \beta_1$: **unknown** parameters of the **population**
+* $\varepsilon_i \sim (0, \sigma^2)$: stochastic error
+* Goal: infer from the **sample** to the population
+* Requires **assumptions** (A/B/C) for the inference to be valid
+
+*This is the shift that defines today's session.*
+]
+
+.small[**Convention used throughout Labs 1–3** (Stocker style): lowercase Roman letters ($b_0, e_i$) for the descriptive / sample-fitted view; Greek letters ($\beta_0, \varepsilon_i$) for the population / DGP view; hats ($\hat\beta_0, \hat\varepsilon_i$) for sample-based estimates of population quantities.]
+
+.quelle[.small[Stocker (Innsbruck), *Angewandte Ökonometrie* §4.1; `r Citet(bib, "taddy_modern_2023")` ch. 1 on DGP framing.]]
+
+???
+* This slide is the notational hinge — once students see this, the rest of the session reads cleanly
+* In the Labs we follow the same convention: `b_*` in descriptive contexts (Lab 0), `\beta_*` in inference contexts (Lab 1+), `\hat\beta_*` for estimates
+* Speaking line: "The equation is the same. The story behind the equation changes everything."
+
+
+
+---
+class: left
+
+.blockquote[Part 1 · The model]
+
+## Why model? The conditional expectation E[y|x]
+
+.pull-left[
+For a response $y$ and inputs $\mathbf{x}$:
+
+$$\mathbb{E}[y\,|\,\mathbf{x}] = f(\mathbf{x}'\boldsymbol{\beta})$$
+
+`r fa('arrow-right')` **Marginal** distribution (top): the unconditional shape of $y$ — single number for the mean.
+
+`r fa('arrow-right')` **Conditional** expectation (bottom): a *function* of $\mathbf{x}$ — different mean per slice.
+
+<br>
+
+.blockquote[
+.small[
+All three paths — E1, E2, P — make claims about parts of this conditional distribution.
+]
+]
+
+
+]
+
+.pull-right[
+```{r marginal-conditional-stack}
+#| echo: false
+#| warning: false
+#| fig-width: 4.5
+#| fig-height: 4.8
+#| fig-align: center
+#| out-width: "100%"
+set.seed(20260522)
+n <- 2400
+tbl <- tibble(
+  bathrooms = sample(0:7, n, replace = TRUE,
+                     prob = c(0.04, 0.18, 0.40, 0.22, 0.10, 0.04, 0.015, 0.005)),
+  home_value = exp(11.2 + 0.32 * bathrooms + rnorm(n, sd = 0.45))
+)
+
+p_marg <- ggplot(tbl, aes(home_value)) +
+  geom_histogram(bins = 35, fill = col_neutral, color = "white") +
+  scale_x_continuous(labels = scales::label_dollar(scale = 1e-3, suffix = "k"),
+                     limits = c(0, 1.6e6)) +
+  labs(x = "Home value", y = "Frequency",
+       title = "(a) Marginal distribution") +
+  theme_minimal(base_size = 9) +
+  theme(plot.title = element_text(size = 10, face = "bold"))
+
+p_cond <- ggplot(tbl, aes(factor(bathrooms), home_value)) +
+  geom_boxplot(aes(fill = factor(bathrooms)),
+               outlier.size = 0.5,
+               outlier.colour = col_neutral) +
+  scale_y_continuous(labels = scales::label_dollar(scale = 1e-3, suffix = "k")) +
+  scale_fill_manual(values = c("#a8e6cf","#80d6c4","#5fc6b8","#43b3a8",
+                               "#3196a8","#2576a0","#1c5594","#502479"),
+                    guide = "none") +
+  labs(x = "Number of bathrooms", y = "Home value",
+       title = "(b) Conditional distribution") +
+  theme_minimal(base_size = 9) +
+  theme(plot.title = element_text(size = 10, face = "bold"))
+
+cowplot::plot_grid(p_marg, p_cond, ncol = 1, rel_heights = c(1, 1.3))
+```
+]
+.quelle[.small[`r Citet(bib, "taddy_modern_2023")` Ch. 1, Fig. 1.1]]
+
+???
+* Mirrors Taddy/Hendrix/Harding 2023 Figure 1.1 — both panels (a) marginal histogram and (b) conditional boxplots by bathrooms
+* Marginal mean = one number; conditional mean = a function of bathrooms
+* The shift from a single number to a function is what regression IS
+* All three paths today work on this conditional distribution — but each extracts something different from it
+
+
+---
+class: left
+
+.blockquote[Part 1 · The logic]
+
+## Models and Data: An Epistemological Perspective
+
+```{r induction-deduction-svg}
+#| echo: false
+#| out-width: "100%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","induction_deduction.svg"))
+```
+
+???
+* Epistemological framing: every empirical analysis takes a stance on how data and theory relate
+* **Induction** (purple, top): data are the *source material* from which a hypothesis is generated — data mining, model training, exploratory pattern discovery
+* **Deduction** (red, bottom): data are the *arbiter* that tests an *a-priori* specification — but the specification can take two forms:
+  - **E1**: the specification is a *model equation* (the classical assumption-based path; Lab 1)
+  - **E2**: the specification is a *research design* (the design-based path; Lab 3)
+  - Both are deductive in the epistemological sense — what is pre-committed before seeing data is what counts
+* Path **P** uses both moves: induction to learn parameters (training), then deduction to predict new x (testing)
+* Path **E** is deductive throughout — the difference between E1 and E2 lies in what is pre-committed: model equation or research design
+* No abduction in this scheme — it is not needed for the audience here
+
+
+---
+class: left
+
+.blockquote[Part 1 · Translator role in Block 3]
+
+## From AI User to AI Value Creator — *applied to method choice*
+
+.panelset[
+.panel[.panel-name[Recap from Session 1]
+<svg viewBox="0 0 680 200" width="90%" style="display:block;margin:auto">
+  <defs>
+    <style>
+      .rtxt { font-family:sans-serif; font-size:11px; font-weight:bold;
+              fill:white; text-anchor:middle; }
+      .rarr { stroke:#686868; stroke-width:2; fill:none;
+              marker-end:url(#arr); }
+      .anno { font-family:sans-serif; font-size:10px; fill:#686868;
+              text-anchor:middle; }
+    </style>
+    <marker id="arr" markerWidth="8" markerHeight="8"
+            refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#686868"/>
+    </marker>
+  </defs>
+  <rect x="10"  y="140" width="130" height="40" rx="6" fill="#b3b2b2"/>
+  <text class="rtxt" x="75"  y="165">1. Collect</text>
+  <rect x="180" y="140" width="130" height="40" rx="6" fill="#686868"/>
+  <text class="rtxt" x="245" y="165">2. Organise</text>
+  <rect x="350" y="140" width="130" height="40" rx="6" fill="#7d0a52"/>
+  <text class="rtxt" x="415" y="165">3. Analyse</text>
+  <rect x="520" y="140" width="140" height="40" rx="6" fill="#502479"/>
+  <text class="rtxt" x="590" y="165">4. Infuse</text>
+  <line class="rarr" x1="145" y1="160" x2="175" y2="160"/>
+  <line class="rarr" x1="315" y1="160" x2="345" y2="160"/>
+  <line class="rarr" x1="485" y1="160" x2="515" y2="160"/>
+  <line x1="340" y1="20" x2="340" y2="135"
+        stroke="#D50006" stroke-width="2" stroke-dasharray="5,3"/>
+  <text style="font-family:sans-serif;font-size:10px;fill:#D50006;
+               text-anchor:middle;font-weight:bold" x="340" y="15">
+    AI User | AI Value Creator
+  </text>
+  <text class="anno" x="170" y="125">Standard Tools</text>
+  <text class="anno" x="170" y="137">Commodity Data</text>
+  <text class="anno" x="510" y="125">Proprietary Data</text>
+  <text class="anno" x="510" y="137">Sustainable Advantage</text>
+</svg>
+.center[.small[Session 1 framing — data and tooling determine commodity vs. moat.]]
+]
+.panel[.panel-name[New in Session 3]
+### The same line, applied to *method choice*
+
+.pull-left[
+`r fa('user', fill='#686868')` **AI User** *(method-level)*
+
+* Picks the textbook method
+* Reports $R^2$, p-value, default outputs
+* Confuses Path E and Path P
+* Optimizes within a given **map** — without knowing it
+]
+
+.pull-right[
+`r fa('user-gear', fill='#D50006')` **AI Value Creator** *(method-level)*
+
+* Asks: *prediction or intervention?*
+* Picks the **path** before the estimator
+* Validates the diagnostic, not just the point estimate
+* **Chooses the map** — and defends it
+]
+
+
+.blockquote[
+.small[
+Today's labs make this concrete. **Lab 1** is the diagnostic discipline. **Lab 2** is the prediction discipline. **Lab 3** is the causal discipline. Knowing which to pick is the Value-Creator skill.
+]
+]
+]
+.panel[.panel-name[The data dimension]
+### Why method choice matters for the data moat
+
+`r fa('rocket', fill='#D50006')` **Proprietary data** alone is not enough — it must be paired with the **right path**:
+
+* Predicting customer churn from your own data → Path **P** with regularization (Lab&nbsp;2 family)
+* Estimating the effect of a *new* pricing policy → Path **E2** with experimental design (Lab&nbsp;3 family)
+
+`r fa('triangle-exclamation', fill='#686868')` Pairing the wrong path with great data wastes the moat:
+
+* Lasso on a one-off intervention question gives confident, biased nonsense
+* OLS controls on observational data without a DAG yield estimates the CEO cannot defend
+
+.quellePanURL[`r Citet(bib, "thomasAIValueCreators2025")`]
+]
+]
+
+???
+* Three panels: (1) Session 1 framing as recall, (2) the NEW Session 3 framing applied to method choice, (3) why path + data must align
+* Key shift from Session 1: Value Creation in Block 3 is no longer just about *data* — it is about the *method-path-decision* itself
+* Lab 3's deliverable T_final is exactly the artefact a Value Creator produces: a defensible methodological recommendation
+
+
+---
+class: left
+
+.blockquote[Part 1 · The deeper layer]
+
+## Philosophy Eats AI — the layer beneath every method
+
+```{r philosophy-svg}
+#| echo: false
+#| out-width: "98%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","philosophy_eats_ai.svg"))
+```
+
+???
+* Schrage & Kiron (2025): every AI stack rests on philosophical commitments — usually unarticulated, sometimes catastrophically wrong
+* Three pillars are theirs (Ontology, Epistemology, Teleology); Ethics is treated separately as a fourth
+* **Ontology examples**: Starbucks defined the "Starbucks experience" as connection (not transactions) before designing Deep Brew AI. Amazon Prime ontologically defined "best customers" — not "most profitable" — as the optimization target
+* **Epistemology examples**: prediction (Path P) and counterfactual evidence (Path E2) are two different theories of what counts as knowing. Confusing them is the root cause of most bad analytics
+* **Teleology examples**: Google's Gemini fiasco — accuracy and diversity goals were misaligned; the model fell to whichever objective dominated
+* "The map is not the territory" (Korzybski via Wittgenstein, quoted by Schrage & Kiron): metrics are maps; loyalty is the territory; RFM/NPS/churn are metrics that *might* represent loyalty — or might define it by fiat
+* The Translator's job: surface these choices before picking a method
+* Forward link: Lab 3 (what counts as causal evidence?), back to Lab 1+2 (what counts as a "good" prediction?)
+
+
+---
+class: left
+
+.blockquote[Part 1 · The DGP]
+
+## Two Paths from the Data-Generating Process
+
+```{r dgp-paths-slide}
+#| echo: false
+#| out-width: "80%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","DGP-Paths_gemini.svg"))
+```
+
+.center[
+.small[
+Same data, same DGP — two analytical purposes. Path E asks *what is*; Path P asks *what next*.
+]
+]
+
+???
+* Same SVG students see in Lab 1 — recognition cue intentional
+* Path E (Explanation/Inference): two sub-questions — E1 "what is the partial effect?" (next slide) and E2 "what would change under intervention?"
+* Path P (Prediction): a single goal — generalise to new data
+* The DGP is the unobservable urn; data are realisations; methods differ by what they extract from that realisation
+* Breiman 2001 was the first to make this dichotomy programmatic ("Two Cultures")
+
+
+---
+class: left
+
+.blockquote[Part 1 · Path E branches]
+
+## Path E has two sub-questions
+
+```{r path-e-branches}
+#| echo: false
+tibble::tribble(
+  ~`Sub-question`,                                       ~Goal,                              ~Identification,                                    ~Lab,
+  "E1 — What is the partial effect?",                    "Estimate β under the model",       "by assumption (A/B/C compass)",                    "Lab 1",
+  "E2 — What would change under intervention?",          "Estimate a counterfactual",        "by research design (RCT, DiD, IV, RDD, DML)",      "Lab 3"
+) %>%
+  gt() %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_column_labels()) %>%
+  tab_style(style = cell_fill(color = "#fff5f5"),
+            locations = cells_body(rows = 1)) %>%
+  tab_style(style = cell_fill(color = "#f5e6f0"),
+            locations = cells_body(rows = 2)) %>%
+  tab_options(table.font.size = "13px",
+              table.width = "100%",
+              column_labels.font.size = "12px",
+              column_labels.background.color = "#f5f5f5")
+```
+
+
+.pull-left[
+### E1 — model given
+`r fa('arrow-right', fill='#D50006')` Identification settled **before** the data, by specifying the equation.
+
+`r fa('arrow-right', fill='#D50006')` Same path E logic students saw in Sessions 1 + 2.
+
+`r fa('forward', fill='#D50006')` Today: **Lab 1** stress-tests E1.
+]
+
+.pull-right[
+### E2 — model earns its claim
+`r fa('arrow-right', fill='#7d0a52')` Identification comes from the **data structure** — randomization, parallel trends, instrument validity.
+
+`r fa('arrow-right', fill='#7d0a52')` "Design-based identification" (Angrist &amp; Pischke 2010).
+
+`r fa('forward', fill='#7d0a52')` Today: **Lab 3** operationalizes E2.
+]
+
+???
+* E1 and E2 both live under Path E — they ask "what is" — but they differ in *what counts* as identification
+* E1 is the classical econometrics curriculum; E2 is the credibility-revolution addition (Angrist/Pischke 2010)
+* Path P (Prediction) sits beside them — it asks "what next?" and uses out-of-sample generalisation as its yardstick
+* The labs are mapped: Lab 1 → E1 (and gateway to E2); Lab 2 → P; Lab 3 → E2
+
+
+---
+class: left
+
+.blockquote[The two dangers of naive data use]
+
+## Failed generalisation and the causality trap
+
+When managers trust algorithmic rules blindly, they fall into one of two traps. Both are direct consequences of skipping a link in the **complexity – generalisation – causality** chain.
+
+.pull-left[
+### `r fa('triangle-exclamation', fill='#D50006')` Danger 1 — Failed induction
+**The model never learnt a real rule** — only the random fluctuation of our specific sample (*overfitting*).
+
+* **Consequence:** prediction collapses on new data — a forecast tool that works on training stores fails in new ones.
+* **Mechanism:** in-sample $R^2$ is mechanically high; out-of-sample MSE is terrible.
+* **Cure:** out-of-sample evaluation (train–test split, cross-validation) and regularisation. This is Lab 2.
+]
+
+.pull-right[
+### `r fa('diagram-project', fill='#7d0a52')` Danger 2 — Blind deduction under intervention
+**The rule is real, but only as a correlation.** A hidden confounder (e.g. school holidays) drives both $x$ and $y$.
+
+* **Story:** *"High price ↔ high sales"* in the data, because holidays raise both demand and price. Management raises prices on a random Tuesday in November — sales collapse.
+* **Mechanism:** correlation patterns break under intervention. The Lucas critique in business clothing.
+* **Cure:** causal inference — experiments, IV, DiD, DML. This is Lab 3.
+]
+
+.small[**The chain matters.** A model that survives **only** Danger 1 (good cross-validation) can still fall into Danger 2 (bad causal claim). A model that survives **only** Danger 2 (clean identification) can still fall into Danger 1 (overfit confidence intervals). Real business decisions need both links — which is why the labs walk through both in turn.]
+
+.quelle[.small[`r Citet(bib, "taddy_modern_2023")` ch. 1; Lucas (1976) on policy invariance; the causality-trap framing follows Schrage (2014, *Innovator's Hypothesis*).]]
+
+???
+* This is the conceptual slide that pre-loads the whole rest of the session
+* Both dangers map directly to specific labs — students see the route
+* Speaking line: "The classical OLS course teaches one of these. Modern data analytics needs both."
+
+
+
+---
+class: inverse, center, middle
+
+## Part 2: BLUE Bridge
+
+.blockquote[When Assumptions Bite — and what unites the paths]
+
+
+--- 
+class: left
+
+## Bias vs. Variance
+
+.center[
+```{r bias-variance-targets}
+#| echo: false
+#| out-width: "80%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","bias_variance_targets.svg"))
+```
+
+.quelle[Own Illustration.]
+
+
+
+---
+class: left
+
+.blockquote[Part 2 · The A/B/C compass]
+
+## Model Assumptions — the A/B/C compass
+
+```{r abc-compass}
+#| echo: false
+
+tibble::tribble(
+  ~Group, ~Assumption,                          ~`What we check`,                                                            ~Tool,                                                                ~`What residuals cannot tell us`,
+  "A",    "A1 (variable selection)",            "OVB and overfitting are not directly testable",                            "Substantive reasoning, domain knowledge, sensitivity analysis",      "Whether the model is the 'right' one",
+  "A",    "A2 (linearity)",                     "Systematic curvature in residuals vs. fitted",                             "Residuals vs. Fitted plot",                                          "—",
+  "A",    "A3 (parameter constancy)",           "Influential observations that shift parameters",                           "Cook's distance, Residuals vs. Leverage",                            "Whether parameters are truly constant in the population",
+  "B",    "B1 (E[ε] = 0)",                      "Automatically satisfied with intercept",                                    "(No diagnostic needed)",                                             "—",
+  "B",    "B2 (homoscedasticity)",              "Non-constant residual spread",                                              "Scale-Location, Residuals vs. Fitted; Breusch-Pagan",                "—",
+  "B",    "B3 (no autocorrelation)",            "Residual correlation across time or observations",                          "ACF plot, Durbin-Watson test",                                       "Non-time-based dependence (e.g. clustering)",
+  "B",    "B4 (normality of errors)",           "Tail deviations in Q-Q plot",                                               "Q-Q plot, Shapiro-Wilk test",                                        "— (relevant only for small-sample inference)",
+  "C",    "C1 (exogeneity)",                    "Cov(X, ε) = 0 — endogeneity not directly observable",                       "Substantive reasoning, instruments, study design",                   "Whether unobserved confounders correlate with X",
+  "C",    "C2 (no perfect multicollinearity)",  "Numerical near-singularity of X'X",                                         "VIF, condition number",                                              "—"
+) %>%
+  gt(groupname_col = "Group", row_group_as_column = TRUE) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#FBE6E7"),
+    locations = gt::cells_body(rows = Group == "A")
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#F0F0F0"),
+    locations = gt::cells_body(rows = Group == "B")
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#EFEBF4"),
+    locations = gt::cells_body(rows = Group == "C")
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_borders(sides = "bottom", color = "#686868", weight = gt::px(2)),
+    locations = gt::cells_body(rows = Assumption %in% c("A3 (parameter constancy)", "B4 (normality of errors)"))
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#F5F0FA"),
+    locations = gt::cells_column_labels()
+  ) %>%
+  gt::tab_options(table.font.size = "11px",
+                  data_row.padding = px(2))
+```
+
+.quelle[.small[`r Citet(bib, "vonAuer_2023")` · Lab 1 Step 2]]
+
+???
+* Identical table to Lab 1 — students see it again for recognition
+* Two empirical groups: **A** (specification) and **C1** (exogeneity) require substantive reasoning, not residual checks
+* **A2, A3, B2, B3, B4, C2** can be checked from residuals; **A1, C1** cannot
+* This is the diagnostic compass — what violation does which path-specific damage is on the next slide
+
+
+---
+class: left
+
+.blockquote[Part 2 · BLUE & Bias–Variance]
+
+## Bias vs. variance — and the BLUE property of OLS
+
+.panelset[
+
+.panel[.panel-name[BLUE]
+### Gauss–Markov theorem
+
+If A, B, and C assumptions hold, OLS is **BLUE**:
+
+| | Meaning |
+|:--|:----------|
+| **B**est | Smallest variance among all... |
+| **L**inear | ...linear... |
+| **U**nbiased | ...unbiased... |
+| **E**stimators | ...estimators |
+
+`r fa('triangle-exclamation', fill='#D50006')` "Best" = **variance only**, not total error.
+]
+
+.panel[.panel-name[Trade-off]
+### Bias-variance trade-off
+
+$$\text{MSE} = \text{Bias}^2 + \text{Variance}$$
+
+* BLUE demands: $\text{Bias} = 0$
+* `r fa('arrow-right', fill='#502479')` But allowing **a little bias** can shrink the variance dramatically
+* `r fa('arrow-right', fill='#D50006')` Net effect: **lower total error** on new data
+
+`r fa('triangle-exclamation', fill='#D50006')` BLUE is theoretically elegant; in modern data settings, **not always optimal**.
+
+In Part 3 we use the trade-off actively: *some* bias, **much** less variance → regularisation (Lasso, Ridge).
+]
+]
+
+
+
+???
+.small[Four shooting-target patterns. **Bias** is *how far the average shot is from the bullseye* (validity); **variance** is *how spread the shots are* (reliability). Top-left is the gold standard. Top-right is reliable but systematically wrong. Bottom-left is on target on average but useless on any single try. Bottom-right is both wrong and unreliable.]
+
+* This three-panel slide is the deutsch "BLUE + Bias-Varianz"-Panel adapted
+* Panel 1 (targets) is the visceral image; Panel 2 (BLUE) is the formal property; Panel 3 (trade-off) is the bridge to Part 3
+* Speaking line: "Classical statistics asks: which estimator is BLUE? Modern data analytics asks: should I want BLUE at all?"
+
+.quellePanURL[.small[`r Citet(bib, "taddy_modern_2023")` ch. 3; `r Citet(bib, "hastie_tibshirani_friedman_2009")` §2.9; targets visual is the classical Stocker (Innsbruck) didactic.]]
+
+
+---
+class: left
+
+.blockquote[Part 2 · BLUE]
+
+## What BLUE is — and what violations mean for each path
+
+.small[Under the A/B/C assumptions, OLS is the **B**est **L**inear **U**nbiased 
+**E**stimator. The same coefficient estimate $\hat{\beta}$ serves both paths — 
+but a violation hits the two paths very differently:]
+
+```{r blue-consequences, echo=FALSE}
+tibble::tribble(
+  ~`Violation type`,           ~Examples,          ~`Effect on the estimator`,                         ~`Path E (inference)`,                                                        ~`Path P (prediction)`,
+  "Bias violations",           "A1, A2, A3, C1",   "$\\hat{\\beta}$ biased and inconsistent",          "estimates the wrong parameter — CIs and tests meaningless",                  "$\\hat{y}$ systematically wrong, but may still predict adequately if relationships stay stable (Lucas caveat)",
+  "Efficiency violations",     "B2, B3, C2",       "unbiased, but inefficient",                        "SE incorrect $\\rightarrow$ CIs and tests invalid; robust / HAC SE can repair", "point predictions remain unbiased; prediction is comparatively robust",
+  "Distribution violations",   "B4",               "still BLUE",                                       "exact small-sample tests invalid; large $n$ $\\rightarrow$ CLT keeps tests valid", "unaffected for point prediction"
+) %>%
+  gt::gt() %>%
+  gt::fmt_markdown(columns = everything()) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#FBE6E7"),
+    locations = gt::cells_body(rows = 1)
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#F0F0F0"),
+    locations = gt::cells_body(rows = 2)
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#EFEBF4"),
+    locations = gt::cells_body(rows = 3)
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "#F5F0FA"),
+    locations = gt::cells_column_labels()
+  ) %>%
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_column_labels()
+  ) %>%
+  gt::tab_options(
+    table.font.size = "13px",
+    data_row.padding = gt::px(6)
+  )
+```
+.center[.small[*Path E breaks under bias; Path P only breaks if the DGP changes (Lucas caveat). The next slide visualises this as the BLUE bridge.*]]
+
+.quelle[.small[`r Citet(bib, "vonAuer_2023")` · Lab 1 Step 2 (BLUE bridge box)]]
+
+???
+* Same table as Lab 1's BLUE-bridge background box — students see the same logic in slides and lab
+* **Bias violations** (A1, A2, A3, C1): break Path E entirely; Path P survives only if the DGP stays stable (Lucas caveat)
+* **Efficiency violations** (B2, B3, C2): SE wrong for Path E (fix with robust / HAC SE); Path P unaffected
+* **Distribution violations** (B4): no consequences for BLUE; only matters for small-n exact inference
+* The β̂ symbol is replaced with "the estimator" to avoid Unicode combining-mark issues in HTML tables
+
+
+---
+class: left
+
+.blockquote[Part 2 · The bridge]
+
+## BLUE as the bridge between paths
+
+```{r blue-bridge-svg}
+#| echo: false
+#| out-width: "100%"
+#| fig-align: center
+knitr::include_graphics(xfun::from_root("img","Session3","blue_bridge.svg"))
+```
+
+???
+* BLUE is the common starting point both paths share — under assumptions A/B/C, OLS is the unbiased benchmark
+* Path P branches *upward*: deliberately accept bias for variance reduction (the "bias-variance trade-off", Hastie/Tibshirani/Friedman 2009). The toolkit is Ridge / Lasso / Elastic Net + cross-validation. Lab 2 operates here.
+* Path E branches *downward*: preserve unbiasedness, and add design-based identification (Angrist & Pischke 2010). The toolkit is robust SE, RCT, DiD, IV, DML. Lab 1 & Lab 3 operate here.
+* The Spiess (2025) point at the bottom: preserving unbiasedness is also an *institutional* discipline — it prevents the researcher from tuning the analysis toward a favoured result. Pre-commitment makes the estimate credible.
+* This is the punchline of Part 2 — every method in today's labs sits on one of these two branches
+
+
+---
+class: left
+
+.blockquote[Part 2 · Beyond the linear model]
+
+## From the linear model to generalised linear models
+
+Our Sessions 1–3 framework uses **`lm()`** — the linear model. Real business questions often have outcomes that the linear model handles poorly: a customer either buys or does not (binary), a user clicks $0, 1, 2, \dots$ times (count), a contract lasts a certain number of weeks (duration). The generalised linear model (**GLM**) is the natural extension.
+
+.pull-left[
+### Linear model (LM)
+
+$$\mathbb{E}[Y \mid X] = X\boldsymbol{\beta}$$
+
+* $Y$ continuous
+* OLS estimation
+* In `r fa('r-project')`: `lm()` — what Labs 1–3 use throughout
+
+### Generalised linear model (GLM)
+
+$$g\bigl(\mathbb{E}[Y \mid X]\bigr) = X\boldsymbol{\beta}$$
+
+* $g(\cdot)$ — the **link function**
+* Maximum-likelihood estimation
+* In `r fa('r-project')`: `glm(family = ...)`
+
+.center[
+<img src="figures/glm_venn_lazic.png" style="width:78%; margin-top:8px;"/>
+]
+.small[Nested model family.]
+]
+
+.pull-right[
+### Why GLM matters in business
+
+Many business outcomes are not continuous:
+
+| Business question | $Y$ | GLM variant |
+|:--|:--|:--|
+| Will the customer buy? | binary | Logit |
+| How many clicks? | count | Poisson |
+| Time until purchase? | duration | Gamma |
+
+### Outlook (→ ER017): logistic regression
+
+$$P(Y\!=\!1 \mid X) = \frac{1}{1+e^{-X\boldsymbol{\beta}}}$$
+
+`r fa('triangle-exclamation', fill='#D50006')` **In Lab 1** we already see the limit of `lm()`: when $Y$ is binary (e.g. "Did the customer redeem the coupon?"), `lm()` can produce $\hat y \notin [0,1]$ — nonsensical probabilities. `glm(family = binomial)` solves this.
+
+ER017 will pick up the GLM-for-business toolkit systematically — logit, Poisson, survival, and their causal extensions.
+]
+
+.quelle[.small[see Introductory chapter in `r Citet(bib, "taddy_modern_2023")` for business applications.]]
+
+???
+* This slide is the "Brücke zu ER017" requested explicitly
+* The Lab 1 link is honest: students will encounter the binary-outcome problem in passing, and the `glm()` resolution is signposted
+* Speaking line: "Linear is enough to learn the grammar. GLM is the grammar applied to real business outcomes."
+
+
+
+---
+class: left
+
+.blockquote[Lab 1 — Gauss-Markov Implications for Paths E vs. P]
+
+## `r fa('laptop-code', fill='#D50006')` Lab 1
+
+.small[`r fa('envelope', fill='#D50006')` **From Sarah Chen, VP Marketing — Dominick's Finer Foods:** Two distinct questions this quarter. **(1)** Does *feature advertising* cause incremental sales? → Path **E**. **(2)** I need an *inventory-planning tool* that forecasts weekly sales. → Path **P**. Answers must survive an audit by my CEO.]
+
+<div style="border:3px solid #D50006; border-radius:8px; padding:12px 22px;
+            background:#fff5f5; margin-top:0.6em;">
+<div style="font-family:sans-serif; font-size:14px; font-weight:bold;
+            color:#D50006; margin-bottom:8px;">
+`r fa('flask')` Lab&nbsp;1 &mdash; Gauss-Markov Implications for Paths E vs. P
+</div>
+<div style="font-size:0.80em; line-height:1.6;">
+<strong>Learning objectives:</strong> Fit a baseline log-log OLS on Store&nbsp;114 &middot; Apply A/B/C diagnostics (autoplot, ACF, Durbin-Watson, VIF) &middot; Choose robust&nbsp;SE / HAC when B2/B3 are violated &middot; Trace OVB across 83 stores &middot; Evaluate the model out-of-sample for Path&nbsp;P
+<br>
+<strong>Dataset:</strong>
+<code>tbl_stores</code> (Dominick's, 83 stores × 3 brands; <code>tbl_s114</code> for Store&nbsp;114)
+<br>
+`r fa('clock')` <strong>45 minutes</strong> &nbsp;&middot;&nbsp;
+`r fa('users')` <strong>Individual work</strong> &nbsp;&middot;&nbsp;
+`r fa('circle-right')` <strong>Open:</strong>
+<code>Session3_Lab1.qmd</code>
+</div>
+</div>
+
+.small[
+`r fa('file-pen', fill='#D50006')` **Deliverable:** Memo **T4** &mdash; brief answer to Sarah's Q1 (the feature-advertising question), drafted at the end of Lab&nbsp;1. &nbsp;&middot;&nbsp; `r fa('comments', fill='#686868')` Short **debrief** before the break.
+]
+
+???
+* Convention: blockquote uses the lab's own short title; main heading is just "Lab N" with an icon
+* Sarah's two-question setup primes Lab 1 (Q1 diagnosis) without overloading the slide
+* Q2 (the inventory-planning tool) is the gateway to Lab 2 — we acknowledge it here but do not detail it
+* Memo T4 is the lab-specific deliverable; T7 and T_final belong to Labs 2/3 and are introduced there
+* After the lab: short debrief slide before the break
+* **For instructors**: KiltsCenter documents that Dominick's data (1989–1994) contains *embedded RCTs* in 25+ categories — randomized pricing and shelf-management experiments. In Labs 1 & 2 we treat the data as observational (didactic simplification). Lab 3 / Part 4 makes this transparent. Mention briefly during debrief that this layered structure makes the data methodologically rich.
+
+
+---
+class: inverse, center, middle
+
+## Lab 1
+
+.blockquote[Gauss-Markov Implications for Paths E vs. P]
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 1]
+
+## What we learned in Lab 1
+
+.pull-left[
+### `r fa('check-double', fill='#502479')` On Store 114 alone
+Diagnostics pass: clean log-log elasticity, robust SE handles B2/B3, model is BLUE-defensible.
+
+### `r fa('triangle-exclamation', fill='#D50006')` Across all 83 stores
+`feat` and `deal` move together &mdash; we cannot separate their effects from observational data.
+
+`r fa('arrow-right', fill='#D50006')` Path E1 reaches its limit on this dataset.
+
+`r fa('arrow-right', fill='#7d0a52')` Sarah's Q1 needs a **designed experiment** &rarr; Lab&nbsp;3.
+]
+
+.pull-right[
+### `r fa('chart-line', fill='#502479')` Out-of-sample test
+Even with C2 violations (multicollinearity), point predictions on Store&nbsp;114 stay accurate &mdash; provided the DGP does not shift.
+
+`r fa('arrow-right', fill='#502479')` Sarah's Q2 (inventory tool) can proceed on Path P &mdash; but the model must be evaluated out-of-sample, and improved by regularization &rarr; Lab&nbsp;2.
+]
+
+<br>
+
+.center[
+.blockquote[
+*The same dataset produced two verdicts. That is the BLUE bridge in action.*
+]
+]
+
+???
+* Brief debrief slide before the break — synthesises Lab 1's two findings
+* Take-away 1 (Store 114): under careful diagnostics, classical OLS works for Path E1 on a single store
+* Take-away 2 (83 stores): the wall at perfect collinearity of feat × deal forces an experimental design for Q1
+* Take-away 3 (out-of-sample): Path P is more robust under efficiency violations, but needs proper OOS evaluation and regularization
+* This sets up both Lab 2 (Path P, Sarah's Q2) and Lab 3 (Path E2, Sarah's Q1)
+
+
+
+
+<!-- ============================================================ -->
+<!--  PART 3 — Brief Introduction to Machine Learning              -->
+<!-- ============================================================ -->
+
+---
+class: inverse, center, middle
+
+# Part 3
+
+## Brief Introduction to Machine Learning
+
+.blockquote[*Why prediction is not estimation — and what changes.*]
+
+
+
+---
+class: left
+
+## The in-sample illusion
+
+When the same data fit *and* judge the model, performance is **mechanically** good. With $p$ free parameters, OLS minimises the in-sample RSS by construction. Adding any regressor — useful or not — weakly *raises* $R^2$.
+
+.pull-left[
+```{r toy-polynomial-slide, echo=FALSE, fig.width=6.6, fig.height=3.6, out.width="100%"}
+set.seed(42)
+n  <- 30
+x  <- sort(runif(n, 0, 10))
+y  <- sin(x) + rnorm(n, sd = 0.4)
+xg <- seq(0, 10, length.out = 200)
+m1 <- lm(y ~ x)
+m3 <- lm(y ~ poly(x, 3))
+mH <- lm(y ~ poly(x, 15))
+
+par(mfrow = c(1, 3), mar = c(3.5, 3.5, 2.2, 0.5),
+    mgp = c(2, 0.6, 0), cex.lab = 0.95, cex.main = 1.0)
+
+plot(x, y, pch = 19, col = "#686868",
+     main = "Underfit (degree 1)",
+     xlab = "x", ylab = "y")
+lines(xg, predict(m1, newdata = data.frame(x = xg)),
+      col = "#D50006", lwd = 2.4)
+
+plot(x, y, pch = 19, col = "#686868",
+     main = "Good fit (degree 3)",
+     xlab = "x", ylab = "y")
+lines(xg, predict(m3, newdata = data.frame(x = xg)),
+      col = "#502479", lwd = 2.4)
+
+plot(x, y, pch = 19, col = "#686868",
+     main = "Overfit (degree 15)",
+     xlab = "x", ylab = "y", ylim = range(y) + c(-0.6, 0.6))
+lines(xg, predict(mH, newdata = data.frame(x = xg)),
+      col = "#7d0a52", lwd = 2.4)
+```
+]
+
+.pull-right[
+.small[
+**Three fits of the same 30 points.**
+
+* Degree 1: high bias, low variance — *underfits*
+* Degree 3: balanced — recovers the structure
+* Degree 15: low bias on training data, high variance — *memorises noise*
+
+In-sample $R^2$ rises monotonically from left to right. Out-of-sample, the right panel collapses. This is the **central problem of prediction**: classical fit statistics are blind to it.
+]
+]
+
+.quelle[.small[Toy example used here is the same as Lab 2 Step 3 — `r Citet(bib, "taddy_modern_2023")` style.]]
+
+???
+* The toy polynomial is a generic ML principle — not the actual Lab 2 result
+* In Lab 2 the OJ data at $n \approx 28\,000$ is *too large* for OLS to fully break: Variant C with $p \approx 36$ still generalises
+* The slide makes the principle visible at $n = 30$, $p$ up to 15 — where OLS clearly fails
+* Speaking line: "Whether we hit the wall depends on $n / p$. The lesson is the *direction* of the trade-off, not a universal collapse."
+
+
+
+---
+class: left
+
+## In-sample $R^2$ vs. out-of-sample loss
+
+The fit statistics that look familiar from Lab 1 ($R^2$, $\hat\sigma^2$, $t$-statistics) all describe the **training fit**. They tell us how well the model recovered the sample we already saw. The honest predictive question is different: *how badly will the model do on a sample it has never seen?*
+
+.pull-left[
+The expected out-of-sample squared error of a prediction $\hat{f}(x_0)$ decomposes into three additive terms:
+
+$$\mathbb{E}\!\bigl[(y_0 - \hat{f}(x_0))^2\bigr] = \underbrace{\mathrm{Bias}^2}_{\text{model rigidity}} + \underbrace{\mathrm{Var}}_{\text{model sensitivity}} + \underbrace{\sigma^2_\varepsilon}_{\text{irreducible}}$$
+
+* Adding parameters lowers Bias² but raises Variance
+* In-sample RSS sees only Bias² + sample noise — never the Variance term
+* The minimum of the sum sits **strictly to the left of zero bias**
+]
+
+.pull-right[
+.center[
+<img src="figures/bias_variance_tradeoff.svg" style="width:95%;"/>
+]
+.small[Bias², Variance and total error as functions of model complexity. The lowest *total* error lies between the bias-minimum and the variance-minimum — never at either extreme.]
+]
+
+.quelle[.small[`r Citet(bib, "taddy_modern_2023")` ch. 1; `r Citet(bib, "hastie_tibshirani_friedman_2009")` §2.9.]]
+
+???
+* This is the key picture for the whole module — every following slide refers back to it
+* Bias² and Variance are theoretical quantities; we approximate them via train/test split or CV
+* Lab 2 Step 4 implements the OOS evaluation: 5-fold CV
+* The irreducible $\sigma^2_\varepsilon$ remains — no model, however flexible, can predict pure noise
+* Speaking line: "Lab 1 trained your eyes on Bias. Lab 2 trains them on Variance. Both matter."
+
+
+
+---
+class: left
+
+## When more variables hurt: the curse of dimensionality
+
+Classical statistics relies on $n \gg p$. When the candidate set of regressors $p$ grows faster than the sample $n$, four interlocked problems erode OLS performance — long before any "Big Data" regime begins.
+
+```{r fhl-table, echo=FALSE}
+tibble::tribble(
+  ~Problem,                       ~`What happens`,                                       ~Consequence,
+  "1. Noise accumulation",        "Each irrelevant regressor injects estimation variance.", "Predictions degrade even when no new signal is added.",
+  "2. Spurious correlation",      "With many candidates, some correlate with $y$ by chance.", "Selected variables look significant — but are not.",
+  "3. Incidental endogeneity",    "Random correlations between $x_j$ and $\\varepsilon$.",   "OLS becomes inconsistent: $\\hat\\beta \\not\\to \\beta$.",
+  "4. Measurement error",         "Many predictors $\\Rightarrow$ many noisy variables.",    "Attenuation bias amplifies as $p$ grows."
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_options(table.font.size = "13px",
+              column_labels.font.size = "13.5px")
+```
+
+.small[Lasso addresses problems **1 and 2** directly (selection + shrinkage). Problems 3 and 4 require *design* — they are why Path E2 cannot be solved by penalisation alone, and why Lab 3 turns to DML and instrumental variables.]
+
+.quelle[.small[`r Citet(bib, "fan_bigdata_2014")`.]]
+
+???
+* This is the diagnosis — Lasso is one response, but not the only one
+* Note: incidental endogeneity is the bridge to causal inference
+* For ER114, points 1–2 are the operational message; 3–4 are the theoretical caveat
+
+
+
+---
+class: left
+
+## The naïve answer: stepwise selection
+
+Confronted with too many variables, the classical response is **mechanical pruning**: start with all, drop the worst on AIC, repeat until removing anything makes the model worse. The procedure is computationally cheap and intuitively appealing — *and it fails on every count that matters for inference.*
+
+.pull-left[
+### `r fa('xmark', fill='#D50006')` Four reasons why stepwise selection is unreliable
+
+1. **Automated $p$-hacking** — searching $2^p$ candidate models all but guarantees spurious "significance"
+2. **Standard errors are too small** — they treat the selected variables as if known *a priori*; they are not
+3. **Coefficients are biased upward** — winner's curse: surviving variables overstate their true effects
+4. **Path-dependence** — removing variable $j$ rearranges the partial correlations of all others; no global optimum guaranteed
+]
+
+.pull-right[
+### `r fa('arrows-rotate', fill='#502479')` What changes with penalisation?
+
+Lasso replaces the discrete *include / exclude* choice with a continuous **shrinkage**: coefficients are pulled toward zero, and some are pulled *to* zero. The selection step and the estimation step happen jointly under a single convex loss.
+
+This does not solve all four problems above. But it makes them **operational** — we can tune them via cross-validation rather than by hand.
+]
+
+.small[Stepwise selection survives in software because it is fast and old. It does not survive scrutiny. The classic critique by `r Citet(bib, "harrell_2015")` has been settled for two decades; modern predictive practice prefers regularisation. Lab 2 Step 4 makes the failure visible on a small-sample subset of the Dominick's data.]
+
+???
+* Reference back to Lab 2 Step 4 ("regional manager with 5 stores" demonstration)
+* In Lab 2 the full-sample stepwise is computationally stable — 45 → 41 variables — but the regional subset shows the volatility
+* This is the bridge: stepwise *can* work at $n \gg p$, but it is methodologically the wrong tool
+* Speaking line: "Stepwise is a search for noise that happens to align with the current sample"
+
+
+
+---
+class: left
+
+## A unified view: the penalised regression family
+
+OLS minimises in-sample RSS unconditionally. Every member of the **penalised regression family** adds a penalty on $\boldsymbol{\beta}$ — different shapes, same intent: trade a little bias for a lot less variance.
+
+```{r penalty-family, echo=FALSE}
+tibble::tribble(
+  ~Method,                       ~`Objective (minimise)`,                                                       ~`Penalty shape`,         ~`Sets coefficients = 0?`,
+  "OLS",                         "$\\sum_i (y_i - x_i^\\top\\beta)^2$",                                          "—",                       "No",
+  "Ridge `r fa('square')`",      "$\\sum_i (y_i - x_i^\\top\\beta)^2 + \\lambda \\sum_j \\beta_j^2$",            "$L_2$ (smooth, round)",   "No — shrinks, never zeros",
+  "Lasso `r fa('diamond')`",     "$\\sum_i (y_i - x_i^\\top\\beta)^2 + \\lambda \\sum_j |\\beta_j|$",            "$L_1$ (angular, corner)", "Yes — sparse selection",
+  "Elastic Net",                 "$\\text{RSS} + \\lambda\\bigl(\\alpha|\\beta|_1 + (1-\\alpha)\\beta^2\\bigr)$","Mixture",                 "Partially — keeps correlated groups"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_options(table.font.size = "12.5px")
+```
+
+.small[$\lambda \to 0$ recovers OLS. $\lambda \to \infty$ shrinks everything to the intercept. The tuning is **out-of-sample** — typically via $k$-fold cross-validation.]
+
+.quelle[.small[`r Citet(bib, "tibshirani_1996")` (Lasso); Hoerl & Kennard 1970 (Ridge); Zou & Hastie 2005 (Elastic Net).]]
+
+???
+* Three methods, one frame — only the penalty geometry differs
+* The Elastic Net case matters when predictors are clustered (e.g. the 11 demographics in Lab 2: income/educ/hval150 move together)
+* Lasso may arbitrarily pick one from a correlated group; Elastic Net keeps groups together
+* Lab 2 Bonus B1 lets students compare all three on the OJ data
+
+
+
+---
+class: left
+
+## Why Lasso selects and Ridge shrinks: the geometry
+
+Both penalties shrink. Only Lasso **sets coefficients exactly to zero**. The reason is geometric: the $L_1$ ball has corners on the coordinate axes; the $L_2$ ball does not.
+
+.pull-left[
+.center[
+<img src="figures/l1_l2_geometry.svg" style="width:88%;"/>
+]
+.small[The OLS solution $\hat\beta_{OLS}$ is the centre of the elliptical RSS contours. The constrained solution is the **first contact point** between an RSS ellipse and the penalty region. For Lasso (left, diamond) this contact occurs *on an axis* — one coefficient is set to zero. For Ridge (right, circle) the contact is *generically interior* — no coefficient is zero, just smaller.]
+]
+
+.pull-right[
+This is not a numerical artefact. It is a **structural property** of the $L_1$ norm:
+
+* Lasso's penalty $|\beta_1| + |\beta_2|$ has corners
+* The probability that the RSS-contour touches a corner is positive (not zero)
+* As $\lambda$ rises, *more* corners are hit — more coefficients zeroed
+* This is what "variable selection by Lasso" means concretely
+
+Ridge's penalty $\beta_1^2 + \beta_2^2$ has *no* corners — its level sets are smooth circles. Contact points are generically interior. Coefficients shrink but never disappear.
+]
+
+.quelle[.small[`r Citet(bib, "tibshirani_1996")`; `r Citet(bib, "hastie_tibshirani_friedman_2009")` fig. 3.11.]]
+
+???
+* The geometry slide is purely conceptual; no code
+* Students who saw this once will remember Lasso = corners forever
+* If the SVG doesn't render, fall back: describe verbally, refer to Hastie et al. fig. 3.11
+
+# Geometrische Intuition: Lasso (L₁) vs. Ridge (L₂)
+
+## Grundprinzip: Constrained Optimization
+
+Beide Regularisierungsmethoden lösen dasselbe Grundproblem: Minimiere die Residuenquadratsumme (RSS), aber **beschränkt auf eine Region** im Parameterraum. Die gestrichelten Ellipsen in der Abbildung sind die **Konturlinien der Verlustfunktion** — Linien gleicher RSS-Werte. Sie sind elliptisch, weil die Verlustfunktion quadratisch in \(\beta\) ist. Ihr Zentrum ist der **OLS-Schätzer** \(\hat{\beta}_{\text{OLS}}\), der die RSS ohne Restriktionen minimiert.
+
+Die farbige Form — Raute (Lasso) bzw. Kreis (Ridge) — ist die **Constraint-Region**:
+
+- **Lasso:** \(|\beta_1| + |\beta_2| \leq t\) → Raute (L₁-Ball)
+- **Ridge:** \(\beta_1^2 + \beta_2^2 \leq t\) → Kreis (L₂-Ball)
+
+Der regularisierte Schätzer liegt an dem Punkt, wo die **erste Konturlinie die Constraint-Region berührt** — also so nah wie möglich am OLS-Optimum, ohne die Restriktion zu verletzen. Der Radius \(t\) der Constraint-Region entspricht dem inversen Strafparameter \(\lambda\): ein kleines \(t\) (starke Regularisierung) zwingt die Lösung nah an den Ursprung.
+
+
+
+## Lasso (L₁): Kontakt an der Ecke
+
+Die Raute hat **Ecken auf den Koordinatenachsen**. Da die Konturellipsen in der Regel zuerst eine Ecke berühren (und nicht eine glatte Kante), landet die Lösung typischerweise genau auf einer Achse — im Bild bei \(\hat{\beta}_1 = 0\).
+
+Das ist der geometrische Grund, warum Lasso **exakte Nullen produziert** und damit automatische Variablenselektion betreibt. Die Ecken der Raute „ziehen" die Lösung auf die Achsen. Formal entspricht das dem Lagrange-Problem:
+
+\[ \hat{\beta}_{\text{Lasso}} = \arg\min_\beta \left[ \sum_i (y_i - x_i'\beta)^2 + \lambda \sum_j |\beta_j| \right] \]
+
+Der L₁-Penalty ist an den Achsen **nicht differenzierbar** — genau diese Nicht-Differenzierbarkeit ist der analytische Grund für exakte Nullen (Subgradientenbedingung).
+
+
+
+## Ridge (L₂): Kontakt im Inneren
+
+Der Kreis hat **keine Ecken**. Die Konturlinie berührt ihn an einem glatten Punkt auf der Kreisbahn — weder auf \(\beta_1 = 0\) noch auf \(\beta_2 = 0\). Beide Koeffizienten werden **geschrumpft, aber niemals exakt auf null gesetzt**. Das Optimierungsproblem lautet:
+
+\[ \hat{\beta}_{\text{Ridge}} = \arg\min_\beta \left[ \sum_i (y_i - x_i'\beta)^2 + \lambda \sum_j \beta_j^2 \right] \]
+
+Ridge hat eine **geschlossene analytische Lösung**:
+
+\[ \hat{\beta}_{\text{Ridge}} = (X'X + \lambda I)^{-1} X'y \]
+
+Der Term \(\lambda I\) macht die Matrix \((X'X + \lambda I)\) stets invertierbar — auch bei Multikollinearität oder \(n < p\). Das ist ein numerischer Vorteil von Ridge gegenüber OLS.
+
+
+
+## Gegenüberstellung
+
+| Eigenschaft | Lasso (L₁) | Ridge (L₂) |
+|:------------|:-----------|:-----------|
+| Constraint-Region | Raute (spitze Ecken) | Kreis (glatt) |
+| Kontaktpunkt | Typisch auf der Achse | Auf der Kreiskurve |
+| Koeffizienten | Exakt null möglich | Nur Schrumpfung, nie null |
+| Effekt | Selektion + Schrumpfung | Nur Schrumpfung |
+| Analytische Lösung | Nein (iterativ, z. B. LARS) | Ja: \((X'X + \lambda I)^{-1}X'y\) |
+| Vorteil bei | Sparsamen Modellen, Selektion | Multikollinearität, stabiler Schrumpfung |
+| Nachteil | Wählt bei korrelierten Prädiktoren nur einen | Kein sparsames Modell |
+
+
+
+## Elastic Net als Kompromiss
+
+Bei korrelierten Prädiktoren (z. B. Kreuzpreise) hat Lasso eine bekannte Schwäche: Es wählt aus einer Gruppe korrelierter Variablen tendenziell nur **eine** und setzt die anderen auf null — welche, hängt von numerischen Zufälligkeiten ab. **Elastic Net** kombiniert beide Penalties:
+
+\[ \hat{\beta}_{\text{EN}} = \arg\min_\beta \left[ \sum_i (y_i - x_i'\beta)^2 + \lambda_1 \sum_j |\beta_j| + \lambda_2 \sum_j \beta_j^2 \right] \]
+
+Geometrisch entspricht die Constraint-Region einer **abgerundeten Raute** — sie hat Ecken (→ Selektion möglich) aber keine scharfen Kanten (→ korrelierte Variablen werden gemeinsam geschrumpft, nicht willkürlich herausselektiert).
+
+
+
+## Bezug zum Dominick's-Lab
+
+Im Lab mit \(p \approx 36\) `brand:demo`-Interaktionstermen ist die geometrische Logik direkt anwendbar:
+
+- **Lasso** setzt irrelevante Terme wie `Dominick's:income` exakt auf null und liefert ein sparsiomes, interpretierbares Modell — genau das, was Sarah Chen für das Inventory-Tool braucht.
+- **Ridge** würde alle 36 Terme beibehalten (nur kleiner) und die Frage „Welche Demografievariablen *wirklich* wichtig sind?" nicht beantworten.
+- **Elastic Net** ist bei den Kreuzpreisen (\(\log p_{\text{MM}}\), \(\log p_{\text{TR}}\), \(\log p_{\text{Dom}}\)), die konstruktionsbedingt korreliert sind, die robustere Wahl als reines Lasso.
+
+
+
+---
+class: left
+
+.blockquote[Regularisation in operation]
+
+## Lasso in practice — the regularisation path
+
+Lasso does not produce a single model. Across the grid of $\lambda$ values it produces a whole **regularisation path** — a sequence of candidate models, from $\lambda = 0$ (full OLS, all coefficients in) to $\lambda \to \infty$ (only the intercept). Cross-validation then picks the sweet spot.
+
+.panelset[
+.panel[.panel-name[Coefficient paths]
+.pull-left[
+```{r lasso-paths, echo=FALSE, message=FALSE, fig.width=6.5, fig.height=4.0, out.width="100%"}
+set.seed(42)
+n <- 200; p <- 5
+X <- matrix(rnorm(n*p), n, p)
+colnames(X) <- c("Price", "Promo", "Quality", "Age", "Noise")
+y <- 2*X[,1] - 1.5*X[,2] + 1*X[,3] + 0.3*X[,4] + 0*X[,5] + rnorm(n)
+library(glmnet)
+fit <- glmnet(X, y, alpha = 1)
+beta_df <- as.data.frame(as.matrix(t(coef(fit)[-1,])))
+beta_df$lambda <- fit$lambda
+library(tidyr); library(ggplot2)
+beta_long <- pivot_longer(beta_df, -lambda, names_to = "Variable", values_to = "Coefficient")
+ggplot(beta_long, aes(log10(lambda), Coefficient, color = Variable)) +
+  geom_line(linewidth = 1.1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  scale_color_manual(values = c("Price"="#D50006", "Promo"="#502479",
+                                "Quality"="#27ae60", "Age"="#3498db",
+                                "Noise"="#7d0a52")) +
+  labs(x = expression(log[10](lambda)), y = "Coefficient value") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        panel.grid.minor = element_blank())
+```
+]
+
+.pull-right[
+.small[**Five candidate predictors, one of them pure noise.** As $\lambda$ increases (moving right on the x-axis):
+
+* **Noise** is the first to be shrunk to zero — Lasso correctly identifies the irrelevant variable
+* **Age** (small true effect) follows soon after
+* **Quality** and **Promo** (moderate effects) survive longer
+* **Price** (strongest signal) is the last to give in
+
+The path *visualises selection in action*. Each $\lambda$ defines a different model. The job of cross-validation is to pick which one.]
+]
+]
+
+.panel[.panel-name[Squelch analogy]
+### $\lambda$ as the squelch knob
+
+A **squelch** is the noise-suppression knob on a radio set. Turn it up too far and you hear nothing (signal blocked). Turn it down too far and you hear only static.
+
+.pull-left[
+* **$\lambda$ too small** → too little shrinkage, irrelevant variables stay in, model memorises noise (overfit)
+* **$\lambda$ too large** → too much shrinkage, even strong signals are zeroed out (underfit)
+* **$\lambda$ just right** → noise filtered, signal preserved
+]
+
+.pull-right[
+This is the operational meaning of the bias–variance trade-off in regularisation. The squelch knob is the trade-off made physical: one continuous dial, one optimum.
+
+`r fa('arrow-right', fill='#502479')` The optimum is *not* set by intuition. It is set by **cross-validation** on held-out data.
+]
+]
+
+.panel[.panel-name[Decision rule]
+### Which $\lambda$ to report
+
+After cross-validation, glmnet returns two natural choices `r Citet(bib, "taddy_modern_2023")`:
+
+* **CV-min rule** — $\hat\lambda$ that minimises the CV error. **Focus: predictive accuracy.** When forecast quality is the deliverable, this is the default.
+* **1-SE rule** — the *largest* $\hat\lambda$ within one standard error of the minimum. **Focus: parsimony.** A more conservative, more interpretable model with fewer non-zero coefficients. For executive communication and model deployment, this is often the better choice.
+
+.small[**Practical rule of thumb.** If the audience is a board of directors, lean 1-SE. If the audience is another statistician evaluating predictive performance, lean min. The choice should be deliberate, not accidental.]
+]
+]
+
+.quelle[.small[`r Citet(bib, "tibshirani_1996")`; `r Citet(bib, "taddy_modern_2023")` ch. 3 on the 1-SE rule.]]
+
+???
+* The three-panel structure mirrors the deutsche "Synthese: CV + Lasso" — three windows on the same process
+* Panel 1 visualises *what* happens; Panel 2 explains *why*; Panel 3 governs *how to report*
+* Sarah's T7 memo deliberately invokes the 1-SE rule for the parsimony argument
+* Speaking line: "Lasso gives you the menu. Cross-validation orders for you. Your job is to know which menu you ordered from."
+
+
+
+---
+class: left
+
+.blockquote[Tuning $\lambda$ out-of-sample]
+
+## How $\lambda$ is chosen: cross-validation
+
+The penalty parameter $\lambda$ controls the bias–variance trade-off. There is no theoretical formula for the right value — it must be tuned **out of sample**. Two related instruments do the job.
+
+.panelset[
+.panel[.panel-name[Train–Test split]
+.pull-left[
+### The simplest version
+Hold out a random 20% of the data as **test set**. Fit on the 80%. Evaluate on the 20%.
+
+* Diagnostic: Train-MSE $\ll$ Test-MSE? → overfit.
+* Reported metrics: RMSE, AUC, accuracy — *always* on the test set.
+* Single split → single number. Quick, but the choice of the 20% can sway the answer.
+
+`r fa('triangle-exclamation', fill='#D50006')` **Do not look at the test set during model selection.** If you tune anything based on test performance, that 20% becomes a *second training set* — and you lose the validity of the out-of-sample claim.
+]
+
+.pull-right[
+.center[
+<img src="figures/train_test_split.svg" style="width:96%;"/>
+]
+]
+]
+
+.panel[.panel-name[k-Fold CV]
+.pull-left[
+### Systematic, repeated splitting and testing
+
+1. Partition the data into $k$ equal folds (typically $k=5$ or $10$).
+2. For each candidate $\lambda$ on a grid:
+   - For $j = 1, \dots, k$: fit on all folds except $j$, predict on fold $j$
+   - Average the squared prediction error across folds → $\text{CV}(\lambda)$
+3. Every observation is in the test set exactly once — no data leakage.
+
+`r fa('arrow-right', fill='#502479')` More stable than a single split, especially when $n$ is moderate.
+]
+
+.pull-right[
+.center[
+<img src="figures/kfold_crossvalidation.svg" style="width:100%;"/>
+]
+]
+]
+
+.panel[.panel-name[Sweet spot]
+.pull-left[
+### Choosing $\hat\lambda$ from the CV curve
+
+The CV curve is U-shaped. Two natural choices:
+
+* **CV-min rule** — $\lambda_{\min}$ minimises CV error. Focus: maximum predictive accuracy.
+* **1-SE rule** — $\lambda_{1\text{SE}}$ is the *largest* $\lambda$ within one SE of the minimum. Focus: parsimony, executive-communication-friendly, robust to CV noise.
+
+`r fa('arrow-right', fill='#502479')` Lab 2 Step 5 uses both — most business deliverables (Sarah's memo) lean on the 1-SE choice.
+]
+
+.pull-right[
+.center[
+<img src="figures/cv_curve_schematic.svg" style="width:96%;"/>
+]
+]
+]
+]
+
+.small[**One assumption worth flagging:** CV assumes folds are *exchangeable*. With panel data — like the OJ data — observations within a store are correlated, so plain random CV underestimates true OOS error. Lab 2 uses store-clustered CV. We return to this in Lab 3.]
+
+.quelle[.small[Hastie, Tibshirani, Friedman 2009 ch. 7; Lab 2 Step 5 (CV with `cv.glmnet`).]]
+
+???
+* Three panels = three levels of sophistication, in order: 80/20 → k-fold → 1-SE rule
+* Train-test-split SVG is the visual primer; k-fold grid is the upgrade; CV curve is the operational object
+* Speaking line: "Never report a number on data you have looked at before."
+* Clustered CV: store-level holdout, not row-level — the methodologically honest version
+* The "exchangeability" caveat is the Lab-3-bridge: when data has structure, plain CV lies
+
+
+
+---
+class: left
+
+.blockquote[Lab 2 — Predictive Modelling for Sarah's Inventory Tool (Path P)]
+
+## `r fa('laptop-code', fill='#502479')` Lab 2
+
+.small[`r fa('envelope', fill='#502479')` **Sarah, follow-up memo (Oct):** The board is asking why our forecasts still miss in stores where we have no history. They want a model that uses *census-based catchment-area data* — age, income, education, competition — to fill the gap. **Do these demographic controls actually improve our inventory tool?** And while you're at it: should we reconsider the advertising effect from Lab 1 in light of these new controls?]
+
+<div style="border:3px solid #502479; border-radius:8px; padding:12px 22px;
+            background:#faf5ff; margin-top:0.6em;">
+<div style="font-family:sans-serif; font-size:14px; font-weight:bold;
+            color:#502479; margin-bottom:8px;">
+`r fa('flask')` Lab&nbsp;2 &mdash; Predictive Modelling for Sarah's Inventory Tool
+</div>
+<div style="font-size:0.80em; line-height:1.6;">
+<strong>Learning objectives:</strong> Build the Variant&nbsp;A/B/C compass with store-level demographics &middot; Diagnose the OLS-limit at $p \approx 36$ &middot; Apply Lasso via <code>glmnet</code> with cluster-robust 5-fold CV &middot; Interpret out-of-sample MSE vs. variable selection &middot; Write a non-technical predictive memo for Sarah
+<br>
+<strong>Dataset:</strong>
+<code>tbl_stores</code> + <code>tbl_demo</code> (83 stores × 3 brands × 11 demographics)
+<br>
+`r fa('clock')` <strong>60 minutes</strong> &nbsp;&middot;&nbsp;
+`r fa('users')` <strong>Individual work</strong> &nbsp;&middot;&nbsp;
+`r fa('circle-right')` <strong>Open:</strong>
+<code>Session3_Lab2.qmd</code>
+</div>
+</div>
+
+.small[
+`r fa('file-pen', fill='#502479')` **Deliverable:** Memo **T7** &mdash; brief reply to Sarah's two-question follow-up, with explicit acknowledgement of what Path P *can* and *cannot* answer. &nbsp;&middot;&nbsp; `r fa('comments', fill='#686868')` Short **debrief** before Part 4.
+]
+
+???
+* This is where the toy polynomial meets the real data
+* The "surprise" of Lab 2: at $n \approx 28{,}000$, OLS with $p \approx 36$ does *not* break — Variant C generalises
+* Lasso's added value is *parsimony and interpretability*, not rescue from collapse
+* T7 explicitly asks students to write the non-technical version — bridge to executive communication
+* After the lab: short debrief slide before Part 4 (causal inference)
+
+
+
+---
+class: inverse, center, middle
+
+## Lab 2
+
+.blockquote[Predictive Modelling for Sarah's Inventory Tool]
+
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 2]
+
+## What we learned in Lab 2
+
+.pull-left[
+### `r fa('check-double', fill='#502479')` On the OJ data
+* Variant C with $p \approx 36$ is **not** overfit at $n \approx 28\,000$ — OLS generalises
+* Lasso's CV-MSE is marginally better than OLS — its primary value is **parsimony** (~15 retained variables vs. 36)
+* Demographics matter for *level prediction* but barely shift $\hat\beta_{\text{feat}}$ — the feat × deal bundling remains the dominant source of OVB
+]
+
+.pull-right[
+### `r fa('triangle-exclamation', fill='#686868')` What Lab 2 cannot answer
+* The Lasso selection is **not causal**: which 15 variables survive depends on $\lambda$, on the CV split, and on shrinkage — three nuisance parameters that have nothing to do with structural meaning
+* The model still cannot tell Sarah whether *raising* a brand's price would lower sales — Path E remains open
+* `r fa('arrow-right', fill='#7d0a52')` **This is Sarah's Q1 — and it belongs to Lab 3.**
+]
+
+???
+* Take-away 1: at this $n$, OLS is fine — Lasso is parsimony, not rescue
+* Take-away 2: prediction quality $\neq$ causal validity — a model can forecast well and still mislead about interventions
+* Spiess (2025): the bias–variance trade-off is also an *institutional* trade-off — pre-commitment buys credibility
+* Bridge to Part 4: Sarah's Q1 (the advertising-cause question) is *structurally* a different question — we now move from Path P back to Path E2
+
+
+
+
+<!-- ============================================================ -->
+<!--  PART 4 — Brief Introduction to Causal Inference              -->
+<!-- ============================================================ -->
+
+---
+class: inverse, center, middle
+
+# Part 4
+
+## Brief Introduction to Causal Inference
+
+.blockquote[*Three questions our DGP cannot answer — and how design changes that.*]
+
+
+
+---
+class: left
+
+.blockquote[Business motivation for causal inference]
+
+## Why experiments matter — Schrage's Innovator's Hypothesis
+
+Before the Pearl ladder and the DAG vocabulary, one *business* observation sets the stage. Why do high-performing data-driven firms run so many experiments?
+
+.pull-left[
+### `r fa('chart-column', fill='#D50006')` The sobering empirical reality
+
+Microsoft's Ronny Kohavi shows real A/B-test results to expert audiences — the audience guesses the winner before the data is shown:
+
+> *No consensus. Ever.*
+
+* Kaushik: *"80% of the time we are wrong"*
+* Kohavi: only about **⅓** of tested ideas actually improve the target metric
+* Hadiaris: 5-year hit rate ≈ **33%**
+
+> *"We are poor at assessing the value of ideas."*
+
+.small[Conviction is not evidence. Experts systematically overestimate their own forecasts — Kahneman, Tetlock, and an entire literature on judgemental forecasting agree on this point.]
+]
+
+.pull-right[
+### `r fa('flask', fill='#7d0a52')` Schrage's central thesis
+
+> *"They run experiments not because they can confidently predict outcomes — but precisely because they can't."*
+
+### Big Data + Little Experiments
+
+* **Big Data** — patterns and correlations (Path P)
+* **Experiments** — causal evidence (Path E2)
+* **Together** — *"virtuous cycles of profitable insight"*
+
+### Connection to today
+
+* Sessions 1–2: *p*-hacking and HARKing → commit to the hypothesis **before** seeing the data
+* Today: causal designs **operationalise** that commitment
+* **Mindset for the Translator:** *Data trumps intuition — but with humility.*
+]
+
+.small[The AI Value Creator uses Big Data to generate hypotheses but is humble enough to subject those hypotheses to small, hard causal tests *before* committing budget. Part 4 of today's session is the operational toolkit for doing that.]
+
+.quelle[.small[Schrage (2014), *The Innovator's Hypothesis*; Kohavi, Tang & Xu (2020) on industrial A/B-testing practice.]]
+
+???
+* This is the business-anchor slide that motivates the entire causal-inference part
+* Without this slide, Pearl's Ladder reads as philosophy; with this slide, it reads as a *business necessity*
+* Speaking line: "If experts could predict outcomes, we would not need experiments. The fact that they cannot is the entire reason this lab exists."
+* The 33% hit rate is the most powerful number to lead with — it is concrete, sourced, and frightening to anyone who has ever sat in a strategy meeting
+
+
+
+---
+class: left
+
+## From prediction to intervention — Pearl's Ladder of Causation
+
+A predictive model answers **observational** questions: *given the patterns I have seen, what is the most likely value of $y$ when I observe $x$?* It does **not** answer interventional or counterfactual questions. The distinction is structural, not statistical — `r Citet(bib, "pearl_2009")` formalises it as three rungs.
+
+.pull-left[
+### `r fa('layer-group', fill='#7d0a52')` Three rungs
+
+**Rung 1 — Association** *"What is?"*
+$P(y \mid x)$ — the conditional distribution
+*Tools:* OLS, ML, Lasso, all of Lab 1 + 2
+
+**Rung 2 — Intervention** *"What if I do?"*
+$P(y \mid \text{do}(x))$ — the post-intervention distribution
+*Tools:* RCTs, A/B-tests, DiD, IV, DML
+
+**Rung 3 — Counterfactual** *"What if I had?"*
+$P(y_{x} \mid x',y')$ — for the same unit
+*Tools:* structural models, mediation analysis
+]
+
+.pull-right[
+.center[
+<img src="figures/pearl_ladder.svg" style="width:88%;"/>
+]
+.small[A model fit on Rung 1 cannot generally be lifted to Rung 2 without additional assumptions. Most of statistics lives on Rung 1; most of business decision-making *needs* Rung 2.]
+]
+
+.small[Lab 1 + Lab 2 operate on **Rung 1**. Lab 3 climbs to **Rung 2**. The transition is not a refinement — it is a different question that requires different machinery.]
+
+.quelle[.small[`r Citet(bib, "pearl_2009")` ch. 1; Pearl & Mackenzie 2018; for an accessible introduction `r Citet(bib, "huntington-klein_effect_2025")`, ch. 5.]]
+
+???
+* The Ladder is the conceptual organiser for the whole Part 4
+* Rung 1 → Rung 2 is the cliff that classical econometrics didactically often glosses over
+* Sarah's Q1 (does feat *cause* sales?) is a Rung 2 question — pretending Rung 1 answers it is the most common applied mistake
+
+
+
+---
+class: left
+
+## Two fundamental problems
+
+Climbing to Rung 2 is hard because of two deep structural obstacles. They are not estimation problems — they are problems of *what the data can possibly tell us*.
+
+.pull-left[
+### `r fa('xmark', fill='#D50006')` Holland (1986): the missing counterfactual
+
+For each unit $i$ we observe **either** $y_i(1)$ (treated) **or** $y_i(0)$ (untreated) — never both. The individual causal effect $\tau_i = y_i(1) - y_i(0)$ is **fundamentally unobservable**.
+
+The best we can hope for is the **average** effect $\tau = \mathbb{E}[y(1) - y(0)]$ — and even that requires a strong assumption: that **treated and untreated units would have behaved identically in the counterfactual**.
+
+This is what RCTs deliver by construction (randomisation makes the two groups exchangeable in expectation).
+]
+
+.pull-right[
+### `r fa('diagram-project', fill='#502479')` Pearl: confounding
+
+Even with infinite data, a hidden common cause $u$ of both $x$ and $y$ produces a non-zero association that **is not** causal.
+
+.center[
+<img src="figures/dag_confounder_minimal.svg" style="width:75%;"/>
+]
+$$\mathrm{Cov}(x, y) \neq 0 \;\not\Rightarrow\; x \to y$$
+
+The fix is *not* statistical (more data, better SE). The fix is **design** — either block the back-door path through $u$, or break the dependency by intervention.
+]
+
+.quelle[.small[`r Citet(bib, "holland_1986")`; `r Citet(bib, "pearl_2009")`; `r Citet(bib, "imbens_rubin_2015")` ch. 1.]]
+
+???
+* Holland (1986) is the canonical citation — the "Fundamental Problem of Causal Inference"
+* Pearl's confounding frame complements it: even with the counterfactual problem solved (by averaging), confounding remains a separate obstacle
+* The two problems are independent — RCTs solve both at once; observational design solves only the second (and only partially)
+
+
+
+---
+class: left
+
+## Three sources of endogeneity — and why DGP perspective matters
+
+For OLS, all three problems collapse into one symptom: $\mathrm{Cov}(x, \varepsilon) \neq 0$. But the **diagnosis** differs — and so do the appropriate fixes.
+
+```{r endogeneity-trio, echo=FALSE}
+tibble::tribble(
+  ~Source,                   ~`Mechanism in the DGP`,                                                    ~Example,                                                       ~`Typical fix`,
+  "1. Omitted-variable bias", "A relevant $z$ is correlated with both $x$ and $y$ and is left out.",       "Advertising and deals are bundled in Lab 1 — feat × deal collinearity.", "FE, IV, controls",
+  "2. Simultaneity",         "$x$ and $y$ are jointly determined by feedback in the same period.",        "Manager sets price *because* she expects sales — reverse causality.",   "IV, simultaneous equations",
+  "3. Measurement error",    "$x$ is observed with random noise.",                                        "Self-reported advertising spending.",                                  "IV (rare), better data",
+  "4. Selection on the unobserved", "Whether unit $i$ is observed or treated depends on $\\varepsilon_i$.", "Stores enter promotions only when manager expects strong response.",   "Heckman correction, design"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_options(table.font.size = "12px")
+```
+
+.small[**Source 4 — selection — is special.** It is not a deficiency in our equation; it is a deficiency in our *sample*. The observed $(x_i, y_i)$ pairs are not random draws from the DGP. They are the **outcome of unit-level choices** made on the basis of unobserved expectations. In the OJ data, observed (price, sales) pairs reflect the manager's prior beliefs about demand — the data is *self-selected* into existence.]
+
+.quelle[.small[Wooldridge 2010 §6.1–6.3; Heckman 1979; `r Citet(bib, "huntington-klein_effect_2025")` ch. 8.]]
+
+???
+* The 4-row table extends the standard Wooldridge trio with Heckman's selection — explicitly requested
+* The DGP framing: selection is upstream of the equation — it determines which data we even get to see
+* For the OJ data: managers run promotions strategically, prices reflect expected sales — observed variation is endogenous *by design*
+
+
+
+---
+class: left
+
+## DAG basics: backdoor, frontdoor, collider
+
+Three patterns explain almost every causal-identification problem. They are visible — and operational — in directed acyclic graphs (DAGs).
+
+.center[
+<img src="figures/dag_three_patterns.svg" style="width:95%;"/>
+]
+
+<div style="display:flex; gap:18px; margin-top:10px;">
+
+<div style="flex:1; font-size:0.82em; line-height:1.45;">
+<strong style="color:#D50006;">`r fa('door-open', fill='#D50006')` Backdoor</strong><br>
+A path $x \leftarrow u \to y$ creates spurious association. <strong>Block</strong> by conditioning on $u$ (if observable) or by IV (if not).
+</div>
+
+<div style="flex:1; font-size:0.82em; line-height:1.45;">
+<strong style="color:#502479;">`r fa('compass-drafting', fill='#502479')` Frontdoor</strong><br>
+A <em>mediator</em> $m$ between $x$ and $y$ can identify the effect even when $u$ confounds the direct path. Rare in practice but theoretically central.
+</div>
+
+<div style="flex:1; font-size:0.82em; line-height:1.45;">
+<strong style="color:#7d0a52;">`r fa('triangle-exclamation', fill='#7d0a52')` Collider</strong><br>
+$x \to c \leftarrow y$. <strong>Conditioning on $c$ creates</strong> spurious association — even between independent causes. Never control for a collider.
+</div>
+
+</div>
+
+.small[The collider rule is the most-violated principle in applied work: well-meaning analysts often "control for everything" — and accidentally open spurious paths instead of closing them. The DAG is the discipline that makes this visible *before* estimation.]
+
+.quelle[.small[`r Citet(bib, "pearl_2009")` ch. 3; `r Citet(bib, "cunningham_2021")` ch. 3; `r Citet(bib, "huntington-klein_effect_2025")` ch. 7.]]
+
+???
+* The three patterns are the operational vocabulary for the rest of Part 4
+* Backdoor → IV, FE, DiD (different ways to close it)
+* Collider → reminds students that "more controls is better" is *false*
+* For Lab 3: ShelveLoc is a candidate collider — including it can bias the price elasticity
+
+
+
+---
+class: left
+
+## A systematic taxonomy of causal study designs
+
+The applied literature uses two cross-cutting axes to classify study designs: **manipulation** (does the analyst set $x$?) and **setting** (laboratory, field, or natural environment?). The combination gives six cells — and almost every method in use occupies one of them.
+
+```{r design-taxonomy, echo=FALSE}
+tibble::tribble(
+  ~`  `,             ~Lab,                                          ~Field,                                                       ~`Natural`,
+  "**Manipulated**",     "Lab experiment; Vignette experiment",         "RCT; A/B-test; Audit study (correspondence test)",           "(rare; cf. policy pilots)",
+  "**Not manipulated**", "—",                                            "—",                                                          "Natural experiment; RDD; DiD; IV"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_fill("#fff8e1"), cells_body(columns = `  `)) %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_options(table.font.size = "12.5px",
+              column_labels.font.size = "13px")
+```
+
+.small[**Reading the cells.** Top-left and top-mid cells solve confounding *by construction* (randomised $x$). Top-right is rare — naturally manipulated outcomes are unusual. The bottom row contains methods that **borrow** randomness from natural variation: a policy change for DiD, a cutoff for RDD, an instrument for IV. Each method is a different answer to: *where does the as-good-as-random variation come from?*]
+
+.quelle[.small[Harrison & List 2004; `r Citet(bib, "angrist_pischke_2009")` ch. 1; `r Citet(bib, "cunningham_2021")` ch. 4. For an introductory tour `r Citet(bib, "huntington-klein_effect_2025")` ch. 10–18.]]
+
+???
+* This is the orientation slide — students can locate every method on this 2×3 grid
+* The crucial conceptual move is the bottom row: "borrowed randomness"
+* DiD, RDD, IV all answer the same meta-question: *what makes part of the variation in $x$ effectively random?*
+* The IAB study (next slides) sits in the top-mid cell as Vignette-in-field-survey hybrid
+
+
+
+---
+class: left
+
+## Identification through design
+
+`r Citet(bib, "angrist_pischke_2009")` reframe causal inference around the question: *where does the variation in $x$ come from?* Three sources, three credibility regimes.
+
+.pull-left[
+### `r fa('1', fill='#D50006')` Experimental variation
+$x$ is **assigned** by the researcher — coin flip, RCT, A/B-test, audit study. The variation in $x$ is *by construction* independent of unobservables.
+
+**Credibility:** maximal. **Cost:** high. **Coverage:** narrow (specific population, specific intervention).
+
+### `r fa('2', fill='#502479')` Quasi-experimental variation
+$x$ varies *as if randomly* due to a feature of the world: a policy threshold (RDD), a policy change (DiD), an instrument (IV).
+
+**Credibility:** depends on the credibility of the **identification assumption** (parallel trends, exclusion restriction, monotonicity).
+]
+
+.pull-right[
+### `r fa('3', fill='#7d0a52')` Observational with conditioning
+$x$ varies for endogenous reasons. We hope to **block** confounding paths by conditioning on observed controls.
+
+**Credibility:** lowest — requires *all* confounders observed, and a correctly specified DAG.
+
+### What changes the credibility?
+Across the three regimes, the **same statistical machinery** (regression, ML) can be used. What changes is the **assumption set under which the estimate has a causal interpretation**. Stronger design → weaker required assumptions.
+
+This is the credibility revolution `r Citet(bib, "angrist_pischke_2009")` — and it is *design*, not statistics, that does the work.
+]
+
+.quelle[.small[`r Citet(bib, "angrist_pischke_2009")` ch. 1; `r Citet(bib, "cunningham_2021")` ch. 4; `r Citet(bib, "athey_imbens_2019")` for the ML-econometrics interface.]]
+
+???
+* This is the most important conceptual slide of Part 4
+* The same OLS can be a Path-E estimate or a Path-P prediction — the *interpretation* depends entirely on the design
+* The lab-3 examples (DiD, IV, DML) all fit cell 2 of this 3-cell taxonomy
+
+
+
+---
+class: left
+
+## A spectrum of validity: Vignette — Audit — A/B-test
+
+When the manipulated variable is *information presented to a decision-maker*, three closely related designs sit on a spectrum from highest *internal* to highest *external* validity.
+
+```{r validity-spectrum, echo=FALSE}
+tibble::tribble(
+  ~Design,                          ~`Setting`,                          ~`What is measured`,                            ~`Internal validity`,                                       ~`External validity`,
+  "**Vignette experiment**",        "Lab / online survey",                "Stated behavioural intention",                  "Very high — full control over scenario",                   "Moderate — hypothetical, social-desirability bias",
+  "**Audit / correspondence study**", "Real field, fictitious profiles",   "Real decisions on fictitious applications",     "Very high — randomised profile features",                  "Very high — real decision-makers, real context",
+  "**A/B-test**",                   "Real field, real users",             "Real behaviour",                                "Very high — random user assignment",                       "Very high — but typically narrow (one design element)"
+) %>%
+  gt() %>%
+  tab_style(cell_fill("#f5f0fa"), cells_column_labels()) %>%
+  tab_style(cell_text(weight = "bold"), cells_column_labels()) %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_options(table.font.size = "11.5px")
+```
+
+.small[**Trade-offs read across the table.** Vignette is the easiest to run (no ethics committee for deception, no platform access) but measures *intentions*, not *actions*. Audit studies pay the ethical cost of deception to gain ecological validity. A/B-tests have the highest external validity but typically test only narrow design elements.]
+
+.small[**Audit studies are field-RCTs** — methodologically a special case of the A/B-test, but with a factorial design and theory-driven hypothesis rather than commercial optimisation. The Vignette-in-the-field design is *the* canonical tool of discrimination research.]
+
+???
+* This is the cleanest 3-method comparison — each method is *both* internal- and external-valid; the difference is what they measure
+* Speaking line: "If you want to know what people *say* they'd do, run a vignette. If you want to know what they *do*, run an audit. If you want to know what *works on your platform*, run an A/B test."
+* IAB study (next slides) is the Vignette case — with a clever validity check (list experiment)
+
+
+
+---
+class: left
+
+## The IAB study: a vignette experiment with a built-in validity check
+
+The IAB study *"Immigrants' recruitment chances in the German labor market"* (2025) is a large-scale **survey experiment** embedded in the IAB Job Vacancy Survey. About 5,000 real HR decision-makers were shown hypothetical CVs whose features (origin, religion, gender, language skills, experience) were randomised. They rated on a 1–10 scale how likely they would be to invite each candidate.
+
+.pull-left[
+### `r fa('flask', fill='#502479')` Design
+
+* **Vignette, not audit:** firms knew they were participating in a study; CVs were hypothetical (*"Imagine you receive the following application..."*)
+* **Factorial randomisation** of all CV features → high internal validity
+* **Real decision-makers** in their domain → reasonable external validity for HR judgements
+* **Outcome:** stated hiring intention (Rung 2-attempt via Rung 1 instrument)
+]
+
+.pull-right[
+### `r fa('triangle-exclamation', fill='#D50006')` Threat: social desirability
+
+In an explicit-question format, HR managers might *say* they would treat Muslim or refugee applicants equally even if they would not. The vignette format does not eliminate this — respondents still know they are observed.
+
+The IAB authors anticipated this and added a **list experiment** in parallel.
+]
+
+.small[Why this design matters for ER114: vignette experiments are *replicable in a Master's thesis* — no ethics-committee deception, no platform access — and they allow **theory-driven factorial designs** beyond what most A/B-tests cover.]
+
+.quelle[.small[IAB Forschungsbericht 06/2025, [doku.iab.de/forschungsbericht/2025/fb0625.pdf](https://doku.iab.de/forschungsbericht/2025/fb0625.pdf).]]
+
+???
+* The IAB study is *intentionally chosen* as a methodologically rich example
+* Contrast with the OJ data: OJ is observational with embedded RCTs; IAB is a clean survey experiment
+* For a Masters thesis: replicable design, modest cost, methodologically defensible
+
+
+
+---
+class: left
+
+## Triangulation: when two methods agree, validity rises
+
+The clever methodological move in the IAB study is the **list experiment** run in parallel. In a list experiment, respondents do not state a sensitive answer directly — they state only *how many* of several items apply. The sensitive item is masked by the count.
+
+.pull-left[
+### `r fa('list-check', fill='#502479')` The list-experiment logic
+
+**Treatment group** sees four items including *"I would hire a Muslim applicant"*.
+**Control group** sees only the three innocuous items.
+
+The difference in *average counts* identifies the share who would hire — without ever asking directly. Social desirability cannot operate on a count.
+]
+
+.pull-right[
+### `r fa('check-double', fill='#D50006')` The triangulation argument
+
+The vignette experiment and the list experiment are **methodologically independent**: different probabilistic structures, different cognitive load on respondents, different biases.
+
+When *both* yield the same finding (discrimination against Muslims, refugees, and visible religious symbols), the joint inference is **far stronger** than either alone — because two unrelated paths of error would have to coincidentally produce the same result.
+
+This is the operational meaning of *validity-by-triangulation* — and it generalises well beyond the IAB context.
+]
+
+.small[**A general lesson.** Single-method studies — however well-executed — are vulnerable to method-specific bias. Triangulation through *different* methodological lenses on the *same* question is the most reliable defence. Lab 3 will return to this with the DiD–IV–DML triangulation.]
+
+.quelle[.small[IAB 06/2025; Glynn 2013 (list experiments); Imbens 2010 on triangulation in design-based inference.]]
+
+???
+* Triangulation is the conceptual high point of Part 4
+* It connects causal inference (which design?) to scientific epistemology (which inference is credible?)
+* This is also where Spiess (2025) institutional argument resonates: pre-commitment + multi-method = credibility
+
+
+
+---
+class: left
+
+## A note on our own data: Dominick's contains embedded RCTs
+
+A footnote worth making explicit before Lab 3. The KiltsCenter documentation states:
+
+> *"From 1989 to 1994, the University of Chicago Booth School of Business and Dominick's Finer Foods entered into a partnership for store-level research into shelf management and pricing. Together, they conducted **randomized experiments in more than 25 different categories** throughout all stores in this 100-store chain."* — KiltsCenter Marketing Database documentation
+
+.pull-left[
+### What this means
+
+The Dominick's data is **not** purely observational. Parts of the price and shelf-position variation across stores and weeks are the result of **deliberate randomisation** by the Chicago/DFF research team.
+
+For Labs 1 and 2 we treated the data as observational — this is a **didactic simplification**. The methodological story is more layered:
+
+* Some weeks have experimentally-randomised prices → clean Rung-2 variation
+* Other weeks have manager-set prices → endogenous Rung-1 variation
+* The data **mixes both** in the panel
+]
+
+.pull-right[
+### Why we mention it here
+
+The applied lesson generalises: **real datasets often contain experimental islands within observational seas.** Identifying the islands turns a passive analysis into a quasi-experimental one.
+
+In Lab 3 we will return to the OJ data and ask: *which sub-sample carries experimental price variation?* If we can isolate it, we can estimate the price elasticity on Rung 2 — Sarah's Q1 — without needing IV or DML.
+
+This is not a defect of the data. It is an *opportunity* — and a model for what to look for in any business dataset.
+]
+
+.quelle[.small[`r Citet(bib, "KiltsCenter_2018")`, *Dominick's Data Manual*; available at chicagobooth.edu/research/kilts/research-data/dominicks.]]
+
+???
+* This slide is methodologically important and didactically rare
+* It acknowledges the simplification of Labs 1–2 transparently
+* It sets up Lab 3 as not just "more methods" but "different reading of the same data"
+
+
+
+---
+class: left
+
+## DiD and event studies — the workhorses of design-based inference
+
+When randomisation is not available but a **policy change** is, Difference-in-Differences (DiD) compares before-after changes between treated and untreated units. The identification assumption is **parallel trends**: absent the intervention, treated and untreated units would have followed parallel paths.
+
+.pull-left[
+### `r fa('chart-line', fill='#D50006')` Classical 2x2 DiD
+
+For two groups (treated $T=1$, control $T=0$) and two periods (before $t=0$, after $t=1$):
+
+$$\hat\tau_{DiD} = \bigl(\bar{y}_{T=1,t=1} - \bar{y}_{T=1,t=0}\bigr) - \bigl(\bar{y}_{T=0,t=1} - \bar{y}_{T=0,t=0}\bigr)$$
+
+**Key assumption:** parallel trends — not testable directly, only by pre-treatment placebo tests.
+]
+
+.pull-right[
+### `r fa('chart-bar', fill='#502479')` Event studies and modern DiD
+
+Modern DiD generalises 2x2 to *staggered* adoption (units treated at different times) and *heterogeneous* effects. Naive two-way fixed-effects estimators can be **severely biased** in this setting — see `r Citet(bib, "borusyak_etal_2024")`.
+
+Robust alternatives: imputation estimators (Borusyak et al.), Callaway–Sant'Anna 2021, Sun–Abraham 2021. Lab 3 will implement one of these on the OJ data.
+]
+
+.small[**Why this matters for Sarah's Q1.** If Dominick's ran a pricing RCT in some weeks but not others, the difference-in-differences between treated and untreated weeks isolates the causal price effect — under parallel trends. This is exactly the design opportunity hinted at on the previous slide.]
+
+???
+* DiD is the bread-and-butter of modern applied econometrics
+* The Borusyak warning matters: students should know that the classical TWFE estimator is *not* the right tool for staggered adoption
+* The OJ data may support a clean DiD if the experimental weeks can be identified
+
+
+
+---
+class: left
+
+.blockquote[Borrowed randomness, continued]
+
+## Instrumental variables and regression discontinuity
+
+Two more design-based tools complete the toolkit for situations where a clean A/B-test is not feasible — for ethical, legal, technical, or budgetary reasons.
+
+.pull-left[
+### `r fa('shuffle', fill='#502479')` Instrumental Variables (IV / 2SLS)
+
+**Scenario — "intent-to-treat":** We randomly assign access to a new feature (e.g. a smart-thermostat trial), but not every assigned customer actually uses it. Adoption is correlated with unobservables (tech affinity, income).
+
+**Method:** Use the *random assignment* as an **instrument** $Z$. The first stage isolates the part of the treatment $X$ that is uncorrelated with the error; the second stage estimates the causal effect using only that exogenous part.
+
+**Two requirements:**
+* **Relevance** — $Z$ predicts $X$
+* **Exclusion** — $Z$ affects $Y$ *only* through $X$, not directly
+
+`r fa('triangle-exclamation', fill='#D50006')` Exclusion is untestable. It must be argued substantively — and is usually the weakest link.
+]
+
+.pull-right[
+### `r fa('ruler-horizontal', fill='#7d0a52')` Regression Discontinuity (RDD)
+
+**Scenario:** A treatment activates at a sharp threshold — a bonus at €100,000 annual revenue, a subsidy at age 65, a scholarship at a test-score cutoff.
+
+**Method:** Compare units *just below* and *just above* the threshold. They are nearly identical on observable and unobservable characteristics — except for treatment. The threshold becomes a local randomisation device.
+
+**Two requirements:**
+* **Manipulation must not be possible** around the cutoff
+* **The outcome must be smooth** in the running variable absent treatment
+
+`r fa('triangle-exclamation', fill='#502479')` RDD identifies a **local** effect — only around the cutoff. External validity to other parts of the distribution is a separate question.
+
+*(For panel data, FE and RE methods complement these tools by removing time-invariant unobserved heterogeneity.)*
+]
+
+.small[**The pattern across IV, DiD, and RDD is the same.** Each method asks: *where in the data does the variation in treatment resemble a coin flip?* That sub-variation is then used to identify the causal effect, while the rest of the data is set aside. This is why `r Citet(bib, "angrist_pischke_2009")` call applied causal econometrics *design-based*: the credibility lives in the source of variation, not in the regression that follows.]
+
+.quelle[.small[`r Citet(bib, "angrist_pischke_2009")` ch. 4 (IV) and ch. 6 (RDD); `r Citet(bib, "cunningham_2021")` ch. 7 (IV), ch. 6 (RDD); `r Citet(bib, "huntington-klein_effect_2025")` ch. 19–20.]]
+
+???
+* This slide closes the design-based-inference triangle: DiD (previous slide) + IV + RDD
+* Each method gets the same template: scenario, method, two requirements, one warning
+* For Lab 3: IV is the candidate method if experimental weeks in the OJ data cannot be cleanly identified — supply-side cost shocks (wholesale-price changes) could serve as instruments
+* Speaking line: "Three methods, one philosophy: find where treatment looks random, even if the rest of the data does not."
+
+
+
+---
+class: left
+
+## When designs converge: ML meets causal inference
+
+The traditional contrast — *ML predicts, econometrics identifies* — has been eroded over the past decade. Two literatures push the methods together.
+
+.pull-left[
+### `r fa('robot', fill='#502479')` ML for prediction *within* causal estimation
+`r Citet(bib, "chernozhukov_DoubleML_2018")`'s Double Machine Learning uses ML to flexibly estimate the **nuisance functions** (the relationship between $x$ and $u$, and between $y$ and $u$) inside a causal moment condition. The causal parameter itself is estimated by orthogonal scoring — preserving valid inference even with ML in the pipeline.
+
+`r Citet(bib, "athey_imbens_2019")` survey the rapidly growing intersection: causal forests, generalised random forests, post-double-selection Lasso.
+]
+
+.pull-right[
+### `r fa('scale-balanced', fill='#D50006')` The Spiess credibility argument
+`r Citet(bib, "spiess_optimalEstimation_2025")` reframes the bias–variance trade-off as an *institutional* trade-off. Pre-committing to a less flexible procedure — fewer free parameters, fewer choices made after seeing the data — buys **credibility**.
+
+In this reading, ML is not a free lunch. The flexibility comes at the cost of researcher degrees of freedom — and these reduce the credibility of any claim about $\beta$.
+
+Sample-splitting (used in DML) is the operational answer: separate the data into nuisance-fit and causal-estimation halves.
+]
+
+.small[`r Citet(bib, "mullainathan_MLApplied_2017")` make the simplest version of the case: *ML and econometrics ask different questions, but they share the same operating manual on bias and variance.* The convergence is conceptual before it is technical.]
+
+???
+* This is the integrative slide — Spiess + Chernozhukov + Mullainathan-Spiess in one
+* The institutional argument matters: it explains why ML alone does not solve causal identification
+* DML is the technical synthesis — but the *intellectual* synthesis is Spiess's
+
+
+
+---
+class: left
+
+.blockquote[Lab 3 — Causal Inference for Sarah's Pricing Decision (Path E2)]
+
+## `r fa('laptop-code', fill='#7d0a52')` Lab 3
+
+.small[`r fa('envelope', fill='#7d0a52')` **Sarah, third memo (Nov):** Both prior labs gave me *associations*. The board now wants the causal counterfactual: **if I raise the price of Tropicana by 10%, what happens to weekly units sold?** I need a number we can defend at the audit — and a clear statement of which assumption it rests on.]
+
+<div style="border:3px solid #7d0a52; border-radius:8px; padding:12px 22px;
+            background:#fdf5fa; margin-top:0.6em;">
+<div style="font-family:sans-serif; font-size:14px; font-weight:bold;
+            color:#7d0a52; margin-bottom:8px;">
+`r fa('flask')` Lab&nbsp;3 &mdash; Causal Inference for Sarah's Pricing Decision
+</div>
+<div style="font-size:0.80em; line-height:1.6;">
+<strong>Learning objectives:</strong> Apply within-transformation (Frisch-Waugh-Lovell) to remove store fixed effects &middot; Identify the experimental sub-sample in the OJ data &middot; Compare DiD, IV, and DML estimates of the price elasticity &middot; Articulate the identification assumption behind each estimate
+<br>
+<strong>Dataset:</strong>
+<code>tbl_stores</code> (Dominick's, embedded RCTs noted)
+<br>
+`r fa('clock')` <strong>60 minutes</strong> &nbsp;&middot;&nbsp;
+`r fa('users')` <strong>Individual work</strong> &nbsp;&middot;&nbsp;
+`r fa('circle-right')` <strong>Open:</strong>
+<code>Session3_Lab3.qmd</code>
+</div>
+</div>
+
+.small[
+`r fa('file-pen', fill='#7d0a52')` **Deliverable:** Memo **T_final** &mdash; one-page reply to Sarah's third memo, with the causal estimate, its identification assumption, and a short statement of what would change the answer. &nbsp;&middot;&nbsp; `r fa('comments', fill='#686868')` Final **debrief**.
+]
+
+???
+* Lab 3 is the integrative lab — it touches DiD, IV, and DML on the same data
+* The "embedded RCTs" framing makes the OJ data live up to its full methodological richness
+* The T_final memo is the deliverable that ties the whole module together: prediction + causal estimate + assumption
+
+
+
+---
+class: inverse, center, middle
+
+## Lab 3
+
+.blockquote[Causal Inference for Sarah's Pricing Decision]
+
+
+
+---
+class: left
+
+.blockquote[Debrief Lab 3]
+
+## What we learned in Lab 3
+
+.pull-left[
+### `r fa('check-double', fill='#7d0a52')` What design buys
+* The same OLS, under three different designs, gives three different causal interpretations
+* Within-transformation removes time-invariant store confounding — but not all endogeneity
+* IV exploits supply-side cost shocks as an exclusion restriction — valid only if the instrument is uncorrelated with demand shocks
+* DML preserves valid inference under flexible nuisance estimation — at the cost of needing larger samples
+]
+
+.pull-right[
+### `r fa('triangle-exclamation', fill='#686868')` Where assumptions live
+* Every causal estimate **rests on at least one untestable assumption** — parallel trends, exclusion, conditional ignorability
+* The role of the analyst is to make the assumption **transparent and challengeable** — not to hide it under the estimate
+* Lab 3 produces *three* estimates for Sarah's Q1. **Convergence across them strengthens the inference; divergence demands explanation.**
+* This is what triangulation looks like in practice.
+]
+
+
+
+
+<!-- ============================================================ -->
+<!--  CLOSING — Synthesis, Outlook, Reading list                   -->
+<!-- ============================================================ -->
+
+---
+class: left
+
+.blockquote[The journey covered]
+
+## The roadmap — revisited
+
+.center[
+<img src="figures/roadmap_milestones_end.svg" style="width:96%;"/>
+]
+
+.small[Six milestones, three concerns, two paths. The session moved from the **stochastic DGP shift** (where Sessions 1–2 left off) through the **inference-vs.-prediction** distinction and the **A/B/C compass + GLM extension**, then split into the **complexity and generalisation** branch (Part 3, Lab 2) and the **causality** branch (Part 4, Lab 3). The two branches are not alternatives — they are *the two questions every business decision asks*, and every quantitative deliverable needs to answer at least implicitly.]
+
+.center[
+<div style="display:inline-block; padding:8px 18px; border:2px solid #502479; border-radius:6px; background:#faf5ff; margin-top:8px;">
+<strong style="color:#502479;">Complexity</strong> — how much model is enough?
+&nbsp;·&nbsp;
+<strong style="color:#D50006;">Generalisation</strong> — will it hold on new data?
+&nbsp;·&nbsp;
+<strong style="color:#7d0a52;">Causality</strong> — will it hold under intervention?
+</div>
+]
+
+???
+* Closing-roadmap slide — visually mirrors the opening roadmap, but all milestones are now in their full thematic colour
+* This is the "we have walked the path together" moment
+* Speaking line: "Three concerns, one chain — and now we have built the toolkit to address each link."
+
+
+
+---
+class: left
+
+## The two demands of modern econometrics
+
+The arc of this session can be summarised in one tension and one resolution.
+
+.pull-left[
+### `r fa('arrows-up-down', fill='#D50006')` The tension
+
+**Prediction** rewards *flexibility* — more parameters, more interactions, more data-driven model choice.
+
+**Inference** rewards *parsimony* — fewer choices made after seeing the data, fewer free parameters, more pre-commitment.
+
+Naïvely, these pull in opposite directions. The Bias-Variance frame from Part 3 makes them *appear* to be the same trade-off — but they live on different axes.
+]
+
+.pull-right[
+### `r fa('compass-drafting', fill='#502479')` The resolution
+
+The frame that holds them together is **design**:
+
+* On Rung 1, more data and more flexibility help — Lab 2's lesson
+* On Rung 2, more *design* helps — Lab 3's lesson
+* The two are not substitutes; they are complements
+* The same dataset can support both — *if* we recognise where the variation came from
+
+`r Citet(bib, "spiess_optimalEstimation_2025")`: pre-commitment is the bridge. *What we hold fixed before seeing the data* defines the credibility of what we estimate after.
+]
+
+???
+* This is the synthesis slide — Part 3 + Part 4 in one frame
+* Speaking line: "The same OLS line can be a forecast or a causal estimate. The difference is the design behind it, not the math in front of it."
+
+
+
+---
+class: left
+
+## Looking ahead — from this Bridge Module to ER017
+
+This session closed the Bridge Module's **first arc**: Gauss-Markov diagnostics → predictive modelling → causal inference. The methodological vocabulary you now command is the **input layer** for ER017 (*Advanced Quantitative Methods*) and the applied research projects that follow.
+
+.pull-left[
+### What ER017 will build on
+* Panel methods at scale — within, between, random-effects, mixed models
+* Modern DiD estimators — staggered adoption, heterogeneous effects (Borusyak, Callaway-Sant'Anna)
+* Instrumental variables in practice — finding instruments, testing exclusion
+* Double Machine Learning at production scale — including high-dimensional confounding
+* Bayesian alternatives to frequentist identification
+]
+
+.pull-right[
+### What you should be able to do now
+* Read a published study and identify *which rung* of the ladder it claims to operate on
+* Spot the difference between an out-of-sample claim and a causal claim
+* Recognise when a control is a *confounder*, a *collider*, or a *mediator*
+* Articulate the identification assumption behind any reported causal estimate
+* Write the executive-level memo (Lab T7 / T_final) — the most professionally valuable skill from this module
+]
+
+???
+* The continuity slide — closes the Bridge Module
+* The right column is also a self-test for students: if these items feel uncomfortable, revisit Sessions 1–3 before ER017
+
+
+
+---
+class: left
+
+## Reading list — curated
+
+These are the references that have actually shaped Sessions 1–3, in order of accessibility.
+
+.pull-left[
+### `r fa('book-open-reader', fill='#D50006')` Start here
+* **`r Citet(bib, "huntington-klein_effect_2025")`** — *The Effect: An Introduction to Research Design and Causality.* The single best gentle introduction. Free online: theeffectbook.net
+* **`r Citet(bib, "taddy_modern_2023")`** — *Modern Business Analytics.* The data-science-first econometrics reference; matches our DGP-first frame
+* `r Citet(bib, "shmueli_2010")` — the foundational explain-vs-predict article
+
+### `r fa('book', fill='#502479')` For depth on causal inference
+* **`r Citet(bib, "cunningham_2021")`** — *Causal Inference: The Mixtape.* DAGs, design-based methods, code in R/Stata. Free online: mixtape.scunning.com
+* `r Citet(bib, "angrist_pischke_2009")` — *Mostly Harmless Econometrics.* The credibility-revolution classic
+]
+
+.pull-right[
+### `r fa('book-bookmark', fill='#7d0a52')` For depth on prediction
+* `r Citet(bib, "taddy_modern_2023")` — modern textbook reference
+* `r Citet(bib, "tibshirani_1996")` (Lasso); `r Citet(bib, "hastie_tibshirani_friedman_2009")` (ESL)
+* `r Citet(bib, "fan_bigdata_2014")` — the big-data regression problems
+
+### `r fa('flask', fill='#D50006')` Frontier
+* `r Citet(bib, "chernozhukov_DoubleML_2018")` — Double Machine Learning
+* `r Citet(bib, "borusyak_etal_2024")` — modern DiD
+* `r Citet(bib, "spiess_optimalEstimation_2025")` — credibility as institutional discipline
+* `r Citet(bib, "mullainathan_MLApplied_2017")` — ML meets econometrics
+* `r Citet(bib, "athey_imbens_2019")` — the ML/econometrics interface
+* `r Citet(bib, "holland_1986")`; `r Citet(bib, "pearl_2009")` — foundations
+]
+
+
+
+
+
+---
+class: inverse, center, middle
+
+# Thank you!
+
+### Questions? → `r fa('comments')` Discussion & Feedback on the Module
+
+
+
+
+
+---
+
+## References 
+
+.ref-slide[
+```{r refs, echo=FALSE, results='asis'}
+PrintBibliography(bib)
+```
+]
+

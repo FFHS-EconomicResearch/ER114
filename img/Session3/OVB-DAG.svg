@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 220" font-family="'Courier New', monospace">
+
+  <!-- ===========================================
+       OVB Confounder DAG
+       deal ─► feat ─► logmove
+       deal ────────► logmove
+       =========================================== -->
+
+  <defs>
+    <!-- Arrow marker — filled triangle, properly sized -->
+    <marker id="arrowhead"
+            viewBox="0 0 10 10"
+            refX="9" refY="5"
+            markerWidth="7" markerHeight="7"
+            orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#686868"/>
+    </marker>
+  </defs>
+
+  <!-- ===========================================
+       ARROWS — drawn first, so node boxes paint over them
+       Endpoints chosen so arrow head lands cleanly on box border
+       =========================================== -->
+
+  <!-- deal (top-left, box-bottom: ~70) → feat (mid, box-top: ~125) -->
+  <line x1="100" y1="72"
+        x2="225" y2="123"
+        stroke="#686868" stroke-width="2"
+        marker-end="url(#arrowhead)"/>
+
+  <!-- deal (top-left, box-right: ~135) → logmove (mid-right, box-left-top: ~362, 145) -->
+  <line x1="135" y1="58"
+        x2="360" y2="143"
+        stroke="#686868" stroke-width="2"
+        marker-end="url(#arrowhead)"/>
+
+  <!-- feat (mid, box-right: ~275) → logmove (mid-right, box-left: ~362) -->
+  <line x1="275" y1="155"
+        x2="360" y2="155"
+        stroke="#686868" stroke-width="2"
+        marker-end="url(#arrowhead)"/>
+
+  <!-- ===========================================
+       NODES — boxes with monospace labels
+       =========================================== -->
+
+  <!-- deal node (top-left) -->
+  <rect x="62" y="32" width="76" height="32" rx="6" ry="6"
+        fill="white" stroke="#2c2c2c" stroke-width="1.2"/>
+  <text x="100" y="53" text-anchor="middle"
+        font-size="15" fill="#2c2c2c">deal</text>
+
+  <!-- feat node (middle) -->
+  <rect x="190" y="130" width="76" height="32" rx="6" ry="6"
+        fill="white" stroke="#2c2c2c" stroke-width="1.2"/>
+  <text x="228" y="151" text-anchor="middle"
+        font-size="15" fill="#2c2c2c">feat</text>
+
+  <!-- logmove node (right) -->
+  <rect x="362" y="130" width="100" height="32" rx="6" ry="6"
+        fill="white" stroke="#2c2c2c" stroke-width="1.2"/>
+  <text x="412" y="151" text-anchor="middle"
+        font-size="15" fill="#2c2c2c">logmove</text>
+
+</svg>

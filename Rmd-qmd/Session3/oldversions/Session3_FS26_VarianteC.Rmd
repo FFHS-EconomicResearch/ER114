@@ -1,0 +1,1162 @@
+---
+title: "Data Science and Strategy for Business"
+subtitle: "ER114 — Session 3"
+author: "Prof. Dr. Jörg Schoder"
+institute: "FFHS"
+date: "`r Sys.Date()`"
+bibliography: ../../../lit/my_bib.bib
+lang: en-US
+reference-section-title: References
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css:
+         - default
+         - ../../../css/ffhs-theme_js.css
+         - xaringan-themer.css
+    includes:
+      after_body: ../../../css/insert-logo.html
+    lib_dir: ../../../libs
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false
+---
+class: title-slide
+
+```{r xaringan-themer, include=FALSE}
+library(xaringanthemer)
+style_xaringan(text_color = "#d50006",inverse_text_color = "#FFFFFF",inverse_background_color = "#d50006", title_slide_background_color = "#d50006",header_background_color = "#d50006",header_color = "#FFFFFF",header_h1_font_size = "32px",
+  header_h2_font_size = "26px",link_color="#502479",
+  header_h3_font_size = "20px",text_slide_number_color = "#d50006",text_slide_number_font_size = "0.5em")
+```
+
+```{r xaringanExtra, echo=FALSE}
+xaringanExtra::use_progress_bar(color = "#d50006", location = "bottom")
+xaringanExtra::use_xaringan_extra(c("tile_view","scribble","panelset","tachyons"))
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+xaringanExtra::use_editable(expires = 1)
+xaringanExtra::use_freezeframe(trigger = "hover")
+```
+
+```{r}
+#| label: setup
+#| include: false
+options(htmltools.dir.version = FALSE)
+library(tidyverse)
+library(kableExtra)
+library(latex2exp)
+library(fontawesome)
+library(patchwork)
+source(xfun::from_root("lit","helper.R"))
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           style = "markdown",
+           dashed = TRUE)
+bib <- ReadBib(xfun::from_root("lit","my_bib.bib"))
+Zitiere <- function(bib, key, ...) {
+  gsub(" and ", " und ", Citet(bib, key, ...))
+}
+```
+
+# ER114 — Data Science and Strategy for Business
+
+## Session 3
+
+### Predict or Intervene? Two Paths Beyond Inference
+
+<br>
+<br>
+<br>
+<br>
+<br>
+### FS 2026
+<br>
+### Prof. Dr. Jörg Schoder
+.mycontacts[
+`r fa('github')` @FFHS-EconomicResearch
+`r fa('linkedin')` @jfschoder
+]
+
+
+---
+layout: true
+
+<div class="my-footer"></div>
+
+<div style="position: absolute;left:400px;bottom:10px;font-size:9px">`r fa('creative-commons')``r rmarkdown::metadata$author`</div>
+
+
+---
+class: left
+
+.blockquote[Programme]
+
+## Today's Programme
+
+<div style="display:grid; grid-template-columns:80px 1fr; gap:0.3em 1em;
+            font-size:0.82em; margin-top:0.5em; align-items:center;">
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('rotate-left')` <strong>Recap</strong> — where Sessions 1 & 2 left us, two open questions</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('layer-group')` <strong>From describing to modelling</strong> — induction & deduction · two dangers · AI Value Creator</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('layer-group')` <strong>BLUE: the common bridge</strong> — A-B-C assumptions (Auer) · bias-variance · why both paths share this foundation</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('layer-group')` <strong>Path A: Predictive Modelling</strong> — multicollinearity · OOS · Lasso · CV</div>
+
+<div style="color:#D50006; font-weight:bold;">40'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 1</strong> — out-of-sample on Dominick's panel</div>
+
+<div style="color:#686868; font-style:italic;">10'</div>
+<div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 2</strong> — Lasso on demographics</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('layer-group')` <strong>Path B: Causal Modelling</strong> — endogeneity · data origin · exogeneity by assumption vs. design · A/B testing</div>
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab 3</strong> — design A/B test for advertising effect</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('flag-checkered')` <strong>Synthesis & Outlook</strong></div>
+
+</div>
+
+
+---
+class: inverse, center, middle
+
+## Recap & Big Picture
+
+.blockquote[Sessions 1 → 2 → **3**]
+
+
+---
+class: left
+
+.blockquote[The story so far]
+
+## Sessions 1 → 2 → **3**
+
+.pull-left[
+### Session 1 — Describe
+- Dominick's Store 51, three brands
+- Tropicana / Minute Maid / Dominick's
+- $n = 336$ observations
+- EDA, multiple regression, interaction terms
+- Findings: brand effect ≈ 0.4, advertising ≈ 0.25 log-units
+- *Population mode, no inference*
+]
+
+.pull-right[
+### Session 2 — Test hypotheses
+- Same data, new question: how reliable?
+- Sample-splitting — and its limits at $n = 336$
+- Replication on Store 50 — robust!
+- Inference machine: bootstrap, t-test = ANOVA = regression
+- *Stochastic mode, with inference*
+]
+
+📌 **Two unanswered questions remain.**
+
+
+---
+class: left
+
+.blockquote[Two open questions]
+
+## Two Questions Session 3 Tackles
+
+.pull-left[
+### Question 1
+*Does our model also work for stores **we have never seen**?*
+
+This is the **generalisation** question.
+It is the question of out-of-sample performance.
+
+→ **Path A: Predictive Modelling.**
+]
+
+.pull-right[
+### Question 2
+*If the advertising effect is 0.25 — what happens **when we actively run advertising tomorrow**?*
+
+This is the **intervention** question.
+It is the question of causal inference.
+
+→ **Path B: Causal Modelling.**
+]
+
+<br>
+<br>
+📌 **The two paths are not in opposition. They are answers to different
+questions.** And they share a common foundation: the BLUE/bias-variance
+framework.
+
+
+---
+class: inverse, center, middle
+
+## Part 1: From Describing to Modelling
+
+.blockquote[Induction & deduction]
+
+.blockquote[The two dangers]
+
+.blockquote[AI User to AI Value Creator]
+
+
+---
+class: left
+
+.blockquote[Epistemological foundation]
+
+## Induction and Deduction in Data Science
+
+To understand the challenges of data science, we split the process into
+two logical steps.
+
+.pull-left[
+### 1. Induction (the "learning")
+* **What happens:** We use thousands of historical data points to derive a
+  general rule.
+* **Data-science term:** *model training / data mining*.
+* **The Dominick's pattern:** *"In the historical data, weeks with
+  advertising have ~25% more sales."*
+]
+
+.pull-right[
+### 2. Deduction (the "application")
+* **What happens:** We apply the induced rule to new individual cases.
+* **Data-science term:** *scoring / prediction*.
+* **The application:** For next week's advertising decision: "we expect
+  +25% more sales".
+]
+
+📌 **Aha-moment:** Data mining (model training) is nothing other than
+machine induction.
+
+
+---
+class: left
+
+.blockquote[The two dangers]
+
+## Failed Generalisation and the Causality Trap
+
+When managers blindly trust algorithmic rules, they fall into one of two traps:
+
+### Danger 1: Failed induction (lack of generalisation)
+* The model has not learned a real rule but memorised random fluctuations
+  of our specific sample (*overfitting*).
+* **Consequence:** Predictions on new data fail.
+* **Solution:** Out-of-sample evaluation (train-test split / cross-validation).
+
+### Danger 2: Blind deduction with interventions (causality trap)
+* Our induced rule (*"advertising → +25% sales"*) is based on
+  *correlation*. There may be a hidden confounder: in our Dominick's
+  data, advertising and price-promotions are perfectly entangled
+  (`feat = 1 ⟹ deal = 1`).
+* **Consequence:** Management runs advertising **without** a price
+  promotion → effect collapses.
+* **Solution:** Causal inference (e.g. A/B test).
+
+
+---
+class: left
+
+.blockquote[The two dangers]
+
+## From AI User to AI Value Creator
+
+.pull-left[
+### The AI User (passive)
+* Consumes analytical results and trusts the algorithmic "black box".
+* **The risk:** Makes deductive decisions based on models that, due to
+  violated foundational assumptions, collapse immediately in reality.
+]
+
+.pull-right[
+### The AI Value Creator (active)
+* Acts as a **"critical validator"** and steers models with strong data
+  governance and exclusive data.
+* **The advantage:** Critically checks the statistical logic to ensure
+  that genuine causality or generalisation is present before budgets are
+  released.
+]
+
+
+---
+class: inverse, center, middle
+
+## Part 2: BLUE — The Common Bridge
+
+.blockquote[A-B-C assumptions (Auer)]
+
+.blockquote[Why BLUE matters for both paths]
+
+.blockquote[The bias-variance decomposition]
+
+
+---
+class: left
+
+.blockquote[A-B-C assumptions (Auer)]
+
+## Model Assumptions in Brief
+
+.panelset[
+.panel[.panel-name[A-Assumptions]
+### A-Assumptions: the model
+
+- **A1 (variable selection)** — No relevant variables missing, no irrelevant ones included
+- **A2 (linearity)** — The true relationship is linear in the parameters
+- **A3 (parameter constancy)** — Parameters are constant across all $N$ observations
+]
+.panel[.panel-name[B-Assumptions]
+### B-Assumptions: the error term
+
+- **B1 (expectation)** — $E(\varepsilon_i) = 0$
+- **B2 (homoscedasticity)** — $\text{Var}(\varepsilon_i) = \sigma^2$
+- **B3 (no autocorrelation)** — $\text{Cov}(\varepsilon_i, \varepsilon_j) = 0$ for $i \neq j$
+- **B4 (normality)** — $\varepsilon_i \sim N$
+]
+
+.panel[.panel-name[C-Assumptions]
+### C-Assumptions: the data
+
+- **C1 (exogeneity)** — $\text{Cov}(X_i, \varepsilon_i) = 0$
+- **C2 (no perfect multicollinearity)** — No regressor is an exact linear combination of others
+
+### ⚡ Why C1 and C2 are decisive for management:
+
+| Violation | Consequence | Strategy |
+|:----------|:----------|:----------|
+| **C2** (multicollinearity) | Overfitting (Danger 1) | **Path A:** regularisation |
+| **C1** (endogeneity) | Biased causal conclusions (Danger 2) | **Path B:** experiment |
+
+*→ A1 violation (missing variable) leads to C1 violation — the "domino effect"!*
+]
+.quellePanURL[cf. `r Citet(bib, "vonAuer_2023")`, p. 167ff
+]
+]
+
+
+---
+class: left
+
+.blockquote[BLUE & bias-variance]
+
+## Why BLUE Matters for Both Paths
+
+.pull-left[
+### What BLUE says
+Under the Gauss-Markov assumptions (A1, A2, A3, B1, B2, B3, C1, C2),
+OLS is the **B**est **L**inear **U**nbiased **E**stimator:
+
+- **B**est = minimum variance
+- among all **L**inear, **U**nbiased **E**stimators
+
+Note the order: *first* unbiased, *then* minimum variance among the unbiased.
+]
+
+.pull-right[
+### Why this matters for both paths
+**Path B (inference):** unbiasedness is what we want. The estimate must
+reflect the true effect. → BLUE is the gold standard.
+
+**Path A (prediction):** unbiasedness is *not* what we need. We want
+low total error — and that may require accepting some bias.
+
+→ Same foundation, **different optimality criterion**.
+]
+
+📌 The same theoretical foundation explains both paths — but with
+opposite priorities.
+
+
+---
+class: left
+
+.blockquote[BLUE & bias-variance]
+
+## Bias-Variance Decomposition: The Key Equation
+
+$$\text{MSE}(\hat{Y}) = \underbrace{\text{Bias}^2(\hat{Y})}_{\text{systematic error}} + \underbrace{\text{Var}(\hat{Y})}_{\text{random error}} + \underbrace{\sigma_{\varepsilon}^2}_{\text{irreducible}}$$
+
+.pull-left[
+### Path A reasoning
+Total error matters. We *trade* bias for variance:
+
+- accept some bias
+- gain much more in variance reduction
+- → lower MSE on **new data**
+
+This is exactly what Lasso and Ridge do.
+]
+
+.pull-right[
+### Path B reasoning
+Bias is the enemy. Variance can be quantified (CIs, bootstraps).
+
+- bias = invalid inference
+- variance = honest uncertainty
+- → BLUE is the gold standard
+- → confounders ≠ noise, they are bias
+]
+
+📌 **Same theory — opposite direction.**
+
+
+---
+class: left
+
+.blockquote[BLUE & bias-variance]
+
+## The Trade-off, Visualised
+
+```{r}
+#| label: bias-var-tradeoff
+#| echo: false
+#| out-width: "55%"
+#| fig-align: "center"
+set.seed(42)
+complexity <- seq(1, 10, by = 0.1)
+bias2 <- 3 * exp(-0.5 * complexity)
+variance <- 0.1 * exp(0.4 * complexity)
+total <- bias2 + variance + 0.3
+
+df <- data.frame(
+  x = rep(complexity, 3),
+  y = c(bias2, variance, total),
+  type = rep(c("Bias²", "Variance", "Total error (MSE)"), each = length(complexity))
+)
+
+ggplot(df, aes(x, y, color = type, linetype = type)) +
+  geom_line(linewidth = 1.2) +
+  geom_vline(xintercept = complexity[which.min(total)], linetype = "dashed", alpha = 0.5) +
+  annotate("text", x = complexity[which.min(total)] + 0.3, y = 3.5,
+           label = "Sweet spot", angle = 90, size = 3.5) +
+  scale_color_manual(values = c("Bias²" = "#E74C3C", "Variance" = "#3498DB",
+                                 "Total error (MSE)" = "#2C3E50")) +
+  labs(x = "Model complexity", y = "Error", color = "", linetype = "") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+📌 The optimum is **not** at zero bias.
+
+
+---
+class: inverse, center, middle
+
+## Part 3: Path A — Predictive Modelling
+
+.blockquote[Multicollinearity]
+
+.blockquote[Out-of-sample evaluation]
+
+.blockquote[Regularisation: Lasso, Ridge, Elastic Net]
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## The Predictive Question
+
+> *"How well does my model predict for **new stores** I have never seen?"*
+
+We expand the data world from one store (Sessions 1+2) to **all 83
+Dominick's stores**. Plus their demographic data.
+
+| Variable | Type |
+|---|---|
+| `log_units`, `log_price`, `feat`, `deal` | weekly observation per store-brand |
+| `EDUC`, `INCOME`, `HVAL150`, `AGE60`, etc. | store-level demographics (12 variables) |
+
+The big-data world: $n \approx 28{,}000$ observations, 12+ demographic
+predictors. **What was a teaching example is now practical scale.**
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## Multicollinearity in the Demographics
+
+```{r}
+#| label: demo-cor
+#| echo: false
+#| out-width: "60%"
+#| fig-align: "center"
+demo_cor <- matrix(c(
+   1.00, -0.31, -0.09, -0.15, -0.33, -0.63, -0.11,
+  -0.31,  1.00, -0.34,  0.66, -0.39,  0.55,  0.89,
+  -0.09, -0.34,  1.00, -0.72,  0.24, -0.28, -0.42,
+  -0.15,  0.66, -0.72,  1.00, -0.08,  0.40,  0.64,
+  -0.33, -0.39,  0.24, -0.08,  1.00, -0.28, -0.47,
+  -0.63,  0.55, -0.28,  0.40, -0.28,  1.00,  0.45,
+  -0.11,  0.89, -0.42,  0.64, -0.47,  0.45,  1.00
+), nrow = 7, byrow = TRUE)
+rownames(demo_cor) <- colnames(demo_cor) <-
+  c("AGE60","EDUC","ETHNIC","INCOME","HHLARGE","WORKWOM","HVAL150")
+
+df_cor <- as.data.frame(as.table(demo_cor))
+names(df_cor) <- c("Var1","Var2","cor")
+
+ggplot(df_cor, aes(Var1, Var2, fill = cor)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", cor)), size = 3) +
+  scale_fill_gradient2(low = "#502479", mid = "white", high = "#D50006",
+                        midpoint = 0, limits = c(-1,1)) +
+  labs(x = "", y = "", fill = "r") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**EDUC ↔ HVAL150** = 0.89 — practically the same dimension.
+**INCOME ↔ ETHNIC** = −0.72 — substantial overlap.
+
+→ The "wealth cluster": EDUC + INCOME + HVAL150 capture the same
+underlying construct.
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## Multicollinearity: What It Does
+
+.pull-left[
+### For inference (Path B-style)
+- $\hat{\beta}$ becomes **unstable**
+- Standard errors blow up
+- Confidence intervals widen
+- Coefficients can switch signs with tiny data changes
+
+→ **Multicollinearity is poison for explanation.**
+
+Diagnose with VIF: $\text{VIF}_j = 1/(1 - R^2_j)$.
+Above 5: warning. Above 10: serious problem.
+]
+
+.pull-right[
+### For prediction (Path A)
+- $\hat{\beta}$ unstable, but...
+- ...$\hat{y}$ stays stable
+- The model still predicts well
+- Multicollinearity is **often tolerable**
+
+→ **For prediction, what matters is total error.**
+]
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## Underfitting vs. Overfitting
+
+```{r}
+#| label: overfitting-demo
+#| echo: false
+#| message: false
+#| fig-height: 4.2
+#| fig-width: 11
+set.seed(42)
+n <- 30
+x <- sort(runif(n, 0, 10))
+y <- sin(x) + rnorm(n, 0, 0.3)
+df_fit <- data.frame(x = x, y = y)
+
+p1 <- ggplot(df_fit, aes(x, y)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", se = FALSE, color = "#3498DB", linewidth = 1.2) +
+  labs(title = "Underfitting (linear)", subtitle = "High bias, low variance") +
+  theme_minimal(base_size = 12)
+
+p2 <- ggplot(df_fit, aes(x, y)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), se = FALSE, color = "#27AE60", linewidth = 1.2) +
+  labs(title = "Good fit (poly. degree 3)", subtitle = "Balance") +
+  theme_minimal(base_size = 12)
+
+p3 <- ggplot(df_fit, aes(x, y)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 20), se = FALSE, color = "#E74C3C", linewidth = 1.2) +
+  labs(title = "Overfitting (poly. degree 20)", subtitle = "Low bias, high variance") +
+  theme_minimal(base_size = 12)
+
+p1 + p2 + p3
+```
+
+`r fa('circle-right')` **The middle one generalises. The right one memorises.**
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## Train-Test Split → K-Fold CV
+
+```{r}
+#| label: cv-figure
+#| echo: false
+#| out-width: "70%"
+#| fig-align: "center"
+knitr::include_graphics(xfun::from_root("img","PVA3","kfold_crossvalidation.svg"))
+```
+
+$$\text{CV-Score} = \frac{1}{K} \sum_{k=1}^{K} \text{MSE}_k$$
+
+| Variant | When? |
+|:---------|:------|
+| K-Fold | Standard ($K = 5$ or $10$) |
+| Stratified | Unbalanced classes |
+| Time-series CV | Time series (no future leakage!) |
+| Nested CV | Model selection + evaluation |
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## Lasso vs. Ridge vs. Elastic Net
+
+.pull-left[
+### Ridge (L2)
+$$\lambda \sum \beta_j^2$$
+- Shrinks all
+- Removes none
+- Best for **multicollinearity** with many small effects
+
+### Lasso (L1)
+$$\lambda \sum |\beta_j|$$
+- Shrinks **and** zeroes
+- Variable selection
+- Best for **sparsity** (few active variables)
+]
+
+.pull-right[
+### Elastic Net
+$$\lambda_1 \sum |\beta_j| + \lambda_2 \sum \beta_j^2$$
+- Combines L1 + L2
+- Selects *and* keeps groups of correlated features
+- Often best in practice
+
+### In R
+```r
+library(glmnet)
+cv_fit <- cv.glmnet(X, y, alpha = 1)  # Lasso
+cv_fit <- cv.glmnet(X, y, alpha = 0)  # Ridge
+cv_fit <- cv.glmnet(X, y, alpha = 0.5) # Elastic Net
+```
+]
+
+
+---
+class: left
+
+.blockquote[Path A]
+
+## The CV Path: Choosing $\lambda$
+
+```{r}
+#| label: lasso-cv-path
+#| echo: false
+#| message: false
+#| fig-height: 4.2
+#| fig-width: 7
+#| fig-align: "center"
+set.seed(42)
+n <- 200; p <- 8
+X <- matrix(rnorm(n*p), n, p)
+colnames(X) <- c("EDUC","INCOME","HVAL150","ETHNIC","AGE60","WORKWOM","HHLARGE","Random")
+y <- 2*X[,1] + 1.5*X[,2] + 0.5*X[,3] - 1*X[,4] + 0.5*X[,5] + rnorm(n)
+
+library(glmnet)
+fit <- glmnet(X, y, alpha = 1)
+beta_df <- as.data.frame(as.matrix(t(coef(fit)[-1,])))
+beta_df$lambda <- fit$lambda
+beta_long <- pivot_longer(beta_df, -lambda, names_to = "Variable", values_to = "Coefficient")
+
+ggplot(beta_long, aes(log10(lambda), Coefficient, color = Variable)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  scale_color_brewer(palette = "Set2") +
+  labs(x = expression(log[10](lambda)), y = "Coefficient",
+       title = "Lasso path: coefficients shrink as λ grows") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "right")
+```
+
+- Each line = one feature
+- As $\lambda$ grows → coefficients shrink → some hit 0
+- **CV picks the $\lambda$** that minimises out-of-sample MSE
+
+
+---
+class: left
+
+.blockquote[Lab 1 — Out-of-sample on Dominick's]
+
+## `r fa('laptop-code', fill='#D50006')` Lab 1
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 1: Out-of-sample on Dominick's full panel
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+<strong>Learning objective:</strong> Experience the gap between in-sample
+and out-of-sample performance on the full 83-store Dominick's panel.
+Apply train-test split and K-fold cross-validation.
+<br>
+<strong>Content:</strong>
+Fit on Store 51 → great $R^2$! → predict for Store 50: realistic.
+Predict for a *random* store: 💥 — out-of-sample reality.
+Then K-fold CV across all 83 stores.
+<br>
+`r fa('clock')` <strong>40 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual or pairs</strong>
+<br>
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session3_Lab1_OutOfSample_OJ.qmd</code>
+</div>
+</div>
+
+
+---
+class: left
+
+.blockquote[Lab 2 — Lasso on demographics]
+
+## `r fa('laptop-code', fill='#D50006')` Lab 2
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 2: Multicollinearity & regularisation
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+<strong>Learning objective:</strong> Diagnose multicollinearity in the
+demographic variables, apply Lasso/Ridge/Elastic Net, choose $\lambda$
+by cross-validation.
+<br>
+<strong>Content:</strong>
+VIF on the 12 demographics → identify the wealth cluster.
+Lasso path: which variables survive? Ridge for stable coefficients.
+Compare on out-of-sample MSE.
+<br>
+`r fa('clock')` <strong>25 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual or pairs</strong>
+<br>
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session3_Lab2_Regularisation_OJ.qmd</code>
+</div>
+</div>
+
+
+---
+class: inverse, center, middle
+
+## Part 4: Path B — Causal Modelling
+
+.blockquote[Endogeneity]
+
+.blockquote[Where do the data come from?]
+
+.blockquote[Exogeneity by assumption vs. by design]
+
+.blockquote[A/B testing]
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## The Intervention Question
+
+> *"If we run advertising **tomorrow** for the Dominick's brand — what
+> happens to sales?"*
+
+This is *not* a prediction question. It is an **intervention** question.
+
+| Prediction | Intervention |
+|---|---|
+| World stays as is | World changes through our action |
+| Past correlations apply | Past correlations may break |
+| Lasso, CV, OOS | Causal inference, RCT |
+
+📌 **Lucas critique** (1976): a model trained on observational data may
+collapse the moment we intervene.
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## Endogeneity: Why OLS Fails
+
+When **C1 (exogeneity)** is violated:
+
+$$\text{Cov}(X_i, \varepsilon_i) \neq 0$$
+
+OLS is **biased and inconsistent**. The coefficient does not reflect
+the causal effect.
+
+Three classic sources:
+1. **Omitted variable bias** (confounding)
+2. **Simultaneity / reverse causality**
+3. **Measurement error in $X$**
+
+📌 In our Dominick's data: the perfect implication
+$$\text{feat} = 1 \;\;\Longrightarrow\;\; \text{deal} = 1$$
+means we **cannot disentangle** the advertising effect from the
+price-promotion effect — using observational data alone.
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## Where Do the Data Come From?
+
+The validity of causal claims depends not primarily on the method,
+but on the **type of data collection**.
+
+| Type of data | Exogeneity? | Method |
+|---|---|---|
+| **Survey** (cross-section, longitudinal) | Plausibility argued, never guaranteed; risks: self-selection, non-response | OLS under MLR.4 — Wooldridge world |
+| **Experiment** (RCT, A/B test) | Exogeneity *created* by randomisation | Comparison of means, regression adjustment |
+| **Natural experiment** (IV, DiD, RDD) | Exogeneity argued via "as-if-random" allocation | IV / DiD / RDD as identification strategies |
+
+📌 **Hernán's central message:** *"Causal inference is just inference
+with the right data."*
+
+The method is the same OLS we know — what differs is the **data
+foundation**.
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## Two Routes to Exogeneity
+
+.pull-left[
+### Route 1 — Exogeneity by assumption
+We **assume** that all relevant confounders are observed and included.
+
+- The Wooldridge MLR.4 condition
+- Rest of the world goes into the error term
+- We **trust** that the error is mean-independent of X
+
+→ Risk: A1 violation (missing variable) → C1 violation → biased.
+
+→ Tool: **regression adjustment** with rich covariates.
+]
+
+.pull-right[
+### Route 2 — Exogeneity by design
+We **engineer** exogeneity through the data collection.
+
+- RCT / A/B test: random assignment guarantees exogeneity
+- IV: instrument exogenous by argument (lottery, weather)
+- DiD: parallel trends replaces exogeneity
+- RDD: discontinuity at threshold replaces exogeneity
+
+→ Tool: **identification strategy** built into the data.
+]
+
+📌 **The two routes share the same regression machinery — what differs
+is the data.**
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## Internal vs. External Validity
+
+.pull-left[
+### Internal validity
+*Have we cleanly isolated causality in **our** study?*
+
+- Did we control for all confounders?
+- Is the design mathematically tight?
+- The enemy: omitted variable bias, selection bias.
+]
+
+.pull-right[
+### External validity
+*Does the result transfer to **the real market**?*
+
+- Is our sample representative?
+- Do test conditions match deployment?
+- The enemy: artificial environments, narrow sampling.
+]
+
+📌 **The Holy Grail: a design that maximises both.**
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## A/B Testing: The Gold Standard
+
+.pull-left[
+### How A/B testing heals C1
+1. Users assigned by **strict randomisation** to A or B
+2. Randomness guarantees treatment is independent of all hidden confounders
+3. **C1 is artificially restored**
+
+### Cohen's d for effect size
+$$d = \frac{\bar{X}_B - \bar{X}_A}{s_{\text{pooled}}}$$
+| d | Interpretation |
+|:--:|:---|
+| 0.2 | small |
+| 0.5 | medium |
+| 0.8 | large |
+]
+
+.pull-right[
+### Schrage's principle
+*"Run experiments not because you can confidently predict outcomes —
+but precisely because you can't."*
+
+Microsoft's Ronny Kohavi: only **⅓** of A/B-tested features improve
+metrics. Even experts get the answer wrong **80%** of the time.
+
+→ **Conviction ≠ evidence.**
+
+📌 **In Lab 3:** Design an A/B test for the Dominick's advertising
+effect.
+]
+
+
+---
+class: left
+
+.blockquote[Path B]
+
+## Quasi-Experiments: When RCTs Are Impossible
+
+Sometimes ethics, law, or technology rule out a clean A/B test. The
+data team then turns to **quasi-experimental designs**:
+
+| Design | Idea | When? |
+|---|---|---|
+| **Instrumental Variables (IV)** | A *random* element shifts X but only affects Y through X | Compliance with random assignments; lottery, distance, weather |
+| **Difference-in-Differences (DiD)** | Compare *trends* of treated and control before/after a policy change | Geographic rollout, regulatory change |
+| **Regression Discontinuity (RDD)** | Compare units just above and just below a hard cutoff | Bonus thresholds, age cutoffs, eligibility scores |
+
+📌 The **Critical Validator** (manager) must recognise *which* quasi-
+experimental tool fits the situation — and demand it.
+
+
+---
+class: left
+
+.blockquote[Lab 3 — Design an A/B test]
+
+## `r fa('laptop-code', fill='#D50006')` Lab 3
+<div style="border:3px solid #D50006; border-radius:8px; padding:20px 28px;
+            background:#fff5f5; margin-top:1em;">
+<div style="font-family:sans-serif; font-size:16px; font-weight:bold;
+            color:#D50006; margin-bottom:10px;">
+`r fa('flask')` Lab 3: Design an A/B test for the advertising effect
+</div>
+<div style="font-size:0.85em; line-height:1.8;">
+<strong>Learning objective:</strong> Experience the limit of observational
+data for causal claims. Design a clean A/B test that breaks the feat ↔
+deal entanglement.
+<br>
+<strong>Content:</strong>
+Why does observational analysis fail here? Sketch the A/B design.
+What is randomised, what is the metric, what sample size? Compute
+Cohen's d under realistic effect sizes.
+<br>
+`r fa('clock')` <strong>25 minutes</strong> &nbsp;·&nbsp;
+`r fa('users')` <strong>Individual or pairs</strong>
+<br>
+`r fa('circle-right')` <strong>Open lab document:</strong>
+<code>Session3_Lab3_Experiment_OJ.qmd</code>
+</div>
+</div>
+
+
+---
+class: inverse, center, middle
+
+## Synthesis & Outlook
+
+
+---
+class: left
+
+.blockquote[Synthesis]
+
+## Two Demands the Translator Should Make
+
+As an *AI Value Creator* you no longer let yourself be dazzled by
+in-sample $R^2$ or bare p-values. **Before budgets are released:**
+
+.pull-left[
+### When you predict...
+*(Path A)*
+- The danger: **overfitting** on training data
+- The diagnosis: high VIF, complex model
+- Your demand: *"Show me out-of-sample performance via cross-validation. Use Lasso."*
+]
+
+.pull-right[
+### When you intervene...
+*(Path B)*
+- The danger: **Lucas critique** — past correlations may break
+- The diagnosis: missing variables, observational data only
+- Your demand: *"Design an A/B test or find a credible quasi-experimental identification."*
+]
+
+
+---
+class: left
+
+.blockquote[Synthesis]
+
+## Six Foundations Bridge — Active in Session 3
+
+| # | Classical tradition | Bridge | Data Science |
+|---|---|---|---|
+| 1 | E[Y\|X] — conditional mean | market benchmark | residual as arbitrage |
+| 2 | sampling distribution | uncertainty | bootstrap, infer |
+| 3 | expected value & error types | ROI calculus | EV framework |
+| 4 | p-value, multiplicity | signal vs. noise | FDR, p-hacking, HARKing |
+| 5 | correlation ≠ causality | intervention | A/B testing, causal ML |
+| **6** | **BLUE, Gauss-Markov, bias-variance** | **complexity control** | **CV, Lasso, regularisation** |
+
+📌 **Foundation 6 is what we have built today.**
+
+
+---
+class: left
+
+.blockquote[Synthesis]
+
+## Block 3: The Red Thread
+
+```{r}
+#| label: red-thread
+#| echo: false
+#| warning: false
+#| fig-height: 4
+#| fig-width: 12
+tibble(
+  x = 1:6,
+  label = c("Descriptive\nregression\n(Session 1)",
+            "Stochastic\nmodel\n(shift)",
+            "Inference vs.\nprediction\n(purpose)",
+            "BLUE bridge\n(common\nfoundation)",
+            "Path A:\nLasso, CV,\nregularisation",
+            "Path B:\nendogeneity,\nA/B testing"),
+  color = c("#95a5a6", "#95a5a6", "#3498db", "#2ecc71", "#e74c3c", "#e74c3c")
+) %>%
+  ggplot(aes(x, y = 0)) +
+  geom_segment(aes(xend = x, yend = 0.5), color = "grey70", linewidth = 2) +
+  geom_point(aes(y = 0.5, color = I(color)), size = 8) +
+  geom_text(aes(y = 0.8, label = label), size = 3.3, lineheight = 0.9) +
+  geom_segment(aes(x = 1, xend = 6, y = 0, yend = 0),
+               arrow = arrow(length = unit(0.3, "cm")), linewidth = 1, color = "#2c3e50") +
+  annotate("text", x = 1, y = -0.15, label = "Sessions 1–2", size = 3, color = "grey50") +
+  annotate("text", x = 3.5, y = -0.15, label = "Session 3: Predict or Intervene?",
+           size = 3.5, fontface = "bold") +
+  coord_cartesian(ylim = c(-0.3, 1.2)) +
+  theme_void(base_size = 14)
+```
+
+
+---
+class: left
+
+.blockquote[Outlook]
+
+## What Comes Next
+
+.pull-left[
+### ER017 — Machine Learning
+- Logit / GLM (the binary case)
+- Random Forests, gradient boosting
+- Causal ML (Causal Forests, double ML)
+- Multilevel / hierarchical models
+]
+
+.pull-right[
+### Time-series methods
+- Autocorrelation in panel data
+- ARIMA, exponential smoothing
+- Forecasting metrics
+- Block-bootstrap, time-series CV
+
+### Beyond
+- Causal discovery (DAG inference)
+- Reinforcement learning
+- Bayesian methods
+]
+
+→ Many doors open. The ER114 toolkit is the **foundation**.
+
+
+---
+class: left
+
+.blockquote[Closing]
+
+## The Translator's Role
+
+Two sessions taught us to **describe** and **infer**.
+
+This third session taught us **two paths beyond inference**:
+
+- **predict** under stable structure
+- **intervene** by changing the data foundation
+
+> *"An interpretable model translates raw data into information that is
+> directly relevant to decision-making."* — Matt Taddy
+
+> *"Causal inference is just inference with the right data."* — Miguel Hernán
+
+📌 **The value creation of the future does not arise from blindly
+applying algorithms. It arises from translators who critically validate
+models and steer them strategically.**
+
+
+---
+class: inverse, center, middle
+
+# Thank you!
+
+### Questions? → `r fa('comments')` Discussion & feedback

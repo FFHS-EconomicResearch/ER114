@@ -1,0 +1,956 @@
+---
+title: "Data Science and Strategy for Business"
+subtitle: "Complexity, Generalization & Causality: Predict or Intervene?"
+author: "Prof. Dr. Jörg Schoder"
+institute: "FFHS"
+date: "`r Sys.Date()`"
+bibliography: ../../lit/my_bib.bib
+lang: en-US
+reference-section-title: References
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css:
+         - default
+         - ../../css/ffhs-theme_js.css
+         - xaringan-themer.css
+    includes:
+      after_body: ../../css/insert-logo.html
+    lib_dir: ../../libs
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false
+
+    
+
+      
+
+---
+
+class: title-slide
+
+```{r xaringan-themer, include=FALSE}
+library(xaringanthemer)
+style_xaringan(text_color = "#d50006",
+               inverse_text_color = "#FFFFFF",
+               inverse_background_color = "#d50006",
+               title_slide_background_color = "#d50006",
+               header_background_color = "#d50006",
+               header_color = "#FFFFFF",
+               header_h1_font_size = "32px",
+               header_h2_font_size = "26px",
+               link_color = "#502479",
+               header_h3_font_size = "20px",
+               text_slide_number_color = "#d50006",
+               text_slide_number_font_size = "0.5em")
+```
+
+```{r xaringanExtra, echo=FALSE}
+xaringanExtra::use_progress_bar(color = "#d50006", location = "bottom")
+xaringanExtra::use_xaringan_extra(c("tile_view","scribble","panelset","tachyons"))
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+xaringanExtra::use_editable(expires = 1)
+xaringanExtra::use_freezeframe(trigger = "hover")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi = 150)
+options(htmltools.dir.version = FALSE)
+library(latex2exp)
+library(fontawesome)
+library(tidyverse)
+library(kableExtra)
+library(gt)
+source(xfun::from_root("lit","helper.R"))
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           style = "markdown",
+           dashed = TRUE)
+bib <- ReadBib(xfun::from_root("lit","my_bib.bib"))
+Zitiere <- function(bib, key, ...) {
+  gsub(" and ", " and ", Citet(bib, key, ...))
+}
+
+# colour palette (consistent with labs)
+col_primary   <- "#D50006"   # red — Path E1 / OLS / current
+col_secondary <- "#502479"   # purple — Path P / Lasso / Lab 2
+col_tertiary  <- "#7d0a52"   # dark accent — Path E2 / Causal / Lab 3
+col_neutral   <- "#686868"
+```
+
+
+# ER114 — Data Science and Strategy for Business
+
+## Session 3
+
+### Complexity, Generalization & Causality
+
+### *Predict or Intervene? Two Paths Beyond Inference*
+
+<br>
+<br>
+<br>
+<br>
+<br>
+### FS 2026
+<br>
+### Prof. Dr. Jörg Schoder
+.mycontacts[
+`r fa('github')` @FFHS-EconomicResearch
+`r fa('linkedin')` @jfschoder
+]
+
+
+---
+layout: true
+
+<div class="my-footer"></div>
+
+<div style="position: absolute;left:400px;bottom:10px;font-size:9px">`r fa('creative-commons')``r rmarkdown::metadata$author`</div>
+
+
+
+
+---
+class: left
+
+.blockquote[Agenda]
+
+## Session 3 Overview
+
+<div style="display:grid; grid-template-columns:80px 1fr; gap:0.3em 1em;
+            font-size:0.82em; margin-top:0.5em; align-items:center;">
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('rotate-left')` <strong>Welcome &amp; Recap</strong> — where Sessions 1+2 left us</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('lightbulb')` <strong>Prediction vs. Explanation</strong> — the central dilemma of Block&nbsp;3</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('chart-line')` <strong>The In-Sample Illusion</strong> — why high R² alone is dangerous</div>
+
+<div style="color:#D50006; font-weight:bold;">45'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;1</strong> — Reality Check via Out-of-Sample Validation</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('triangle-exclamation')` <strong>When OLS Fails</strong> — the BLUE bridge, bias–variance, Lasso preview</div>
+
+<div style="color:#686868; font-style:italic;">10'</div>
+<div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;2</strong> — Multicollinearity &amp; Regularization</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('compass')` <strong>Causal-Inference Primer</strong> — beyond correlation: A/B&nbsp;tests, quasi-experiments, IV, DML</div>
+
+<div style="color:#D50006; font-weight:bold;">30'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;3</strong> — Design your Experiment (Innovator's Hypothesis)</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('forward')` <strong>Outlook ER017</strong> — Machine Learning &amp; Causal+ML</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('flag-checkered')` <strong>Debrief &amp; Evaluation</strong></div>
+
+</div>
+
+???
+* Red blocks = labs (Lab 1 is longer because it covers the OLS diagnostic foundation)
+* Three connecting threads: DGP-paths E1/E2/P, Spiess credibility argument, Sarah Chen narrative
+* Total ≈ 195 min including break
+
+
+---
+class: inverse, center, middle
+
+## Recap
+
+### Where did Sessions 1 + 2 leave us?
+
+
+---
+class: left
+
+.blockquote[Recap]
+
+## Sessions 1 → 2 → **3**
+
+.pull-left[
+### Session 1 — *Sees &amp; Describes*
+
+`r fa('eye')` Descriptive regression as **conditional mean**:
+$$\hat{y} = \mathbb{E}[y\,|\,\mathbf{x}]$$
+
+`r fa('eye')` CRISP-DM as project skeleton
+
+`r fa('eye')` Tidyverse pipeline + EDA
+
+`r fa('eye')` First contact with **OVB** — missing variables bias all coefficients
+
+<br>
+
+### Session 2 — *Tests Hypotheses*
+
+`r fa('dice')` Population vs. sample · **stochastic** regression
+
+`r fa('dice')` Bootstrap &amp; permutation — *"only one test"*
+
+`r fa('dice')` Type I/II errors as economic risks (EV-Framework)
+
+`r fa('dice')` p-Hacking, FDR, BH
+
+]
+
+.pull-right[
+### Session 3 — *Today*
+
+`r fa('circle-question')` **Inference vs. Prediction** — when is which the right purpose?
+
+`r fa('circle-question')` **Multicollinearity** &amp; the BLUE limits
+
+`r fa('circle-question')` **Bias-variance trade-off** &amp; regularization
+
+`r fa('circle-question')` **Cross-validation** as the out-of-sample yardstick
+
+`r fa('circle-question')` **Causal engineering** — when correlation is not enough
+
+<br>
+
+.blockquote[
+"The Block&nbsp;3 question is no longer *what do we see?* &mdash; it is *what should we believe and what should we act on?*"
+]
+]
+
+???
+* The recap stresses that Sessions 1 and 2 stayed on the **same dataset** with the **same model** — only the lens changed
+* Today we change the lens twice more: out-of-sample (Lab 1+2) and counterfactual (Lab 3)
+
+
+---
+class: left
+
+.blockquote[Recap]
+
+## Two Questions Session 3 Tackles
+
+.pull-left[
+### Question 1
+`r fa('chart-line', fill='#502479')` *"Will the pattern I see in the past generalize to new data?"*
+
+This is the **prediction question**. The data don't have to be experimental — they just have to be representative of what we will see tomorrow.
+
+**Tools:** train/test split, cross-validation, regularization.
+
+**Lab focus:** Lab&nbsp;2.
+
+**Path label:** Path&nbsp;**P** (`r Citet(bib, "breiman_2001")`).
+]
+
+.pull-right[
+### Question 2
+`r fa('flask', fill='#7d0a52')` *"If I intervene — change a price, run a campaign — what changes?"*
+
+This is the **causal question**. Pattern in past data is **not enough**; we need a justification for the counterfactual.
+
+**Tools:** RCT, DiD, IV, RDD, DML.
+
+**Lab focus:** Lab&nbsp;3.
+
+**Path label:** Path&nbsp;**E2** (`r Citet(bib, "shmueli_2010")`).
+]
+
+<br>
+
+.center[
+.blockquote[
+Lab&nbsp;1 ends Session&nbsp;2's classical inference path (Path **E1**) by stress-testing it under the A/B/C assumptions — and shows where it breaks.
+]
+]
+
+???
+* Notice we are still inside the same business problem (Dominick's Finer Foods, Sarah Chen)
+* The two questions correspond to two different paths through the same data
+* Spelling out the path labels here so we can use them throughout the deck and in the labs without confusion
+
+
+---
+class: left
+
+.blockquote[Narrative anchor]
+
+## `r fa('envelope', fill='#D50006')` Memo from Sarah Chen — third instalment
+
+.pull-left[
+**To:** Translator Team
+**From:** Sarah Chen, VP Marketing &mdash; Dominick's Finer Foods
+**Re:** Two strategic decisions, one quarter, no margin for error
+
+<br>
+
+> *We have **two distinct questions** to settle this quarter:*
+>
+> 1. *Does **feature advertising** really cause incremental sales — or are we just confirming what we already do when we promote?*
+>
+> 2. *I need an **inventory-planning tool** that forecasts weekly sales for any store-brand combination.*
+>
+> *I need answers that **survive an audit** by my CEO. No statistical theatre.*
+]
+
+.pull-right[
+### How today maps to Sarah's two questions
+
+<div style="display:grid; grid-template-columns:140px 1fr; gap:0.4em 0.8em;
+            font-size:0.85em; margin-top:0.5em;">
+
+<div style="color:#D50006; font-weight:bold;">Lab&nbsp;1 → Memo&nbsp;T4</div>
+<div>Diagnose whether classical OLS can answer Q1 at all. Spoiler: not directly — an A/B test is needed.</div>
+
+<div style="color:#502479; font-weight:bold;">Lab&nbsp;2 → Memo&nbsp;T7</div>
+<div>Build the inventory-planning tool. Multicollinearity in demographics; Lasso for out-of-sample MSE.</div>
+
+<div style="color:#7d0a52; font-weight:bold;">Lab&nbsp;3 → Memo T<sub>final</sub></div>
+<div>Design the A/B test that answers Q1 credibly. Bridge to DiD, IV, DML for cases when RCT is impossible.</div>
+
+</div>
+
+<br>
+
+.blockquote[
+The three memos turn methodological choices into managerial artefacts — *that* is the Translator role.
+]
+]
+
+???
+* The Sarah Chen memos appear in all three lab .qmd files (T4 = Lab 1, T7 = Lab 2, T_final = Lab 3)
+* Today's slides reference these memos at three points to anchor the labs
+* Audience: VP Marketing — not a statistician. Memos must be defensible to a CEO.
+
+
+---
+class: inverse, center, middle
+
+## Part 1
+
+### Prediction vs. Explanation — *the central dilemma*
+
+
+---
+class: left
+
+.blockquote[Part 1 · Three Paths]
+
+## Three Paths from the DGP
+
+.pull-left[
+Every dataset is **one realization** of an unobservable **data-generating process** (DGP).
+
+Three fundamentally different questions can be asked of the DGP:
+
+**Path E1 — Classical Inference**
+> "What is the stable conditional partial effect, *given* the model?"
+> *Identification: by assumption.*
+
+**Path E2 — Causal Inference**
+> "What would change if I intervened?"
+> *Identification: by research design.*
+
+**Path P — Prediction**
+> "How well do I generalize to new data?"
+> *Identification: out-of-sample performance.*
+]
+
+.pull-right[
+```{r dgp-paths-slide, echo=FALSE, fig.align='center', out.width="100%"}
+knitr::include_graphics(xfun::from_root("img","Session3","DGP-Paths_gemini.svg"))
+```
+
+<br>
+
+.small[
+Same data — three legitimate analytical purposes.
+The path choice **drives**: estimator, assumption set, evaluation criterion.
+]
+]
+
+.center[
+.blockquote[
+.small[
+`r Citet(bib, "shmueli_2010")` · `r Citet(bib, "breiman_2001")` · `r Citet(bib, "mullainathan_MLApplied_2017")`
+]
+]
+]
+
+???
+* This is THE conceptual scaffold of Session 3 — and of Lab 1 (where the SVG is reused)
+* Throughout today we will sometimes use "Path A / Path B" (Predict / Intervene) as shorthand —
+  but in the labs and in published statistics it's E1/E2/P. Both vocabularies map 1:1.
+* The SVG itself is the same file students see in Lab 1 — repetition reinforces recognition
+
+
+---
+class: left
+
+.blockquote[Part 1 · Purpose drives method]
+
+## Inference vs. Prediction — what counts?
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.2em;">
+  <div class="vs2-hdr" style="background:#502479;">`r fa('magnifying-glass', fill='white')` &nbsp;Inference (Paths E1, E2)</div>
+  <div class="vs2-hdr" style="background:#D50006;">`r fa('wand-magic-sparkles', fill='white')` &nbsp;Prediction (Path P)</div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('bullseye', fill='#777')` &nbsp;Object of interest</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong>Parameter</strong> $\beta_j$ — what does the coefficient *mean*?<br>
+    <span style="color:#666;">Stable structural relation, partial effect.</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong>Prediction</strong> $\hat{y}$ — how close to the truth on **new** data?<br>
+    <span style="color:#666;">Coefficient values are means to an end.</span>
+  </div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('shield-halved', fill='#777')` &nbsp;Validation criterion</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong>Unbiasedness · CI · p-value</strong><br>
+    <span style="color:#666;">Did we capture the truth in expectation?</span>
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong>Out-of-sample MSE / R²</strong><br>
+    <span style="color:#666;">Does it generalize to data it has not seen?</span>
+  </div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('triangle-exclamation', fill='#777')` &nbsp;Main risk</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    <strong>Omitted-variable bias</strong>, model misspecification
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    <strong>Overfitting</strong>, regularization bias
+  </div>
+</div>
+
+<div class="vs2-row">
+  <div class="vs2-dim">`r fa('user-tie', fill='#777')` &nbsp;Managerial use</div>
+  <div class="vs2-cell" style="background:#f5f0fa; border:1px solid #d0b8e8;">
+    Decide *whether* to act (price up?, campaign yes/no?)
+  </div>
+  <div class="vs2-cell" style="background:#fff0f0; border:1px solid #f0b8b8;">
+    Decide *how much* to stock, route, target — at scale, automatically
+  </div>
+</div>
+
+???
+* Both columns sit on top of the same regression machinery — what differs is the **purpose** and therefore the **diagnostic**
+* The two are not enemies: many real projects need both, in sequence
+* Highlight Path E2 missing here on purpose — it adds **counterfactual identification** as a third evaluation axis (next slides)
+
+
+---
+class: left
+
+.blockquote[Part 1 · Logic of Data Science]
+
+## Induction and Deduction in Data Science
+
+.pull-left[
+### 1. Induction — *the learning step*
+
+`r fa('arrow-up-from-ground-water', fill='#502479')` From **specific observations** → toward a **general model**
+
+`r fa('arrow-up-from-ground-water', fill='#502479')` Estimating coefficients, fitting trees, training neural nets
+
+`r fa('arrow-up-from-ground-water', fill='#502479')` Risk: the pattern was a **sample idiosyncrasy** — it does not generalize
+
+> *Inductive failure = the model fits the training data but is useless out-of-sample.*
+
+**Path P** lives or dies on the success of induction — measured by **out-of-sample performance**.
+]
+
+.pull-right[
+### 2. Deduction — *the application step*
+
+`r fa('arrow-down', fill='#D50006')` From **general model** → toward a **specific new case**
+
+`r fa('arrow-down', fill='#D50006')` Predicting $\hat{y}$ for an unseen $\mathbf{x}$, choosing an action
+
+`r fa('arrow-down', fill='#D50006')` Risk: the model is correct **descriptively** but breaks when the world is **changed** by the action
+
+> *Deductive failure = applying a predictive model to an intervention scenario.*
+
+**Path E2** is the systematic answer: identify causal effects *before* deducing actions.
+]
+
+<br>
+
+.center[
+.blockquote[
+.small[
+Two failure modes — two different remedies. Lab&nbsp;2 fights inductive failure (regularization &amp; CV). Lab&nbsp;3 fights deductive failure (research design).
+]
+]
+]
+
+???
+* This slide is borrowed from PVA3 (German original) — translated and re-anchored to the E1/E2/P scheme
+* Many students conflate the two failure modes; teaching them as **distinct** is the lesson
+* Box & Hunter, Field 2012, Schmueli 2010 all make this distinction explicitly
+
+
+---
+class: left
+
+.blockquote[Part 1 · Two failure modes]
+
+## Failed Generalization and the Causality Trap
+
+.pull-left[
+### Danger 1 — Failed induction
+*The model overfits.*
+
+A polynomial of degree 15 fits the training data perfectly. Tested on next month's data, it fails catastrophically.
+
+**Symptoms:**
+- High in-sample $R^2$, low out-of-sample $R^2$
+- Coefficients are unstable across resamples
+- VIF explodes when predictors correlate
+
+**Remedy:** train/test split → cross-validation → regularization (Lab&nbsp;2).
+]
+
+.pull-right[
+### Danger 2 — Blind deduction
+*The model is used for an intervention it was not built for.*
+
+We see: *"stores with higher feature ads have higher sales"*.
+We conclude: *"more feature ads cause more sales"*.
+
+But feature ads at Dominick's are **always bundled with a price promotion** — the correlation reflects an operational rule, not a causal mechanism. → see Lab&nbsp;1 OVB diagram
+
+**Symptoms:**
+- A1 violation (omitted variable)
+- C1 violation (exogeneity)
+- Lucas (1976): *the policy itself changes the relationship*
+
+**Remedy:** identification by design — RCT, DiD, IV (Lab&nbsp;3).
+]
+
+<br>
+
+.center[
+.small[Both failures are invisible at the regression-table level. They only surface under the right diagnostic — that's why Block&nbsp;3 spends time on diagnostics.]
+]
+
+???
+* The "Lucas trap" gets a one-line treatment here because it returns in Part 4 under Endogeneity
+* The OVB story from Lab 1 (feat ⊥/⊥ deal) is the empirical anchor — students recognize it
+* "Both failures are invisible at the regression-table level" — that's why we teach diagnostics, not regressions
+
+
+---
+class: left
+
+.blockquote[Part 1 · Translator role]
+
+## From AI User to AI Value Creator
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55em; margin-top:0.4em;">
+
+<div style="background:#f5f5f5; padding:0.8em; border-left:5px solid #686868;">
+<h3 style="margin-top:0;"><span style="color:#686868;">`r fa('user')` AI User</span> &mdash; *passive*</h3>
+
+`r fa('circle-dot', fill='#686868')` Takes algorithms off the shelf
+
+`r fa('circle-dot', fill='#686868')` Trusts default outputs
+
+`r fa('circle-dot', fill='#686868')` Reports $R^2$, p-value, confusion matrix
+
+`r fa('circle-dot', fill='#686868')` Cannot answer: *"how do I know this is the right tool for this question?"*
+
+<br>
+
+.small[Commodity skill set — replaceable.]
+</div>
+
+<div style="background:#fff0f0; padding:0.8em; border-left:5px solid #D50006;">
+<h3 style="margin-top:0;"><span style="color:#D50006;">`r fa('user-gear')` AI Value Creator</span> &mdash; *active*</h3>
+
+`r fa('circle-check', fill='#D50006')` Asks: *what is the question — prediction or intervention?*
+
+`r fa('circle-check', fill='#D50006')` Chooses the **path** (E1, E2, P) — and the associated estimator
+
+`r fa('circle-check', fill='#D50006')` Validates diagnostics, not just point estimates
+
+`r fa('circle-check', fill='#D50006')` Translates the result into a decision Sarah can defend
+
+<br>
+
+.small[Translator skill set — the strategic edge.]
+</div>
+
+</div>
+
+<br>
+
+.center[
+.blockquote[
+*The translator role is the through-line of ER114. In Session 1 we drew the line between AI User and AI Value Creator; in Block 3 we operationalize it: every method choice in today's labs is a Value-Creator decision.*
+.tr[`r Citet(bib, "thomasAIValueCreators2025")`]
+]
+]
+
+???
+* This slide closes a loop opened in Session 1 — same vocabulary, now applied to Block 3 methodology
+* The four Value-Creator checkpoints map to Memo T4/T7/T_final structure in the labs
+* Audience cue: many students arrive expecting "the right tool" — instead today's lesson is "the right path"
+
+
+---
+class: left
+
+.blockquote[Part 1 · Foundations]
+
+## Model Assumptions — the A/B/C compass
+
+.pull-left[
+### A — *Specification*
+- **A1** No relevant variable omitted, no irrelevant variable included
+- **A2** Linear in parameters
+- **A3** Parameters constant across observations
+
+<br>
+
+### B — *Error term*
+- **B1** $\mathbb{E}[\varepsilon] = 0$
+- **B2** Homoscedasticity — $\text{Var}(\varepsilon) = \sigma^2$
+- **B3** No autocorrelation
+- **B4** Normality *(needed only for finite-sample inference)*
+]
+
+.pull-right[
+### C — *Variables*
+- **C1** Exogeneity: $\text{Cov}(X, \varepsilon) = 0$
+- **C2** No perfect multicollinearity
+
+<br>
+<br>
+
+.blockquote[
+**Block&nbsp;3 zooms in on C1 and C2:**
+
+`r fa('arrow-right', fill='#502479')` **C2 (multicollinearity)** → bias-variance, Lasso, regularization → *Lab&nbsp;2*
+
+`r fa('arrow-right', fill='#7d0a52')` **C1 (exogeneity)** → endogeneity, OVB, causal design → *Lab&nbsp;3*
+]
+
+<br>
+
+`r fa('book-open', fill='#502479')` Full A/B/C diagnostics: Lab&nbsp;1 Step&nbsp;2 and following.
+]
+
+<br>
+
+.center[
+.small[`r Citet(bib, "vonAuer_2023")` for the European econometrics tradition · `r Citet(bib, "fan_bigdata_2014")` for the big-data extension.]
+]
+
+???
+* Two-thirds of this slide is review from Lab 1 — but worth showing here because the rest of the deck is structured around C1 (causal) vs C2 (prediction)
+* "needed only for finite-sample inference" — B4 is decoupled here; Block 3 sample sizes (~28k obs) live in the large-n regime
+* von Auer 2023 is the German-language econometrics textbook that the labs reference
+
+
+---
+class: left
+
+.blockquote[Part 1 · Bridge to Lab 1]
+
+## Sneak Peek: what Lab&nbsp;1 actually does
+
+.pull-left[
+Lab&nbsp;1 is **Path E1 + the gateway to E2**:
+
+`r fa('magnifying-glass', fill='#502479')` **Question 1** &mdash; the advertising effect
+
+- Fit baseline OLS on Store 114 (n ≈ 351)
+- A/B/C diagnostics: autoplot, ACF, Durbin-Watson, VIF, scatter-vs-fit
+- Robust SE (HC3 / Newey-West) where needed
+- Discover OVB: `feat` and `deal` are **perfectly collinear** across all 83 stores
+- Translator Memo T4: *"the historical data cannot answer this — we need an A/B test"*
+
+`r fa('forward', fill='#7d0a52')` **Result:** Path E1 confirms its own limits → motivates Lab&nbsp;3.
+]
+
+.pull-right[
+### Lab 1 timeline (45 min)
+
+<div style="display:grid; grid-template-columns:50px 1fr; gap:0.3em 0.7em; font-size:0.83em;">
+
+<div style="color:#D50006;">Step 0</div>
+<div>Memo, navigation, three paths from the DGP</div>
+
+<div style="color:#D50006;">Step 1a</div>
+<div>Baseline model, log-log elasticity reading</div>
+
+<div style="color:#D50006;">Step 1b</div>
+<div>A/B/C diagnostics — autoplot, ACF, DW, VIF</div>
+
+<div style="color:#D50006;">Step 1c</div>
+<div>OVB analysis: feat × deal across 83 stores</div>
+
+<div style="color:#D50006;">T4</div>
+<div>Translator memo no. 1</div>
+
+</div>
+
+<br>
+
+.blockquote[
+.small[
+The Lab 1 finale is the empirical motivation for Lab 3: OLS on historical data **cannot** answer "what would happen under intervention" — even when fit perfectly.
+]
+]
+]
+
+???
+* This slide is the orientation map for students about to enter Lab 1
+* The two columns reflect the .qmd structure exactly — students should see this map again as the lab's TOC
+* Memo T4 is the bridge artefact between Lab 1 and Lab 3
+
+
+---
+class: inverse, center, middle
+
+## Part 2
+
+### The In-Sample Illusion
+
+
+---
+class: left
+
+.blockquote[Part 2 · The trap]
+
+## High In-Sample R² Lies — a quick demonstration
+
+.pull-left[
+We simulate $n=30$ observations from the true DGP
+$$y_i = 2 + 1.3 \cdot x_i + \varepsilon_i, \quad \varepsilon_i \sim \mathcal{N}(0, 1)$$
+
+and fit polynomial regressions of degree 1, 5, and 15 on the **same training data**.
+
+We then evaluate each model on a **fresh test set** drawn from the same DGP.
+
+What do you expect to see?
+
+`r fa('arrow-right', fill='#686868')` In-sample $R^2$ ↗ with degree (always)
+
+`r fa('arrow-right', fill='#686868')` Out-of-sample $R^2$ — peaks somewhere, then collapses
+
+The collapse is the **overfitting penalty**.
+]
+
+.pull-right[
+```{r in-sample-demo, echo=FALSE, fig.width=5.5, fig.height=5, fig.align='center', out.width="100%"}
+set.seed(20260522)
+n_train <- 30
+n_test  <- 100
+
+# true DGP
+gen <- function(n) {
+  x <- runif(n, -2, 2)
+  y <- 2 + 1.3 * x + rnorm(n, sd = 1)
+  tibble(x = x, y = y)
+}
+
+tbl_train <- gen(n_train)
+tbl_test  <- gen(n_test)
+
+x_grid <- tibble(x = seq(-2, 2, length.out = 200))
+
+fit_poly <- function(deg) {
+  mod <- lm(y ~ poly(x, degree = deg, raw = TRUE), data = tbl_train)
+  x_grid %>%
+    mutate(degree = deg,
+           yhat   = predict(mod, newdata = x_grid))
+}
+
+preds <- map_dfr(c(1, 5, 15), fit_poly) %>%
+  mutate(degree = factor(degree,
+                         labels = c("degree 1 (good)",
+                                    "degree 5 (sweet spot?)",
+                                    "degree 15 (overfit)")))
+
+ggplot() +
+  geom_point(data = tbl_train, aes(x, y),
+             color = "#686868", alpha = 0.75, size = 1.8) +
+  geom_line(data = preds, aes(x, yhat, color = degree),
+            linewidth = 1.05) +
+  scale_color_manual(values = c(col_secondary, col_primary, col_tertiary)) +
+  facet_wrap(~ degree, nrow = 3) +
+  labs(x = NULL, y = NULL,
+       title = "Same data, three model complexities",
+       subtitle = "Grey points = training data") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "#686868", size = 9))
+```
+]
+
+???
+* The left column primes the expectation; the right column shows the visual.
+* This is the classic Schmueli/Taddy/James-et-al overfitting demo — keep it light, no formulas on this slide.
+* The degree-15 curve will *visibly* swing wildly near the edges; that's the teaching moment.
+
+
+---
+class: left
+
+.blockquote[Part 2 · The numbers]
+
+## In-Sample vs. Out-of-Sample R² — the gap
+
+```{r in-sample-r2, echo=FALSE, fig.width=8, fig.height=4, fig.align='center', out.width="80%"}
+# reuse training data + same DGP for fresh test sets
+set.seed(20260522)
+n_train <- 30
+n_test  <- 1000
+
+gen <- function(n) {
+  x <- runif(n, -2, 2)
+  y <- 2 + 1.3 * x + rnorm(n, sd = 1)
+  tibble(x = x, y = y)
+}
+
+tbl_train <- gen(n_train)
+tbl_test  <- gen(n_test)
+
+r2_fun <- function(y, yhat) {
+  ss_res <- sum((y - yhat)^2)
+  ss_tot <- sum((y - mean(y))^2)
+  1 - ss_res / ss_tot
+}
+
+r2_tbl <- map_dfr(1:15, function(deg) {
+  mod   <- lm(y ~ poly(x, degree = deg, raw = TRUE), data = tbl_train)
+  yhat_in  <- predict(mod, newdata = tbl_train)
+  yhat_out <- predict(mod, newdata = tbl_test)
+  tibble(degree   = deg,
+         r2_in    = r2_fun(tbl_train$y, yhat_in),
+         r2_out   = r2_fun(tbl_test$y,  yhat_out))
+}) %>%
+  pivot_longer(starts_with("r2"), names_to = "set", values_to = "r2") %>%
+  mutate(set = recode(set,
+                      r2_in  = "In-sample (training)",
+                      r2_out = "Out-of-sample (test)"))
+
+ggplot(r2_tbl, aes(degree, r2, color = set)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.2) +
+  scale_color_manual(values = c("In-sample (training)"     = col_primary,
+                                "Out-of-sample (test)"     = col_secondary)) +
+  scale_x_continuous(breaks = c(1, 3, 5, 7, 9, 11, 13, 15)) +
+  scale_y_continuous(limits = c(NA, 1.02)) +
+  labs(x = "Polynomial degree (model complexity)",
+       y = expression(R^2),
+       color = NULL,
+       title = "In-sample R² keeps climbing — out-of-sample R² collapses",
+       subtitle = "Same DGP as left slide; n_train = 30, n_test = 1,000") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.subtitle = element_text(color = "#686868", size = 10))
+```
+
+<br>
+
+.pull-left[
+### The trap
+
+`r fa('triangle-exclamation', fill='#D50006')` In-sample $R^2$ can be pushed arbitrarily close to 1 by adding complexity.
+
+`r fa('triangle-exclamation', fill='#D50006')` But the model has memorized noise, not signal.
+
+`r fa('triangle-exclamation', fill='#D50006')` The right metric is **out-of-sample**.
+]
+
+.pull-right[
+### The remedies (preview)
+
+`r fa('shield-halved', fill='#502479')` **Train/test split** — naive baseline
+
+`r fa('shield-halved', fill='#502479')` **K-fold CV** — gold standard for choosing complexity
+
+`r fa('shield-halved', fill='#502479')` **Lasso** — embed complexity control in the loss function
+]
+
+???
+* Sweet spot here is degree 1-2 — the true DGP IS linear. Higher degrees only fit noise.
+* If you have time, run the demo live with set.seed(...) variation — the in-sample curve is monotone, the OOS curve always crashes
+* This visual is the conceptual entry point to Lab 1 (train/test) and Lab 2 (CV + Lasso)
+
+
+---
+class: left
+
+.blockquote[Part 2 · Bridge to Lab 1]
+
+## What to take into Lab 1
+
+.pull-left[
+### Going in
+You will:
+
+`r fa('arrow-right', fill='#D50006')` Fit a baseline OLS on Store 114 (Lab&nbsp;1 Step&nbsp;1a)
+
+`r fa('arrow-right', fill='#D50006')` Read the regression table — coefficient, $R^2$, F-statistic
+
+`r fa('arrow-right', fill='#D50006')` **Resist** the urge to declare victory based on $R^2$ alone (cf. Part&nbsp;2 demo)
+
+`r fa('arrow-right', fill='#D50006')` Move on to **A/B/C diagnostics** before any managerial conclusion
+]
+
+.pull-right[
+### What to look for in the diagnostics
+
+`r fa('check', fill='#502479')` **A1 violation** &mdash; do `feat` and `deal` move together?
+
+`r fa('check', fill='#502479')` **B2 violation** &mdash; is the residual variance constant across price levels?
+
+`r fa('check', fill='#502479')` **B3 violation** &mdash; are weekly residuals autocorrelated within store?
+
+`r fa('check', fill='#502479')` **C1 violation** &mdash; does feature advertising correlate with something we *cannot* observe?
+
+The diagnostics tell you whether the regression table can be trusted at all.
+]
+
+<br>
+
+.center[
+.blockquote[
+*Lab 1 is the diagnostic discipline; Lab 2 is the prediction discipline; Lab 3 is the causal discipline. All three are needed for a translator's memo.*
+]
+]
+
+???
+* This slide is the "elevator pitch" before students dive into Lab 1
+* The four checks correspond to the four diagnostic sections of the Lab 1 .qmd
+* Translator framing closes the part — we move from theory to lab
+
+
+---
+class: inverse, center, middle
+
+## Lab 1 — Reality Check via Out-of-Sample Validation
+
+### `r fa('flask', fill='white')` 45 min · Path E1, Steps 1a–1c · Memo T4
+

@@ -1,0 +1,135 @@
+<svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg"
+     font-family="'Source Sans Pro', 'Helvetica Neue', sans-serif">
+  <defs>
+    <style>
+      .layer-lbl  { font-size:14px; font-weight:bold; fill:#fff; text-anchor:middle; }
+      .layer-ex   { font-size:11px; fill:#fff; text-anchor:middle; font-style:italic; }
+      .pillar-h   { font-size:13px; font-weight:bold; text-anchor:middle; fill:#2c2c2c; }
+      .pillar-q   { font-size:11px; text-anchor:middle; fill:#2c2c2c; }
+      .pillar-ex  { font-size:10px; text-anchor:middle; fill:#502479; font-style:italic; }
+      .quote      { font-size:12px; fill:#686868; text-anchor:middle; font-style:italic; }
+      .side-lbl   { font-size:11px; fill:#686868; }
+      .head-lbl   { font-size:12px; font-weight:bold; fill:#2c2c2c; }
+    </style>
+  </defs>
+
+  <!-- ============================================== -->
+  <!-- LEFT SIDE: layered cake of AI stack            -->
+  <!-- ============================================== -->
+
+  <!-- Section label: "What is visible" -->
+  <text class="head-lbl" x="22" y="170" transform="rotate(-90 22 170)" text-anchor="middle">What is visible?</text>
+
+  <!-- Layer 1: Application -->
+  <rect x="60" y="40" width="400" height="40" rx="4" fill="#502479"/>
+  <text class="layer-lbl" x="260" y="58">Application / Output</text>
+  <text class="layer-ex"  x="260" y="74">predictions, recommendations, KPIs, decisions</text>
+
+  <!-- Layer 2: Methods -->
+  <rect x="60" y="92" width="400" height="40" rx="4" fill="#7d0a52"/>
+  <text class="layer-lbl" x="260" y="110">Methods</text>
+  <text class="layer-ex"  x="260" y="126">OLS · Lasso · IV · DiD · DML · neural nets</text>
+
+  <!-- Layer 3: Models / assumptions -->
+  <rect x="60" y="144" width="400" height="40" rx="4" fill="#D50006"/>
+  <text class="layer-lbl" x="260" y="162">Models &amp; Assumptions</text>
+  <text class="layer-ex"  x="260" y="178">linear · stationary · i.i.d. · DAG · loss function</text>
+
+  <!-- Layer 4: Data -->
+  <rect x="60" y="196" width="400" height="40" rx="4" fill="#A45D2F"/>
+  <text class="layer-lbl" x="260" y="214">Data</text>
+  <text class="layer-ex"  x="260" y="230">measured variables, sampled cases</text>
+
+  <!-- Bridge label: What determines choices? -->
+  <text class="head-lbl" x="260" y="262" text-anchor="middle" fill="#502479">
+    What determines these choices?
+  </text>
+
+  <!-- Dashed separator -->
+  <line x1="60" y1="270" x2="460" y2="270" stroke="#502479"
+        stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- Section label: "What is hidden" -->
+  <text class="head-lbl" x="22" y="380" transform="rotate(-90 22 380)" text-anchor="middle">What is hidden?</text>
+
+  <!-- ============================================== -->
+  <!-- FOUNDATION: Philosophy as a wide base          -->
+  <!-- ============================================== -->
+  <rect x="60" y="285" width="880" height="180" rx="8"
+        fill="#f5f0fa" stroke="#502479" stroke-width="2"/>
+  <text x="500" y="312" text-anchor="middle" font-size="16"
+        font-weight="bold" fill="#502479">
+    Philosophy &#8212; the layer that determines what the stack above can mean
+  </text>
+
+  <!-- Three pillars (Ontology / Epistemology / Teleology) -->
+  <!-- Pillar 1: Ontology -->
+  <rect x="80" y="325" width="270" height="125" rx="6"
+        fill="#fff" stroke="#502479" stroke-width="1.5"/>
+  <text class="pillar-h"  x="215" y="350">Ontology</text>
+  <text class="pillar-q"  x="215" y="372">"What is real?"</text>
+  <text class="pillar-q"  x="215" y="392">What IS a customer?</text>
+  <text class="pillar-q"  x="215" y="409">What does "loyalty" mean?</text>
+  <text class="pillar-ex" x="215" y="432">Defines the conceptual entities</text>
+  <text class="pillar-ex" x="215" y="445">our data attempts to measure.</text>
+
+  <!-- Pillar 2: Epistemology -->
+  <rect x="365" y="325" width="270" height="125" rx="6"
+        fill="#fff" stroke="#502479" stroke-width="1.5"/>
+  <text class="pillar-h"  x="500" y="350">Epistemology</text>
+  <text class="pillar-q"  x="500" y="372">"What counts as knowing?"</text>
+  <text class="pillar-q"  x="500" y="392">Correlation or counterfactual?</text>
+  <text class="pillar-q"  x="500" y="409">Prediction or partial effect?</text>
+  <text class="pillar-ex" x="500" y="432">Path E vs. Path P:</text>
+  <text class="pillar-ex" x="500" y="445">two distinct theories of knowing.</text>
+
+  <!-- Pillar 3: Teleology -->
+  <rect x="650" y="325" width="270" height="125" rx="6"
+        fill="#fff" stroke="#502479" stroke-width="1.5"/>
+  <text class="pillar-h"  x="785" y="350">Teleology</text>
+  <text class="pillar-q"  x="785" y="372">"What is the purpose?"</text>
+  <text class="pillar-q"  x="785" y="392">Which objective to optimize?</text>
+  <text class="pillar-q"  x="785" y="409">Diagnostic, predictive, or causal?</text>
+  <text class="pillar-ex" x="785" y="432">Aligns method choice with the</text>
+  <text class="pillar-ex" x="785" y="445">decision the analysis serves.</text>
+
+  <!-- ============================================== -->
+  <!-- Right side: Take-away                          -->
+  <!-- ============================================== -->
+  <rect x="490" y="40" width="450" height="210" rx="6"
+        fill="#fff" stroke="#686868" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="715" y="64" text-anchor="middle" font-size="14"
+        font-weight="bold" fill="#2c2c2c">
+    The Translator's question
+  </text>
+  <text x="715" y="90" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Before picking a method:
+  </text>
+  <text x="715" y="110" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    "What do I take to be real,
+  </text>
+  <text x="715" y="128" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    what counts as evidence,
+  </text>
+  <text x="715" y="146" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    and what is the goal?"
+  </text>
+
+  <line x1="540" y1="165" x2="890" y2="165" stroke="#686868"
+        stroke-width="0.5"/>
+
+  <text x="715" y="187" text-anchor="middle" font-size="11"
+        fill="#2c2c2c" font-style="italic">
+    "The map is not the territory."
+  </text>
+  <text x="715" y="205" text-anchor="middle" font-size="10"
+        fill="#686868">
+    &#8212; Korzybski (1933), quoted by Schrage &amp; Kiron (2025)
+  </text>
+
+  <text x="715" y="231" text-anchor="middle" font-size="11"
+        fill="#502479" font-weight="bold">
+    Today's labs are exercises in choosing the map deliberately.
+  </text>
+
+</svg>

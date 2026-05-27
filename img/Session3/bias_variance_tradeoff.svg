@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320">
+  <!-- Axes -->
+  <line x1="60" y1="270" x2="440" y2="270" stroke="#686868" stroke-width="1.5"/>
+  <line x1="60" y1="30"  x2="60"  y2="270" stroke="#686868" stroke-width="1.5"/>
+  <text x="250" y="305" font-size="12" text-anchor="middle" fill="#686868">Model complexity &#x2192;</text>
+  <text x="22" y="150" font-size="12" text-anchor="middle" fill="#686868" transform="rotate(-90 22,150)">Expected error</text>
+
+  <!-- Bias² -->
+  <path d="M 60 60 Q 180 110 250 220 T 440 260" fill="none" stroke="#D50006" stroke-width="2.6"/>
+  <text x="100" y="78" font-size="13" font-weight="bold" fill="#D50006">Bias&#x00B2;</text>
+
+  <!-- Variance -->
+  <path d="M 60 260 Q 200 240 280 200 T 440 60" fill="none" stroke="#502479" stroke-width="2.6"/>
+  <text x="395" y="80" font-size="13" font-weight="bold" fill="#502479">Variance</text>
+
+  <!-- Irreducible σ² -->
+  <line x1="60" y1="230" x2="440" y2="230" stroke="#7d0a52" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="380" y="246" font-size="11" fill="#7d0a52" font-style="italic">&#x03C3;&#x00B2;&#x03B5; (irreducible)</text>
+
+  <!-- Total error -->
+  <path d="M 60 75 Q 160 130 230 145 Q 300 130 440 65" fill="none" stroke="#000" stroke-width="3"/>
+  <text x="230" y="125" font-size="13" font-weight="bold" fill="#000">Total error</text>
+
+  <!-- Minimum marker -->
+  <circle cx="230" cy="145" r="4.5" fill="#000"/>
+  <line x1="230" y1="145" x2="230" y2="270" stroke="#000" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="230" y="289" font-size="11" font-style="italic" text-anchor="middle" fill="#000">optimum</text>
+
+  <!-- Underfit / overfit -->
+  <text x="105" y="50" font-size="10.5" fill="#686868">&#x21A4; underfit</text>
+  <text x="395" y="50" font-size="10.5" fill="#686868">overfit &#x21A6;</text>
+</svg>

@@ -1,9 +1,44 @@
- /* Background */ 
+/* ============================================================
+   ER114 — Navigation table styling
+   Append to existing styles.css
+   ============================================================ */
+
+/* Container around the navigation table — gives wider second column */
+.nav-table table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.nav-table th,
+.nav-table td {
+  padding: 6px 10px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+/* Column widths — Symbol narrow, Box wider, Meaning wider, When narrow */
+.nav-table table th:nth-child(1),
+.nav-table table td:nth-child(1) { width: 8%;  text-align: center; }
+.nav-table table th:nth-child(2),
+.nav-table table td:nth-child(2) { width: 32%; }
+.nav-table table th:nth-child(3),
+.nav-table table td:nth-child(3) { width: 40%; }
+.nav-table table th:nth-child(4),
+.nav-table table td:nth-child(4) { width: 20%; }
+
+/* Coloured text labels inside the Box column */
+.nav-red   { color: #e02424; }
+.nav-green { color: #2f9e44; }
+.nav-blue  { color: #1c7ed6; }
+
+
+/* Background */
 .background-color {
    color: #F2EFDE;
 }
 
-/* Boxen*/ 
+/* Boxen*/
 
 .box {
   background-color: #23246180;
@@ -15,7 +50,7 @@
   color: #232461;
 }
 
-/* Fragen-Box */ 
+/* Fragen-Box */
 .q-box {
   background-color: #23246180;
   padding: 10px;
@@ -26,7 +61,7 @@
   color: #232461;
 }
 
-/* Definitionen */ 
+/* Definitionen */
 .d-box {
   background-color: #F09C82;
   padding: 10px;

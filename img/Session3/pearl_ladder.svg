@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 360" width="460" height="360"
+     font-family="Helvetica, Arial, sans-serif">
+
+  <!-- Rails -->
+  <line x1="80" y1="50" x2="80" y2="340" stroke="#686868" stroke-width="3"/>
+  <line x1="240" y1="50" x2="240" y2="340" stroke="#686868" stroke-width="3"/>
+
+  <defs>
+    <marker id="up-arrow" markerWidth="9" markerHeight="9" refX="4.5" refY="2" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,6 L4.5,0 L9,6 z" fill="#502479"/>
+    </marker>
+  </defs>
+
+  <!-- Rung 3 (top) — Counterfactual -->
+  <line x1="80" y1="80" x2="240" y2="80" stroke="#7d0a52" stroke-width="5"/>
+  <rect x="260" y="55" width="190" height="56" fill="#fdf5fa" stroke="#7d0a52" stroke-width="2" rx="6"/>
+  <text x="270" y="74" font-size="13" font-weight="bold" fill="#7d0a52">Rung 3 &#x2014; Counterfactual</text>
+  <text x="270" y="92" font-size="11" font-style="italic" fill="#7d0a52">"What if I had?"</text>
+  <text x="270" y="106" font-size="11" fill="#686868">P(y_x | x', y')</text>
+
+  <!-- Rung 2 (middle) — Intervention -->
+  <line x1="80" y1="180" x2="240" y2="180" stroke="#502479" stroke-width="5"/>
+  <rect x="260" y="155" width="190" height="56" fill="#faf5ff" stroke="#502479" stroke-width="2" rx="6"/>
+  <text x="270" y="174" font-size="13" font-weight="bold" fill="#502479">Rung 2 &#x2014; Intervention</text>
+  <text x="270" y="192" font-size="11" font-style="italic" fill="#502479">"What if I do?"</text>
+  <text x="270" y="206" font-size="11" fill="#686868">P(y | do(x))</text>
+
+  <!-- Rung 1 (bottom) — Association -->
+  <line x1="80" y1="280" x2="240" y2="280" stroke="#D50006" stroke-width="5"/>
+  <rect x="260" y="255" width="190" height="56" fill="#fff5f5" stroke="#D50006" stroke-width="2" rx="6"/>
+  <text x="270" y="274" font-size="13" font-weight="bold" fill="#D50006">Rung 1 &#x2014; Association</text>
+  <text x="270" y="292" font-size="11" font-style="italic" fill="#D50006">"What is?"</text>
+  <text x="270" y="306" font-size="11" fill="#686868">P(y | x)</text>
+
+  <!-- Lab markers -->
+  <text x="30" y="285" font-size="11" font-weight="bold" fill="#D50006" text-anchor="middle">Lab 1</text>
+  <text x="30" y="299" font-size="11" font-weight="bold" fill="#502479" text-anchor="middle">Lab 2</text>
+  <text x="30" y="187" font-size="11" font-weight="bold" fill="#7d0a52" text-anchor="middle">Lab 3</text>
+
+  <!-- Upward arrow -->
+  <line x1="160" y1="270" x2="160" y2="195" stroke="#502479" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#up-arrow)"/>
+  <text x="170" y="235" font-size="10" font-style="italic" fill="#502479">cliff</text>
+
+  <!-- Title -->
+  <text x="160" y="38" font-size="13" font-weight="bold" text-anchor="middle" fill="#686868">Pearl's Ladder of Causation</text>
+
+</svg>
+

@@ -52,7 +52,7 @@ print_bib_rmd <- function(bib, .opts = list(), start = 1, stop = NULL, decreasin
 
   if (length(.opts)) {
     old.opts <- BibOptions(.opts)
-    on.exit(BibOptions(old.opts))
+    on.exit(BibOptions(old.opts), add = TRUE)
   }
 
   if (style == "yaml") {
@@ -60,11 +60,42 @@ print_bib_rmd <- function(bib, .opts = list(), start = 1, stop = NULL, decreasin
                                         collapse = ", ")))
     cat("\n...  \n\n")
   }
+
   if (is.null(stop)) {
     stop <- length(bib)
   }
   bib <- bib[start:stop]
-  print(bib)
+
+  # --- NEUE LOGIK: Schrittweise Text-Filterung (DOI > URL > ISBN) ---
+  # Zeilenumbrüche für den Druck vorübergehend abschalten
+  old_width <- options(width = 10000)
+  on.exit(options(old_width), add = TRUE)
+
+  # Wir fangen den fertig generierten Text ab
+  out <- capture.output(print(bib))
+
+  for (i in seq_along(out)) {
+    has_doi <- grepl("DOI:", out[i])
+    has_url <- grepl("URL:", out[i])
+
+    if (has_doi) {
+      # 1. Priorität: DOI ist vorhanden.
+      # Lösche URL (inkl. "visited on..."), ISBN und ISSN.
+      out[i] <- gsub(" URL: \\S+( \\([^)]+\\))?\\.?", "", out[i])
+      out[i] <- gsub(" ISBN: [0-9\\-X]+\\.?", "", out[i])
+      out[i] <- gsub(" ISSN: [0-9\\-X]+\\.?", "", out[i])
+
+    } else if (has_url) {
+      # 2. Priorität: Keine DOI, aber URL ist vorhanden.
+      # Lösche nur ISBN und ISSN.
+      out[i] <- gsub(" ISBN: [0-9\\-X]+\\.?", "", out[i])
+      out[i] <- gsub(" ISSN: [0-9\\-X]+\\.?", "", out[i])
+    }
+  }
+
+  # Bereinigten Text in das Dokument ausgeben
+  cat(out, sep = "\n")
+  # ------------------------------------------------------------------
 }
 
 Zitiere <- function(bib, key, ...) {

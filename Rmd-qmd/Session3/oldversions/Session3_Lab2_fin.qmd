@@ -1,0 +1,1517 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Line references are approximate; search for the marker text.
+
+  ~Line  18   Moodle download link for dominicks_s114_YYYYMMDD.rds
+  ~Line  19   Moodle download link for dominicks_stores_YYYYMMDD.rds
+  ~Line  20   Moodle download link for dominicks_demo_YYYYMMDD.rds
+  ~Line  ~50  Date stamp in read_rds() calls (must match the actual files)
+
+============================================================ -->
+---
+title: "Session 3 · Lab 2: From OLS to Lasso — Bias-Variance and Variable Selection"
+subtitle: "CRISP-DM Phases 4–5 --- Modelling and Evaluation under Regularisation"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+bibliography: ../../lit/my_bib.bib
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)        # data wrangling and plotting
+library(gt)               # publication-quality tables
+library(moderndive)       # get_regression_table() / get_regression_summaries()
+library(broom)            # tidy model output for one-off computations
+library(glmnet)           # Lasso, Ridge, Elastic Net
+library(patchwork)        # combine ggplots
+library(car)              # VIF for multicollinearity diagnostics
+library(fontawesome)      # for fontawesome icons
+
+# shared visual identity
+theme_set(theme_minimal(base_size = 11))
+
+# colour palette
+col_primary   <- "#D50006"   # main highlight
+col_secondary <- "#502479"   # contrast
+col_neutral   <- "#686868"   # grey reference
+
+# load data — date stamp must match the files in data/raw/
+date_stamp <- "20260517"  # adjust to the most recent DataImport.R run
+#tbl_s114    <- read_rds(xfun::from_root("data", "raw",
+#                     glue::glue("dominicks_s114_{date_stamp}.rds")))
+tbl_stores  <- read_rds(xfun::from_root("data", "raw",
+                       glue::glue("dominicks_stores_{date_stamp}.rds")))
+tbl_demo    <- read_rds(xfun::from_root("data", "raw",
+                       glue::glue("dominicks_demo_{date_stamp}.rds")))
+
+# convenience subsets — filtered on-the-fly from the full panel
+tbl_s114 <- tbl_stores %>% filter(store == 114)
+tbl_s83  <- tbl_stores %>% filter(store == 83)
+
+# join into a single panel
+tbl_full <- tbl_stores %>%
+              left_join(tbl_demo, by = "store")
+```
+
+# Scenario — A Second Memo from Sarah Chen
+
+Lab 1 ended with two memos to Sarah. This morning, a follow-up
+arrives.
+
+:::{.callout-note icon=false collapse="false"}
+## 📧 Memo from Sarah Chen, VP Marketing — Dominick's Finer Foods
+
+*"Quick follow-up on yesterday's work. I should have mentioned earlier:
+we also have census-based demographics for every store catchment area
+— median income, education levels, age distribution, that kind of
+thing. Eleven variables per store.*
+
+**Two questions:**
+
+*1. **Would adding those demographics improve the inventory prediction
+tool you're building?** Operations is asking how confident we can be
+in the model. The board likes more variables ('better information'),
+but I want a defensible answer, not just more numbers.*
+
+*2. **Does adding demographics tell us anything new about the
+advertising effect?** I know yesterday you said the historical data
+alone can't give us a clean causal estimate. But if we had richer
+controls — does that change the picture?"*
+
+— Sarah
+:::
+
+## Lab Objectives
+
+Sarah's questions align with our two fundamental methodological paths:
+
+- Question 2 is a **Path E1** question — does richer control variation
+  resolve the omitted-variable concern from Lab 1?
+- Question 1 is a **Path P** question — does adding 11 demographic
+  variables improve out-of-sample prediction?
+
+This Lab is dedicated to the board's intuition — *more variables means better model results*. 
+We will scrutinize this intuition using empirical methods.
+
+## The Lab in CRISP-DM
+
+The following table situates this lab within the broader Data Science project lifecycle:
+```{r crisp-overview}
+#| echo: false
+
+tibble::tribble(
+  ~Phase, ~Name,                      ~Content,                                                 ~Status,
+  "1",    "Business Understanding",   "Marketing decisions: explain and predict",               "Done (Lab 1)",
+  "2",    "Data Understanding",       "OJ panel + store demographics (← here)",                 "Refresh in Step 0",
+  "3",    "Data Preparation",         "Reshape for cross-price modelling (← here)",             "← This lab (1, 2)",
+  "4",    "Modelling",                "Regularisation: Ridge, Lasso, Elastic Net (← here)",     "← This lab (3, 4)",
+  "5",    "Evaluation",               "Out-of-sample evaluation via CV (← here)",               "← This lab (4, 5)",
+  "6",    "Deployment",               "Memo to Sarah: which variables matter for prediction?",  "← This lab (6)"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f0fff0"),
+                gt::cells_body(rows = Phase %in% c("3","4","5","6"))) %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+## Lab Navigation
+
+::: {.nav-table}
+
+| Symbol | Box | Meaning | When to read |
+|:------:|:----|:--------|:-------------|
+| ⚠️  | [**Red — Action Required**]{.nav-red} | Mandatory tasks | During live session |
+| 💡 | [**Green — Best Practice / Tip**]{.nav-green} | Coding hints, shortcuts | Skim during lab |
+| 📚 | [**Blue, collapsed — Background**]{.nav-blue} | Concepts, context, derivations | At home |
+| ℹ️ | [**Blue, open — Note**]{.nav-blue} | Short clarification | Live |
+
+:::
+
+---
+
+# Step 0 — Bridge from Lab 1 and What This Lab Adds
+
+**The same DGP, two paths, new challenges.** Lab 1 introduced the
+**data-generating process (DGP)** as the conceptual scaffold for
+all of Session 3. We worked with `tbl_s114` (one store) and
+`tbl_stores` (83 stores × 3 brands) and saw two operations on the
+*same* DGP: Path E1 asks for the structural parameters, Path P
+asks for the DGP's outputs under stable structure.
+
+Lab 2 takes **Path P** seriously. We will see that **OLS itself — the
+BLUE estimator from Lab 1 — is suboptimal for Path P**. The reason:
+optimal prediction does not require unbiasedness. By accepting a
+small bias, we can dramatically reduce variance and produce a more
+accurate inventory tool for Sarah.
+
+The same DGP, the same data — but a different optimisation target,
+and therefore a different best estimator.
+
+## Bringing additional Store-level data into our Analysis
+
+Today we add a third dataset **`tbl_demo`** with eleven additional predictors for each store.
+
+
+```{r data-summary}
+#| echo: false
+
+tibble::tribble(
+  ~Dataset,       ~Source,                        ~Rows,                ~Columns, ~`Used for`,
+  "tbl_s114",     "Lab 1: single-store analysis", as.character(nrow(tbl_s114)),    as.character(ncol(tbl_s114)),    "Step 1 reference",
+  "tbl_stores",   "Lab 1: 83 stores × 3 brands",  as.character(nrow(tbl_stores)),  as.character(ncol(tbl_stores)),  "Steps 1–6",
+  "tbl_demo",     "New: census demographics",     as.character(nrow(tbl_demo)),    as.character(ncol(tbl_demo)),    "Steps 1, 3–6",
+  "tbl_full",     "Joined: tbl_stores + tbl_demo", as.character(nrow(tbl_full)),   as.character(ncol(tbl_full)),    "Steps 3–6"
+) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The store-level data provided information about the *catchment area* of each store, such as the age structure and income situation in the neighborhood, or the competitive environment. For brevity we call all additional variables from `tbl_demo` demographics $z_s$. Each store has one row in `tbl_demo`:
+
+```{r demo-preview}
+#| echo: false
+tbl_demo %>%
+  head(3) %>%
+  gt() %>%
+  gt::tab_header(title = "tbl_demo — first three rows (11 demographics per store)") %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+:::{.callout-note icon="false" collapse="true" #demo-variables}
+### 📚 Background: What each demographic variable measures
+
+| Variable | Meaning | Unit |
+|:---|:---|:---|
+| `age60`     | Proportion of population aged 60+ | proportion (0–1) |
+| `educ`      | Proportion with college degree | proportion (0–1) |
+| `ethnic`    | Proportion non-white | proportion (0–1) |
+| `income`    | Log of median household income | log USD |
+| `hhlarge`   | Proportion of households with ≥ 5 persons | proportion (0–1) |
+| `workwom`   | Proportion of working women | proportion (0–1) |
+| `hval150`   | Proportion of houses valued > $150 000 | proportion (0–1) |
+| `sstrdist`  | Distance to nearest warehouse store | miles |
+| `sstrvol`   | Sales-ratio: nearest warehouse store / this store | ratio |
+| `cpdist5`   | Average distance to 5 nearest competing supermarkets | miles |
+| `cpwvol5`   | Sales-ratio: 5 nearest competitors / this store | ratio |
+
+Source: Dominick's Finer Foods marketing data, originally distributed
+with bayesm and analysed extensively in the marketing literature
+[@KiltsCenter_2018].
+:::
+
+When we merge `tbl_stores` with `tbl_demo` using the `left_join()`-function, each weekly
+observation in a store inherits the demographics of its store. The resulting dataset `tbl_full` now has a clear **panel structure** with three dimensions:
+
+- $s$ = store
+- $b$ = brand
+- $t$ = week/time
+
+```{r demo-join}
+# Merge tbl_stores and tbl_demo
+tbl_full <- tbl_stores %>%
+              left_join(tbl_demo, by = "store")
+tbl_full %>%
+  head(3) %>%
+  gt() %>%
+  gt::tab_header(title = "tbl_full — first three rows of merged data") %>%
+  gt::tab_options(table.font.size = "13px")
+```
+We denote the time-invariant store demographics from `tbl_demo` as $\mathbf{z}_s$. These variables vary **only across stores** and are constant over brands and weeks within the same store.
+
+
+To incorporate the store-level information into our regression model, we need to include the vector $\mathbf{z}_s$, which contains the 11 demographic variables (see above) for each store. This step is not straightforward. The key challenge is that $\mathbf{z}_s$ is **constant within each store**: its values do not change over time (weeks) or across brands within the same location.
+
+In panel data analysis, we often want to account for unobserved, time-invariant characteristics of each store (for example: management quality, floor layout, or foot traffic patterns). We do this by including **store fixed effects** ($\alpha_s$). You can think of $\alpha_s$ as a *store-specific intercept* that **absorbs** *all* unobserved factors that are constant over time for that store.
+
+
+## The Core Modeling Dilemma
+
+
+**The core problem:** Because our observed demographics ($\mathbf{z}_s$) are also constant within each store, they are perfectly collinear with the store fixed effects ($\alpha_s$). The regression model cannot distinguish between the effect of the measured demographics and the unobserved store-specific factors. **In simpler terms:** The model cannot tell whether a store has systematically higher sales because it is located in a high-income neighborhood (measured by $\mathbf{z}_s$) or because it has an excellent (unmeasured) manager captured by $\alpha_s$. Since neither factor changes from week to week, they are mathematically indistinguishable. This tension between observed demographics and unobserved store heterogeneity is a central theme in this lab — and one we will return to in **Lab 3** from a causal inference viewpoint.
+
+This collinearity can be expressed as:
+$$\mathbf{z}_s \text{ is a store-specific constant} \quad \implies \quad 
+\mathbf{z}_s \text{ is perfectly collinear with the store fixed effect } \alpha_s$$
+
+Let us demonstrate this limitation directly in `r fa('r-project')`:
+
+```{r}
+#| echo: true
+#| code-fold: false
+#| message: true
+#| warning: false
+
+# === WITH Store Fixed Effects ===
+model_with_fe <- lm(logmove ~ log(price) + feat + brand + factor(store) + 
+                     age60 + educ + income + hhlarge + workwom, 
+                   data = tbl_full)
+
+dropped <- names(coef(model_with_fe))[is.na(coef(model_with_fe))]
+cat("Variables dropped due to perfect multicollinearity:\n")
+print(dropped)
+
+cat("\nNumber of coefficients set to NA:", sum(is.na(coef(model_with_fe))), "\n")
+```
+As the output confirms, R automatically drops the demographic variables (assigning them `NA` coefficients) because they contain zero within-store variation. Mathematically this happens because the design matrix becomes singular (not invertible).
+
+But what happens if we remove the store fixed effects from the model?
+
+```{r}
+#| echo: true
+#| code-fold: false
+#| message: true
+#| warning: false
+# === WITHOUT Store Fixed Effects (Contrast) ===
+model_no_fe <- lm(logmove ~ log(price) + feat + brand + 
+                   age60 + educ + income + hhlarge + workwom, 
+                 data = tbl_full)
+
+#cat("=== WITHOUT Store Fixed Effects ===\n")
+#cat("All demographic variables remain in the model.\n")
+cat("Number of coefficients:", length(coef(model_no_fe)), "\n")
+```
+
+The contrast between these two models reveals a fundamental **econometric trade-off**:
+
+* With store fixed effects (Path E1): We cleanly control for unobserved store heterogeneity, but we mathematically lose the ability to estimate the predictive effect of the observed demographics ($\mathbf{z}_s$).
+* Without store fixed effects (Path P): We can retain and estimate the demographic effects to build a richer prediction tool, but we risk omitted variable bias (OVB) because unobserved store characteristics are pushed into the error term.
+
+Because Sarah's immediate request is to improve the inventory prediction tool (Path P), we must drop the store fixed effects and leverage the observable demographic variables. Having made this decision, we are left with three primary ways to specify the relationship between demographics and brand sales.
+
+## The Three Primary Approaches
+
+### Variant A — Additive Demographics (Full Pooling)
+
+Demographic effects are assumed to be identical across all brands. Dominick's is the baseline brand, captured by the intercept $\beta_0$.
+
+$$y_{sbt} = \beta_0 + \beta_1 \log\text{price}_{sbt} + \beta_2 \text{feat}_{sbt} + \mathbf{z}_s'\gamma + \beta_3 \mathbb{1}_{MM} + \beta_4 \mathbb{1}_{Trop} + \varepsilon_{sbt}$$
+This additive approach is exactly what we just estimated in the `model_no_fe code` block above. It relies on the strong assumption that neighborhood income, for instance, shifts the demand for premium Tropicana and the budget Dominick's brand by the exact same amount. In reality, this is implausible: premium brands typically have steeper income gradients.
+
+### Variant B — Separate Models per Brand
+
+To allow for fully brand-specific coefficients, we could split the dataset and run three completely separate regressions (no pooling across brands). Every parameter receives a brand-specific superscript $(b)$.
+
+$$y_{sbt} = \beta_0^{(b)} + \beta_1^{(b)} \log\text{price}_{sbt} + \beta_2^{(b)} \text{feat}_{sbt} + \mathbf{z}_s'\gamma^{(b)} + \varepsilon_{sbt} \qquad \text{(for each brand } b\text{)}$$
+Methodological Trade-off: While highly flexible, splitting the dataset severely reduces the sample size for each estimation, leading to a loss of statistical power.
+
+### Variant C — Full Interaction Model (Main Specification)
+
+This is our central approach for this lab. It keeps all data in a single pooled model but interacts every predictor (price, marketing, and demographics) with the brand indicators. The $\delta$-parameters measure the deviation from the baseline brand (Dominick's).
+
+$$\begin{align*}
+y_{sbt} =& \beta_0 + \beta_1 \log\text{price}_{sbt} + \beta_2 \text{feat}_{sbt} + \mathbf{z}_s'\gamma + \beta_3 \mathbb{1}_{MM} + \beta_4 \mathbb{1}_{Trop} \\
+&+ \delta_{1,MM} (\log\text{price}_{sbt} \cdot \mathbb{1}_{MM}) + \delta_{2,MM} (\text{feat}_{sbt} \cdot \mathbb{1}_{MM}) + \mathbf{z}_s' \boldsymbol{\delta}_{MM} \mathbb{1}_{MM} \\
+&+ \delta_{1,Trop} (\log\text{price}_{sbt} \cdot \mathbb{1}_{Trop}) + \delta_{2,Trop} (\text{feat}_{sbt} \cdot \mathbb{1}_{Trop}) + \mathbf{z}_s' \boldsymbol{\delta}_{Trop} \mathbb{1}_{Trop} + \varepsilon_{sbt}
+\end{align*}$$
+
+Methodological Note: In this specification, the total price effect for *Minute Maid* is exactly $(\beta_1 + \delta_{1,MM})$, which is mathematically equivalent to the isolated $\beta_1^{(MM)}$ parameter from Variant B. 
+
+:::{.callout-warning icon="false"}
+### ⚠️ A Note on Modeling Philosophy: Econometrics vs. Machine Learning
+
+A classical econometrician would likely object to Variant C. They would argue that interacting every variable creates a messy model with 36 parameters, risking severe multicollinearity and making the coefficients almost impossible to interpret manually. They would prefer a partially interacted model.
+
+However, our goal here is Path P (Prediction). In modern predictive modeling (Machine Learning), we often prefer to give the algorithm maximum flexibility (a "kitchen sink" approach) and rely on computational methods to prevent overfitting. Variant C will deliberately push OLS to its breaking point, showing exactly why we need regularization techniques like Lasso to do the sorting for us
+:::
+
+**Looking ahead:** Variant C gives us the flexibility of Variant B without splitting the sample. However, writing out this full interaction model in `r fa('r-project')` (using logmove ~ . * brand) causes the number of parameters to increas substantially to $p \approx 36$. To prevent the model from overfitting, we will transition in the next steps to regularization techniques.
+
+
+---
+
+# Step 1 — Demographics as Path E1 Controls
+
+We start by closing the loop on **Sarah's Question 2**: does richer control variation resolve the omitted-variable concern from Lab 1?
+
+Recall the baseline result on the full panel from Lab 1:
+
+```{r recap-lab1}
+#| code-fold: true
+# baseline model from Lab 1 — no demographics, no deal
+mod_baseline_full <- lm(logmove ~ feat + log(price) + brand, data = tbl_stores)
+
+# full model with deal (Lab 1 Step 1b)
+mod_with_deal     <- lm(logmove ~ feat + deal + log(price) + brand, data = tbl_stores)
+
+bind_rows(
+  tidy(mod_baseline_full) %>% mutate(model = "Baseline (Lab 1)"),
+  tidy(mod_with_deal)     %>% mutate(model = "With deal (Lab 1)")
+) %>%
+  filter(term == "feat") %>%
+  select(model, estimate) %>%
+  mutate(estimate = round(estimate, 3)) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The Lab 1 finding: adding `deal` reduces $\hat\beta_{\text{feat}}$ by
+about **`r round(coef(mod_baseline_full)["feat"] - coef(mod_with_deal)["feat"], 3)`** log units —
+this is the omitted-variable bias from the structural feat × deal
+bundling.
+
+Now we test whether **demographic controls** make a similar difference:
+
+```{r}
+#| code-fold: false
+# Expanded model with 11 demographics
+mod_with_demos <- lm(
+  logmove ~ feat + deal + log(price) + brand +
+    age60 + educ + ethnic + income + hhlarge + workwom +
+    hval150 + sstrdist + sstrvol + cpdist5 + cpwvol5,
+  data = tbl_full
+)
+
+bind_rows(
+  tidy(mod_baseline_full)  %>% mutate(model = "Baseline (Lab 1)"),
+  tidy(mod_with_deal)      %>% mutate(model = "With deal (Lab 1)"),
+  tidy(mod_with_demos)     %>% mutate(model = "With deal + demographics")
+) %>%
+  filter(term == "feat") %>%
+  select(model, estimate) %>%
+  mutate(estimate = round(estimate, 3)) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+
+
+
+::: {.callout-important icon=false}
+### ⚠️ T1: What do you see?
+
+a. By how much does $\hat\beta_{\text{feat}}$ change when demographics are added to the with-deal model?
+b. Compare this to the OVB shift from Lab 1 (baseline → with-deal). Which control variable changed the estimate more?
+c. What does this tell you about Sarah's Question 2 — does richer demographic control resolve the advertising-effect question?
+
+Note your answers before opening the solution box.
+:::
+
+:::: {.callout-note collapse="true" icon=false color="success"}
+### 🟢 Interpretation (Click to unfold)
+Adding the 11 demographics changes $\hat\beta_{\text{feat}}$ by only a fraction of a log unit — far less than the shift caused by adding deal. The structural feat × deal bundling remains the dominant source of OVB; demographic variation in store catchment areas does not substantially confound the advertising effect.
+
+This is a defensible finding for Sarah's Question 2. Demographics do not resolve the causal interpretation. The advertising effect remains identified only up to its bundling with deal. That identification problem requires a dedicated study design (Lab 3), not merely additional control variables.
+
+:::{.callout-tip icon=false}
+## 💡 Could demographics still matter causally?
+
+Demographics could plausibly cause `logmove` through several channels:
+
+- **Income**: higher-income areas may have different brand-loyalty
+  patterns
+- **Age**: older shoppers may prefer established brands like Tropicana
+- **Household size**: large households may buy more juice per shopping trip
+
+These mechanisms make the demographics legitimate causal predictors
+in their own right. The empirical finding here is more subtle: while
+demographics *do* explain variation in `logmove` (some of their
+coefficients are highly significant), they do not change the
+estimated advertising effect. Causal interpretation of $\hat\beta_{\text{feat}}$
+is therefore not blocked by demographic confounding.
+
+:::
+
+::::
+
+
+The Path E1 question is answered. From Step 2 onwards we are firmly
+on Path P — out-of-sample prediction.
+
+---
+
+# Step 2 — Cross-Price Elasticities
+
+In Lab 1 we modelled `log(price)` as the *own* brand's price. But
+shoppers don't see brands in isolation: on the supermarket shelf,
+Tropicana, Minute Maid and Dominick's compete for the same customer base.
+If Tropicana is discounted, economists would expect a fraction of Dominick's 
+customers to switch brands.
+
+Capturing this **substitution effect** requires the inclusion of competing brands' prices in the same regression equation.
+
+## Reshaping the Panel: From Long to Semi-Wide
+
+Our integrated dataset `tbl_full` currently contains one row per `(store, brand, week)`. For cross-price modelling, we require one row per `(store, week)`, with the prices, sales, and marketing levers of all three brands represented as separate columns. 
+
+We can achieve this using the `pivot_wider()` function:
+
+:::{.callout-note icon="false" collapse="true" #pivot-wider-demographics}
+### 📚 Background: Reshaping with time-invariant demographics
+
+By reshaping the integrated `tbl_full` dataset directly, we gain a major structural advantage. Because the 11 demographic variables are constant across brands and weeks within a given store, `pivot_wider()` automatically treats them as identifier columns (just like `store` and `week`). 
+
+They remain neatly intact as single columns, while only the brand-varying features (like `price` and `logmove`) are expanded and receive brand-specific suffixes. This elegant behavior saves us from having to merge the demographics back into the dataset later.
+:::
+
+```{r reshape-cross}
+#| code-fold: false
+tbl_cross <- tbl_full %>%
+  select(store, week, brand, logmove, price, feat, deal, 
+         age60, educ, ethnic, income, hhlarge, workwom, 
+         hval150, sstrdist, sstrvol, cpdist5, cpwvol5) %>%
+  pivot_wider(
+    names_from  = brand,
+    values_from = c(logmove, price, feat, deal),
+    names_glue  = "{.value}_{brand}"
+  )
+
+# Inspect the new structure
+tbl_cross %>%
+  head(3) %>%
+  select(store, week, income, educ, # Demographics remain seamlessly integrated
+         logmove_dominicks, price_dominicks,   
+         price_minute.maid, price_tropicana) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "11px")
+```
+
+The transformed dataset `tbl_cross` now has one row per store-week combination.
+
+## Estimating Competitor Elasticities
+
+We can now specify a demand model for one specific brand (e.g., Dominick's) that includes the marketing mix of its competitors.
+
+```{r mod-cross-dominicks}
+#| code-fold: false
+mod_cross_dom <- lm(
+  logmove_dominicks ~
+    log(price_dominicks) + log(price_minute.maid) + log(price_tropicana) +
+    feat_dominicks   + deal_dominicks +
+    feat_minute.maid + deal_minute.maid +
+    feat_tropicana   + deal_tropicana,
+  data = tbl_cross
+)
+
+mod_cross_dom %>%
+  tidy() %>%
+  filter(stringr::str_detect(term, "price")) %>%
+  select(term, estimate, std.error, p.value) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 4))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The three price coefficients represent the price elasticities: the expected percentage change in `logmove_dominicks` for a 1% change in each respective brand's price.
+
+:::{.callout-important icon=false}
+## ⚠️ T2: Read the elasticity table
+
+a. What sign does the own-price elasticity have for Dominick's? Is the
+   magnitude larger or smaller than the value from Lab 1
+   (≈ `r round(coef(mod_with_deal)["log(price)"], 2)`)?
+b. What sign do the *cross*-price elasticities (Minute Maid, Tropicana)
+   have? What does the sign say about substitution?
+c. Compare the magnitude of the cross-price elasticities to the own-price
+   elasticity. Which competitor moves Dominick's sales more?
+:::
+
+:::: {.callout-note collapse="true" icon=false color="success"}
+### 🟢 Interpretation (Click to unfold)
+
+- The **own-price elasticity** is typically negative and *less elastic*
+  (smaller in absolute value) than in Lab 1. The Lab-1 model omitted
+  competitor prices, so the own-price coefficient absorbed both the
+  direct price effect and the (correlated) competitor-price changes.
+- **Cross-price elasticities** are positive — when a competitor raises
+  its price, Dominick's gains sales. This is the substitution effect.
+- The magnitudes show which competitors are closest substitutes for
+  Dominick's. Typically, Minute Maid is closer (mid-tier) than the
+  premium Tropicana.
+  
+:::{.callout-tip icon=false}
+
+### 💡 Methodological observation
+
+This is a Path-E1 improvement — including a confounder (competitor price) made the own-price estimate
+more credible. But it is also a Path-P improvement — the model now
+captures variation that the Lab-1 baseline missed.
+
+:::
+::::
+
+
+:::{.callout-warning icon=false collapse="true" #cross-price-data-gap}
+## ⚠️ Data gap reminder
+
+The `orangeJuice` dataset originally contains 11 brand prices
+per observation. In our reduction to the top three brands, we kept
+only their own prices. **Cross-price effects from the 8 omitted
+brands (Florida Natural, Citrus Hill, etc.) are lost.**
+
+For Dominick's, Minute Maid and Tropicana — the three best-selling
+brands — the competitive pressure is reasonably captured by our
+three included brands. For a complete competitive analysis, the
+full 11-brand price matrix would be needed.
+
+This is a typical data-gap situation: we work with what we have, and
+honestly report what we cannot say.
+:::
+
+If we were to estimate the same specification for Minute Maid and Tropicana, we would find the same pattern: strongly negative own-price elasticities on the diagonal and positive cross-price elasticities off the diagonal. Substitution works in all directions.
+
+This cross-price setup is still well within the comfort zone of classical OLS. But what happens when we combine these competitor dynamics with the demographic heterogeneities from Step 1? In the next step, the model dimension will grow to a point where classical OLS begins to fail.
+
+---
+
+# Step 3 — High-Dimensional OLS and the Overfitting Trap
+
+To construct Variant C (the full interaction model), we return to the long-format `tbl_full`. Including cross-prices and demographic interactions simultaneously would expand the parameter space beyond what is computationally practical for a standard exercise. 
+
+Instead, we focus on capturing the brand-specific effects of demographics and marketing levers by interacting every variable with `brand`.
+
+## Building the Full Interaction Specification
+
+```{r mod-full-spec}
+#| code-fold: false
+mod_full_spec <- lm(
+  logmove ~ feat * brand + deal * brand + log(price) * brand +
+    age60 * brand + educ * brand + ethnic * brand + income * brand +
+    hhlarge * brand + workwom * brand + hval150 * brand +
+    sstrdist * brand + sstrvol * brand + cpdist5 * brand + cpwvol5 * brand,
+  data = tbl_full
+)
+
+# Parameter count
+n_params <- length(coef(mod_full_spec))
+cat("Number of parameters in full specification: ", n_params, "\n")
+```
+
+The full specification contains `r length(coef(mod_full_spec))` parameters. On a total sample of $n \approx 28,000$, this remains within the classical large-sample regime, rather than the high-dimensional "Big Data" regime defined earlier ($p \gg n$).
+
+:::{.callout-note collapse="true" #fhl-four-problems}
+### 📚 Background: Four problems of big-data regression (Fan, Han, Liu 2014)
+
+Even when $n$ is comfortably large relative to $p$, four issues
+from the big-data literature [@fan_bigdata_2014] become operative
+as we add parameters:
+
+1. **Noise accumulation.** With more parameters, the variance of
+   the estimator grows. Even if each additional variable has a
+   small true effect, its sample estimate contributes noise that
+   compounds.
+2. **Spurious correlation.** In high dimensions, the probability
+   of finding apparently strong correlations *by chance* increases
+   rapidly. Lasso (Step 5) will retain some of these spurious
+   selections.
+3. **Incidental endogeneity.** Some predictors may be correlated
+   with omitted causes — even when they have no causal effect on
+   $y$, they pick up the omitted signal. The regression's causal
+   interpretation breaks silently.
+4. **Measurement errors.** Census-based demographic variables
+   measure what they measure imperfectly. With more such variables,
+   compound measurement noise grows.
+
+These four problems frame why **regularisation is not enough**.
+Lasso handles (1) and partially (2); it does not solve (3) and (4).
+Reading Lasso-selected variables as "important predictors" must
+always be qualified by these limitations.
+:::
+
+
+## Evaluating In-Sample Performance
+
+We first examine the specification's in-sample fit:
+
+```{r in-sample-stats}
+#| code-fold: false
+broom::glance(mod_full_spec) %>%
+  select(r.squared, adj.r.squared, sigma, AIC, BIC, nobs) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+The in-sample R² is **`r round(summary(mod_full_spec)$r.squared, 3)`**.
+The in-sample RMSE is **`r round(sqrt(mean(residuals(mod_full_spec)^2)), 3)`**.
+Compared to the Lab 1 baseline **RMSE** on the full panel
+(`r round(sqrt(mean(residuals(mod_baseline_full)^2)), 3)`), the full
+specification fits the training data much better.
+
+
+:::{.callout-note icon="false" collapse="true" #mse-bias-variance}
+### 📚 Background: OLS, Overfitting, and the Bias-Variance Decomposition
+
+To evaluate out-of-sample performance, we must understand why even an "unbiased" model like OLS fails in high dimensions.
+
+**1. The Classical Benchmark: OLS Unbiasedness**
+Under classical assumptions, OLS is the Best Linear Unbiased Estimator (BLUE). It is unbiased by design ($\text{Bias} = 0$). In the simple models of Lab 1, this property is our gold standard: on average, our estimates hit the true parameter value.
+
+**2. The Bias-Variance Decomposition**
+For a fixed query point and an estimator trained on a random sample, the expected squared prediction error decomposes as:
+
+$$\mathbb{E}\left[(y_0 - \hat f(x_0))^2\right] = \underbrace{\left(\mathbb{E}[\hat f(x_0)] - f(x_0)\right)^2}_{\text{Bias}^2} + \underbrace{\mathrm{Var}(\hat f(x_0))}_{\text{Variance}} + \underbrace{\sigma^2}_{\text{Irreducible error}}$$
+
+* **Bias²:** measures the systematic error (due to model simplification): on average, how far off is the estimator?
+* **Variance:** measures the sensitivity to the training sample: if we resampled the data, how much would $\hat f(x_0)$ change?
+* **$\sigma^2$:** is the noise in the DGP itself — no estimator can eliminate it.
+
+**3. The Overfitting Dilemma**
+As we increase the number of parameters ($p$), the model gains flexibility to fit idiosyncratic noise in the training sample. While OLS remains unbiased (Bias² stays near zero), the model's **Variance** component explodes.
+
+* **In-sample:** The model perfectly follows the noise, and the MSE (and RMSE) drops.
+* **Out-of-sample:** The model attempts to apply these noise-patterns to new data where they do not exist. The error skyrockets. This is the **Overfitting Dilemma**: by demanding zero bias, we pay the price in variance.
+
+**4. Operationalizing the Error**
+To measure this trade-off, we use:
+
+* **MSE (Mean Squared Error):** The mathematical objective function to be minimized.
+    $$\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2$$
+* **RMSE (Root Mean Squared Error):** Defined as $\sqrt{\text{MSE}}$.  We primarily report the RMSE because taking the square root translates the error metric back into the original units of the dependent variable (in our case, log units of sales), making it directly interpretable.
+
+**Conclusion:** By accepting a small amount of **Bias** (through shrinkage/regularization), we can drastically reduce **Variance**, leading to a lower total out-of-sample MSE than the "unbiased" OLS model.
+:::
+
+:::{.callout-important icon=false}
+## ⚠️ T3: In-sample vs. out-of-sample expectations
+
+a. The in-sample R² has improved substantially from Lab 1. Should we
+   conclude that the new model is a better prediction tool for
+   Sarah's inventory planning?
+b. What is the difference between *in-sample* performance and
+   *out-of-sample* performance? Why does the distinction matter for
+   Sarah's question?
+c. Predict (before computing) what will happen if we evaluate
+   `mod_full_spec` via 5-fold cross-validation across stores.
+:::
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 The trap of in-sample R² (Click to unfold)
+
+A higher in-sample R² tells us only that the model fits the data we
+*already have*. The relevant question for Sarah's inventory tool is
+how well the model will predict in stores or weeks the model has
+*not seen*. These two quantities can diverge sharply when:
+
+- The number of parameters is large relative to the effective sample
+  size (clustering reduces effective n)
+- Predictors are highly correlated (the educ / income / hval150
+  cluster from the demographics)
+- The model captures sample-specific noise that does not generalise
+
+This is **overfitting**. The next step measures it directly.
+:::
+
+## The Overfitting Trap
+
+To build an intuition for why adding parameters eventually degrades predictive performance, consider a polynomial regression attempting to capture a noisy, non-linear signal.
+
+```{r plot-overfitting-concept}
+#| code-fold: true
+#| code-summary: "Show code: Visualizing the Overfitting Concept"
+#| fig-width: 10
+#| fig-height: 3.5
+#| warning: false
+library(ggplot2)
+library(patchwork)
+
+# Set the corporate/academic color palette
+col_primary   <- "#D50006"   # main highlight (used for models)
+col_secondary <- "#502479"   # contrast
+col_neutral   <- "#686868"   # grey reference (used for data points)
+
+# Simulate a simple non-linear relationship with noise
+set.seed(42)
+x_demo <- seq(0, 4, length.out = 30)
+y_demo <- sin(x_demo) + rnorm(30, sd = 0.3)
+df_demo <- data.frame(x = x_demo, y = y_demo)
+
+p1 <- ggplot(df_demo, aes(x, y)) + 
+  geom_point(color = col_neutral, size = 2) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = col_primary) +
+  labs(title = "Underfitting", subtitle = "High Bias, Low Variance") + 
+  theme_minimal()
+
+p2 <- ggplot(df_demo, aes(x, y)) + 
+  geom_point(color = col_neutral, size = 2) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), se = FALSE, color = col_primary) +
+  labs(title = "Optimal Fit", subtitle = "Captures the underlying signal") + 
+  theme_minimal()
+
+p3 <- ggplot(df_demo, aes(x, y)) + 
+  geom_point(color = col_neutral, size = 2) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 15), se = FALSE, color = col_primary) +
+  labs(title = "Overfitting", subtitle = "Low Bias, High Variance (fits the noise)") + 
+  theme_minimal()
+
+# Display side-by-side using patchwork
+p1 | p2 | p3
+```
+
+To determine if our full specification is overfitting the dataset—similar to the high-variance polynomial in the third panel—it must be evaluated on unseen data.
+
+
+
+## Evaluating Out-of-Sample Performance via Cross-Validation
+
+We apply the 5-fold cluster-robust cross-validation protocol established in Lab 1 
+to both the baseline model and the full interaction specification. By splitting 
+the data at the `store` level (whole-store assignment to folds, as detailed in 
+Lab 1's `#cluster-cv` background box), we ensure that entire locations serve 
+as isolated test sets.
+
+This strategy protects against the data leakage that would inevitably arise 
+from random, observation-level splitting in highly autocorrelated panel data, 
+providing a fair and rigorous comparison of generalization performance.
+
+```{r cv-comparison}
+#| code-fold: false
+#| code-summary: "Show code: Out-of-sample cross-validation"
+set.seed(42)
+K <- 5
+stores_shuffled <- sample(unique(tbl_full$store))
+folds <- cut(seq_along(stores_shuffled), breaks = K, labels = FALSE)
+
+cv_rmse <- function(formula_str, label) {
+  rmses <- map_dbl(1:K, \(k) {
+    test_st  <- stores_shuffled[folds == k]
+    train_st <- stores_shuffled[folds != k]
+    mod_k    <- lm(as.formula(formula_str),
+                   data = tbl_full %>% filter(store %in% train_st))
+    pred_k   <- predict(mod_k,
+                        newdata = tbl_full %>% filter(store %in% test_st))
+    actual_k <- tbl_full %>% filter(store %in% test_st) %>% pull(logmove)
+    sqrt(mean((pred_k - actual_k)^2))
+  })
+  tibble(model = label, mean_rmse = mean(rmses), sd_rmse = sd(rmses))
+}
+
+formula_baseline <- "logmove ~ feat + log(price) + brand"
+formula_full     <- "logmove ~ feat * brand + deal * brand + log(price) * brand +
+                       age60 * brand + educ * brand + ethnic * brand + income * brand +
+                       hhlarge * brand + workwom * brand + hval150 * brand +
+                       sstrdist * brand + sstrvol * brand + cpdist5 * brand + cpwvol5 * brand"
+
+cv_results <- bind_rows(
+  cv_rmse(formula_baseline, "OLS — baseline (Lab 1)"),
+  cv_rmse(formula_full,     "OLS — full specification")
+) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3)))
+
+cv_results %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+:::{.callout-important icon=false}
+## ⚠️ T4: Evaluate the Cross-Validation Results
+
+a. The full interaction specification exhibited a higher in-sample $R^2$ than the baseline model. How do their cross-validated RMSEs compare?
+b. Did the addition of the demographic parameters improve or deteriorate the out-of-sample prediction?
+c. What does this indicate regarding the assumption that "more variables equate to better information"?
+
+:::
+
+::::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 Interpretation (Click to unfold)
+
+The full interaction specification yields a **lower** out-of-sample RMSE 
+(approx. 0.652) than the baseline model (0.716). 
+
+Contrary to the theoretical fear of overfitting, the expanded model generalized
+successfully to unseen locations. The out-of-sample performance improved because 
+the demographic interactions capture genuine, stable market heterogeneities rather
+than idiosyncratic noise. In this specific setting, **45 parameters are not yet sufficient to exhaust the effective degrees of freedom**
+provided by 83 distinct store clusters.
+
+This empirical result partially vindicates the board's assumption: 
+in this large-sample regime, adding structural variables did indeed provide 
+"better information" and improved the predictive tool. 
+
+However, this raises a new **methodological question:** Are all 45 parameters 
+strictly necessary to achieve this improved accuracy? 
+::::
+
+---
+
+# Step 4 — The Classical Selection Problem and Its Critiques
+
+While the 45-parameter specification (`mod_full_spec`) demonstrated robust out-of-sample performance without overfitting, predictive models deployed in production prioritize **sparsity**. A sparse model achieves high predictive accuracy using the minimum necessary number of features. Sparsity reduces deployment complexity, mitigates the risk of structural breaks in future data, and enhances interpretability. 
+
+The analytical objective therefore shifts from merely maximizing predictive accuracy to identifying a parsimonious model. 
+
+## Old-School Algorithms: Backward Elimination
+
+Historically, a standard algorithmic procedure for dimensionality reduction was **stepwise selection** (specifically, backward elimination). The algorithm follows a sequential heuristic, typically minimizing the Akaike Information Criterion (AIC):
+
+1. Estimate the full model with all $p$ variables.
+2. Evaluate the removal of each variable sequentially to see which deletion yields the lowest AIC.
+3. Remove the variable that improves (lowers) the AIC the most.
+4. Re-estimate the model with $p-1$ variables.
+5. Repeat the iterative process until removing any further variable increases the AIC.
+
+:::{.callout-note collapse="true" #aic-bic-background}
+### 📚 Background: Information Criteria (AIC and BIC)
+
+In model selection, evaluating performance exclusively via in-sample metrics (like $R^2$ or RMSE) inevitably leads to overfitting. Information criteria provide a theoretical alternative: they approximate out-of-sample prediction error by mathematically penalizing the model for adding parameters. 
+
+Both criteria aim to minimize their respective scores, balancing goodness-of-fit against model complexity.
+
+**1. Akaike Information Criterion (AIC)**
+Derived from information theory, the AIC estimates the relative amount of information lost by a given model.
+$$\text{AIC} = 2p - 2\ln(\hat{L})$$
+* $p$: The number of estimated parameters.
+* $\hat{L}$: The maximum value of the likelihood function for the model (a measure of fit).
+The penalty term ($2p$) increases linearly with the number of predictors, penalizing complexity.
+
+**2. Bayesian Information Criterion (BIC)**
+Also known as the Schwarz criterion, the BIC is grounded in Bayesian probability. 
+$$\text{BIC} = p\ln(n) - 2\ln(\hat{L})$$
+* $n$: The number of observations in the sample.
+Because the penalty multiplier is $\ln(n)$ rather than a constant $2$, the BIC imposes a much stricter penalty on complexity for any dataset where $n \ge 8$. 
+
+**Methodological Implication for our Dataset:**
+With $n \approx 28,000$, the BIC penalty per parameter is $\ln(28000) \approx 10.2$, which is five times harsher than the AIC penalty of $2$. Consequently, an algorithm minimizing the BIC will generally select a much sparser (simpler) model than one minimizing the AIC. The base R `step()` function defaults to AIC ($k=2$).
+:::
+
+We can apply this classical algorithm using the base R `step()` function.
+
+```{r stepwise-backward}
+#| code-fold: false
+#| warning: true
+# Perform backward stepwise selection (trace = 0 suppresses the voluminous output)
+mod_backward <- step(mod_full_spec, direction = "backward", trace = 0)
+
+# Compare parameter counts
+cat("Parameters in full model:     ", length(coef(mod_full_spec)), "\n")
+cat("Parameters in backward model: ", length(coef(mod_backward)), "\n")
+```
+
+The algorithm reduces the parameter count from 45 to 41. While the model remains computationally stable, the selection process reveals a significant underlying issue: in high-dimensional settings containing highly correlated predictors (such as the demographic clusters), the stepwise selection path becomes volatile. Small variations in the training data can cause the algorithm to include or exclude variables arbitrarily, undermining the reliability of the final model.
+
+To visualize this instability, we can bootstrap the selection process:
+
+```{r}
+#| code-fold: false
+#| code-summary: "Bootstrap: Visualizing Stepwise Instability"
+set.seed(42)
+n_boot <- 5 
+
+boot_results <- replicate(n_boot, {
+  # Reduce sample size to visualize volatility
+  d_boot <- tbl_full[sample(nrow(tbl_full), size = 150, replace = TRUE), ]
+  
+  # Stepwise Regression
+  m_boot <- MASS::stepAIC(lm(logmove ~ ., data = d_boot), direction = "backward", trace = 0)
+  names(coef(m_boot))[-1]
+}, simplify = FALSE)
+
+# Show findings
+cat("Number of variables selected per run: ", sapply(boot_results, length), "\n")
+stable_vars <- Reduce(intersect, boot_results)
+cat("Stable variables (in all runs): ", length(stable_vars), "\n")
+```
+
+The results are sobering: The algorithm produces a different model for every bootstrap sample, and only a handful of variables remain stable. This confirms the classic critique by Frank Harrell: stepwise selection is not a robust statistical method; it is a search for noise that happens to align with the current sample. Beyond these stability concerns, modern statistical literature strongly discourages this approach for both inferential and predictive tasks.
+
+## Why Stepwise Selection Fails: The Harrell Critique
+
+The mechanical reduction of variables via `step()` may seem computationally convenient, 
+yet we must critically evaluate the statistical validity of the resulting model. 
+Frank Harrell [@harrell_2015] provides a seminal critique of these automated procedures,
+highlighting why they undermine the integrity of our inferences:
+
+:::{.callout-warning icon=false}
+⚠️ Methodological Critique: The Instability of Stepwise Methods
+
+Frank Harrell [@harrell_2015] systematically outlines the methodological flaws 
+of stepwise selection algorithms. When the dataset is used iteratively to dictate
+the model structure, the classical assumptions of OLS inference are fundamentally
+violated:
+
+1. **Multiple Testing & $p$-Hacking**: Stepwise selection is a form of 
+automated p-hacking. By searching through thousands of possible combinations to
+find the "best" fit, the probability of selecting predictors that have no true 
+effect but appear significant by chance is nearly 100%.
+2. **Downward Biased Standard Errors:** The final model (mod_backward) reports 
+standard errors as if the selected variables were known a priori. 
+By ignoring the severe uncertainty of the selection path, these standard errors
+are artificially small, rendering confidence intervals invalid.
+3. **Biased Coefficients:** Variables that survive the selection process 
+systematically overestimate the true effect size (a phenomenon related to the
+"winner's curse").
+4. **Path Dependence:** The algorithm evaluates local optima. Removing one variable 
+fundamentally alters the partial correlations of all remaining variables, meaning
+stepwise selection is not mathematically guaranteed to identify the globally 
+optimal predictive model.
+
+To avoid automated multiple-testing issues, computational singularities, and 
+invalid inference, a methodology is required that performs variable selection
+simultaneously with parameter estimation, rather than sequentially.
+
+:::
+
+In high-dimensional settings containing highly correlated predictors, we must 
+transition from discrete selection algorithms to continuous penalty functions.
+This leads us to **regularization**.
+
+---
+
+# Step 5 — LASSO: Bias Accepted for Lower MSE
+
+To address the limitations of stepwise selection without sacrificing predictive accuracy, we apply regularization. Specifically, we utilize the Least Absolute Shrinkage and Selection Operator (LASSO) introduced by @tibshirani_1996.
+
+
+## The L1 Penalty and Algorithmic Variable Selection
+
+Regularization techniques deliberately introduce a degree of bias into the parameter estimates to achieve a substantial reduction in out-of-sample variance. The Lasso estimator modifies the OLS objective function by appending an $L_1$ penalty term based on the absolute magnitude of the coefficients:
+
+$$\hat{\beta}_{\text{Lasso}} = \arg\min_\beta \left\{ \sum_{i=1}^n (y_i - x_i^\top \beta)^2 + \lambda \sum_{j=1}^p |\beta_j| \right\}$$
+
+The hyperparameter $\lambda$ dictates the severity of the penalty:
+
+* For $\lambda = 0$, Lasso simplifies to the standard OLS estimator.
+* As $\lambda \to \infty$, the penalty dominates, forcing all coefficients to zero.
+
+To determine the optimal balance, we select the $\lambda$ that minimizes 
+out-of-sample MSE through cross-validation. This empirical optimization 
+process represents a deliberate statistical trade-off: by accepting a small 
+amount of bias in our coefficient estimates, we achieve a significant reduction 
+in model variance.
+
+:::{.callout-note icon="false" collapse="true" #lasso-vs-ridge}
+### 📚 Background: Lasso vs. Ridge — and why Lasso selects variables
+
+Ridge regression uses an $L_2$ penalty ($\sum \beta_j^2$); Lasso uses
+$L_1$. The geometric consequence is that Lasso's penalty corners on
+the coordinate axes push small coefficients exactly to zero, while
+Ridge shrinks them smoothly toward zero without setting them to
+zero.
+
+| Method | Penalty | Shrinks toward 0 | Sets to 0 | Use case |
+|:---|:---|:---:|:---:|:---|
+| OLS | none | no | no | Low-dim, BLUE conditions |
+| Ridge | $L_2$ | yes | no | High correlation, all variables matter |
+| Lasso | $L_1$ | yes | **yes** | Variable selection — sparse signal |
+| Elastic Net | $L_1 + L_2$ | yes | yes | Mixture: groups + selection |
+
+For our setting — many highly correlated demographics, plus the
+suspicion that only a few matter for prediction — Lasso is the
+natural choice: it automatically filters redundant demographic variables.
+:::
+
+:::{.callout-note icon="false" collapse="true" #bias-variance-strategic}
+### 📚 Background: The Bias-Variance Tradeoff — A Strategic Perspective
+
+In Step 3, we mathematically diagnosed overfitting via the bias-variance decomposition. Now, we use this framework to motivate regularization (Lasso and Ridge).
+
+**The Econometric Reading: Accepting Bias for Efficiency**
+As established, OLS minimizes variance *among linear unbiased estimators* (the BLUE condition). It does not minimize variance *overall*. By accepting a small, controlled bias (through shrinkage), we move outside the BLUE restriction and can find estimators with significantly lower total MSE. 
+
+**The Strategic Reading [@spiess_optimalEstimation_2025]:**
+A researcher with private preferences (publication pressure, client expectations, ideological priors) could exploit the bias-variance trade-off by tuning regularization parameters until a "favoured" estimate emerges. 
+
+This provides a modern justification for the classical econometric insistence on *unbiasedness*: it functions as an institutional restriction against specification-hacking. 
+
+* When using Lasso for **prediction** (Path P), the bias is a deliberate efficiency choice.
+* When we use it for **causal claims** (Path E), the bias becomes a credibility liability — unless we fix the bias *ex ante* via sample-splitting  (Lab 3, Double Machine Learning [@chernozhukov_DoubleML_2018]).
+
+:::
+
+## Implementation with **glmnet**
+
+The implementation requires the separation of the data into a design matrix ($X$) and
+a response vector ($y$). 
+
+```{r lasso-prep}
+#| code-fold: false
+# build the design matrix for the full specification
+X_full <- model.matrix(as.formula(formula_full), data = tbl_full)[, -1]
+y_full <- tbl_full$logmove
+
+cat("Design matrix dimensions: ", dim(X_full), "\n")
+```
+
+We determine the optimal penalty parameter $\lambda$ through 5-fold cross-validation.
+
+```{r lasso-cv}
+#| code-fold: false
+set.seed(42)
+# alpha = 1 specifies the Lasso penalty (alpha = 0 implements Ridge)
+cv_lasso <- cv.glmnet(X_full, y_full, alpha = 1, nfolds = 5)
+
+# Saving lambda.min and lambda.1se for inline referencing
+lambda_min <- cv_lasso$lambda.min
+lambda_1se <- cv_lasso$lambda.1se
+
+# Extract optimized lambda values
+cat("lambda.min (minimizes CV-MSE): ", round(cv_lasso$lambda.min, 5), "\n")
+cat("lambda.1se (parsimonious model): ", round(cv_lasso$lambda.1se, 5), "\n")
+```
+
+## The cross-validation curve
+
+```{r lasso-cv-plot}
+#| fig-height: 5
+#| fig-width: 8
+#| code-fold: true
+#| code-summary: "Show code: Clean Lasso CV plot with thinned labels"
+
+# 1. Extract data
+lasso_df <- data.frame(
+  lambda = cv_lasso$lambda,
+  cvm    = cv_lasso$cvm,
+  cvup   = cv_lasso$cvup,
+  cvlo   = cv_lasso$cvlo,
+  nzero  = cv_lasso$nzero
+)
+
+# 2. Labels 
+top_labels <- lasso_df %>%
+  mutate(idx = row_number()) %>%
+  filter(idx %% 6 == 0) 
+
+# 3. Plot
+ggplot(lasso_df, aes(x = log(lambda), y = cvm)) +
+  geom_errorbar(aes(ymin = cvlo, ymax = cvup), color = "grey85", width = 0.1) +
+  geom_point(color = "#D50006", size = 2) +
+  # Hier die reduzierten Labels
+  geom_text(data = top_labels, aes(x = log(lambda), y = max(lasso_df$cvup) + 0.04, label = nzero), size = 3) +
+  # Linien
+  geom_vline(xintercept = log(cv_lasso$lambda.min), linetype = "dashed") +
+  geom_vline(xintercept = log(cv_lasso$lambda.1se), linetype = "dotted") +
+  # Annotationen
+  annotate("text", x = log(cv_lasso$lambda.min), y = max(lasso_df$cvup) + 0.08, 
+           label = "min", size = 3, fontface = "bold") +
+  annotate("text", x = log(cv_lasso$lambda.1se), y = max(lasso_df$cvup) + 0.08, 
+           label = "1se", size = 3, fontface = "bold") +
+  # Layout
+  theme_minimal() +
+  labs(
+    title = "Lasso Cross-Validation",
+    subtitle = "Mean-Squared Error vs. log(λ) [Top: number of active variables]",
+    x = "log(λ)",
+    y = "Mean-Squared Error"
+  ) +
+  coord_cartesian(clip = "off") + 
+  theme(plot.margin = unit(c(2, 1, 1, 1), "lines"))
+```
+
+* **Vertical Lines:** The dashed line marks `lambda.min` (the $\lambda$ value minimizing MSE). 
+The dotted line marks `lambda.1se` (the most parsimonious model within one standard error).
+
+* **Direction:** Moving left on the x-axis ($\log(\lambda)$ decreases) decreases the penalty, 
+increasing model complexity. Moving right increases the penalty, yielding a sparser, more regularized model.
+
+* The **upper horizontal axis** indicates the number of non-zero parameters retained in the model at each corresponding $\lambda$ level.
+
+:::{.callout-important icon=false}
+## ⚠️ T5: Compare Lasso to OLS on out-of-sample MSE
+
+a. Read off the CV-MSE at `lambda.min` and at lambda.1se from the plot
+   (or from `cv_lasso$cvm` at the corresponding indices).
+b. How does the CV-MSE at lambda.min compare to the OLS cross-validation
+   results from Step 4?
+c. How many variables does Lasso retain at lambda.1se? How many at
+   lambda.min?
+:::
+
+```{r lasso-comparison-numeric}
+#| code-fold: true
+#| code-summary: "Show code: numerical Lasso vs. OLS comparison"
+idx_min <- which(cv_lasso$lambda == lambda_min)
+idx_1se <- which(cv_lasso$lambda == lambda_1se)
+
+tibble(
+  Method                = c("OLS — baseline",     "OLS — full",
+                            "Lasso (lambda.min)", "Lasso (lambda.1se)"),
+  `CV-MSE`              = c(cv_results$mean_rmse[1]^2,
+                            cv_results$mean_rmse[2]^2,
+                            cv_lasso$cvm[idx_min],
+                            cv_lasso$cvm[idx_1se]),
+  `Non-zero params`     = c(length(coef(mod_baseline_full)) - 1,
+                            length(coef(mod_full_spec)) - 1,
+                            cv_lasso$nzero[idx_min],
+                            cv_lasso$nzero[idx_1se])
+) %>%
+  mutate(`CV-MSE` = round(`CV-MSE`, 4)) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 The Lasso payoff (Click to unfold)
+
+Lasso achieves a CV-MSE of **`r round(cv_lasso$cvm[idx_1se], 4)`**, outperforming the full OLS specification (**`r round(cv_results$mean_rmse[2]^2, 4)`**) while utilizing only **`r cv_lasso$nzero[idx_1se]`** parameters (compared to the original **`r length(coef(mod_full_spec)) - 1`**).
+
+This is the bias-variance trade-off in action: by accepting a small, controlled bias (shrinkage), Lasso reduces variance enough to lower the total out-of-sample prediction error.
+
+The key contrast for Sarah's board:
+
+- "More variables = better information" is **wrong out-of-sample**. More variables increase variance and amplify the noise we fitted in the training data.
+- "Fewer well-chosen variables = better prediction" is the empirical reality, provided the variables capture genuine market heterogeneity.
+
+Lasso performs this selection automatically, identifying the sparse set of features that minimizes the expected prediction error.
+:::
+
+:::{.callout-warning icon="false"}
+### ⚠️ Looking ahead to Lab 3 (Causal Inference)
+While Variant C (via Lasso) will solve the prediction problem, it does **not** solve the causal problem (Path E). Even with 36 parameters, $price_{sbt}$ remains endogenous because managers set prices based on unobserved, time-varying store characteristics that end up in the error term $\varepsilon_{sbt}$. Disentangling this requires experimental or quasi-experimental study designs, which is the focus of Lab 3.
+:::
+
+---
+
+# Step 6 — Deployment: Informing the Board
+
+Having established that our regularized model provides superior out-of-sample prediction, we now open the "black box" to extract actionable business insights. Lasso does not just optimize prediction; it performs **algorithmic variable selection**.
+
+```{r lasso-coefficients}
+#| code-fold: false
+coef_lasso <- coef(cv_lasso, s = "lambda.1se")
+coef_df <- as_tibble(as.matrix(coef_lasso), rownames = "variable") %>%
+                rename(estimate = 2) %>%                # ← position-based, version-proof
+                filter(variable != "(Intercept)") %>%
+                mutate(retained = estimate != 0)
+# count retained vs. removed
+
+
+# count retained vs. removed
+coef_df %>%
+  count(retained) %>%
+  gt() %>%
+  gt::tab_header(title = "Variable selection at lambda.1se") %>%
+  gt::tab_options(table.font.size = "12px")
+
+```
+
+## Which Variables Survive?
+
+The retained variables, sorted by magnitude:
+
+```{r lasso-retained}
+#| code-fold: true
+#| code-summary: "Show code: retained variables sorted by magnitude"
+coef_df %>%
+  filter(retained) %>%
+  mutate(abs_estimate = abs(estimate)) %>%
+  arrange(desc(abs_estimate)) %>%
+  select(variable, estimate) %>%
+  mutate(estimate = round(estimate, 4)) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "11px")
+```
+
+
+
+
+:::{.callout-important icon=false}
+## ⚠️ T6: Read the Lasso selection
+
+a. Which type of variable dominates the retained list — marketing
+   levers (feat, deal), prices, demographics, or interactions?
+b. Are demographic main effects retained, or mostly the brand ×
+   demographic interactions?
+c. Compare to your expectation from Step 0: did Variant C deliver
+   what we expected — namely, brand-specific demographic effects?
+:::
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 What the selection tells us (Click to unfold)
+
+Typical findings on the OJ panel:
+
+- **Price and brand effects** survive cleanly — these are the most
+  reliable predictors
+- **`feat` and `deal`** survive (or their interactions with brand) —
+  marketing matters
+- **Income, education, household-size and competition variables**
+  survive selectively, often as brand × demographic interactions
+  rather than main effects — confirming that the *gradient* of the
+  demographic effect differs by brand
+- **Many redundant demographic interactions are removed** — the
+  educ / hval150 / income cluster collapses into one or two
+  representative variables
+
+The lesson: with Lasso, **the data picks the relevant variables**.
+We do not need to decide in advance which demographics to include —
+the algorithm tells us, via cross-validation.
+:::
+
+:::{.callout-warning icon=false}
+### ⚠️ Important: Lasso coefficients are NOT causal estimates
+
+The Lasso has done what we asked: it found the sparse set of
+variables that best predicts on held-out data. But:
+
+- Lasso **deliberately introduces bias** (this was the whole point)
+- The coefficients are **shrunk toward zero** — they understate the
+  true partial effects
+- Variable selection is **not the same as causal identification** —
+  Lasso retains predictively useful variables, not causally relevant
+  variables
+- Two variables that are highly correlated may both be useful;
+  Lasso arbitrarily picks one (depending on the random seed). The
+  *unselected* variable is not "unimportant".
+
+For Sarah's Question 1 (the causal effect of advertising), Lasso is
+**not** the right tool. The Lasso output here serves Path P
+(Question 2, the inventory tool) only. Lab 3 will return to the
+causal question with appropriate methodology.
+
+**A Lucas-style caveat (recall Lab 1, the BLUE-bridge section).**
+The Lasso-selected model predicts well *under the same DGP as in
+the training data*. If Sarah's stores undergo a regime change —
+new competitors, new pricing strategies, new demographic shifts —
+the selected variables may no longer be the right ones. This is
+the Lucas critique applied to Path P. Prediction is honest about
+its scope: it is interpolation within a stable structure, not
+extrapolation across regimes.
+
+**The path forward: sample-splitting.** If we want Lasso (or any
+ML method) to help with *causal* questions, we need to fix the
+specification choice before estimation. The technique:
+
+1. Split the data into two parts (typically 50/50)
+2. Use part 1 to *select* the variables (Lasso, etc.)
+3. Use part 2 to *estimate* the final coefficients with the
+   selected specification
+
+Part 2 has not seen the specification-search. Inference on part 2
+is honest — classical SE and CI become interpretable again. This
+is the principle behind **Double Machine Learning**
+[@chernozhukov_DoubleML_2018], which Lab 3 develops formally for
+causal estimation. The institutional argument from Lab 1's "Note
+of Caution" [@spiess_optimalEstimation_2025] is operationalised
+here: sample-splitting is what *enforces* the unbiasedness
+restriction in practice.
+:::
+
+
+## Translator memo for Sarah
+
+:::{.callout-important icon=false}
+## ⚠️ T7: Translator memo (Lab 2)
+
+Draft Sarah's follow-up memo. Structure your argument as follows:
+
+1. Prediction: Did the census-based demographics improve the inventory prediction tool? Contrast the board's "more data" intuition with our finding on parsimony vs. out-of-sample accuracy.
+
+2. Inference: Did the demographic controls clarify the causal advertising effect? (Hint: Refer back to the endogeneity of store-level pricing and the "Path E" vs "Path P" distinction).
+
+3. Synthesis: State clearly: when does the "more variables" intuition hold, and when does it fail?
+
+*Structure: 3–5 sentences per question, professional business tone.*
+
+**Drafting Tip:** Imagine Sarah is sitting in a board meeting. Avoid technical jargon like "Lasso-shrinkage" or "MSE". Talk about "how well the model forecasts in stores we have not seen before",  "automatically removing variables that don't add information", and "what historical data alone cannot tell us".
+:::
+
+---
+
+# Bonus — For independent study
+
+## ⚠️ B1: Ridge vs. Lasso vs. Elastic Net
+
+The three regularisers differ in their penalty geometry. This bonus
+task compares them on our data.
+
+:::{.callout-important icon=false}
+## ⚠️ B1: Compare three regularisation approaches
+
+```{r b1-three-methods}
+#| eval: false
+set.seed(42)
+
+# Ridge: alpha = 0
+cv_ridge <- cv.glmnet(X_full, y_full, alpha = 0, nfolds = 5)
+
+# Lasso: alpha = 1 (already fit as cv_lasso)
+
+# Elastic Net: alpha = 0.5
+cv_elnet <- cv.glmnet(X_full, y_full, alpha = 0.5, nfolds = 5)
+
+# Compare CV-MSE at lambda.min
+tibble::tibble(
+  method    = c("Ridge", "Lasso", "Elastic Net (α = 0.5)"),
+  cv_mse    = c(min(cv_ridge$cvm),        min(cv_lasso$cvm),      min(cv_elnet$cvm)),
+  n_nonzero = c(sum(coef(cv_ridge, s = "lambda.min") != 0) - 1,
+                sum(coef(cv_lasso, s = "lambda.min") != 0) - 1,
+                sum(coef(cv_elnet, s = "lambda.min") != 0) - 1)
+) %>%
+  dplyr::mutate(across(where(is.numeric), \(x) round(x, 4)))
+```
+
+a. Which method gives the lowest CV-MSE? By how much?
+b. Which method retains the most variables? Which the fewest?
+c. What does the trade-off look like — does the method with lowest
+   MSE also retain the most variables, or is there a clear winner
+   on both axes?
+:::
+
+## ⚠️ B2: A pure-cross-price Lasso (without demographics)
+
+This bonus isolates the role of cross-price information by fitting
+Lasso on the `tbl_cross` data with only prices, feat and deal — no
+demographics.
+
+:::{.callout-important icon=false}
+## ⚠️ B2: Cross-price Lasso
+
+```{r b2-cross-lasso}
+#| eval: false
+library(glmnet)
+
+# build a separate model for each of the three brands
+for (target_brand in c("dominicks", "minute.maid", "tropicana")) {
+
+  y_brand <- tbl_cross[[paste0("logmove_", target_brand)]]
+
+  X_brand <- tbl_cross %>%
+    select(starts_with("price_"), starts_with("feat_"), starts_with("deal_")) %>%
+    mutate(across(starts_with("price_"), log)) %>%
+    as.matrix()
+
+  cv_b <- cv.glmnet(X_brand, y_brand, alpha = 1, nfolds = 5)
+
+  cat("Brand: ", target_brand, "\n")
+  print(coef(cv_b, s = "lambda.1se"))
+  cat("\n")
+}
+```
+
+a. Which cross-prices survive selection for each brand?
+b. Do all three brands retain their own price?
+c. What does the pattern of retained cross-prices tell you about
+   substitution within the OJ category?
+:::
+
+## ⚠️ B3: Lasso path visualisation
+
+Plot the full coefficient path as a function of $\lambda$ to see
+which variables exit the model first.
+
+:::{.callout-important icon=false}
+## ⚠️ B3: Trace coefficient paths
+
+```{r b3-coef-path}
+#| eval: false
+fit_lasso <- glmnet(X_full, y_full, alpha = 1)
+plot(fit_lasso, xvar = "lambda", label = TRUE)
+abline(v = log(cv_lasso$lambda.1se), lty = 2, col = "red")
+abline(v = log(cv_lasso$lambda.min), lty = 2, col = "blue")
+```
+
+a. Which variables are the last to be shrunk to zero as $\lambda$
+   increases?
+b. Are these the same variables that ended up in the lambda.1se
+   selection from Step 6?
+c. What does this picture tell you about the *order* in which variables
+   contribute to prediction?
+:::
+
+## ⚠️ B4: Big-data regime — would we have done this differently?
+
+In Step 0 we noted that p ≈ 36 takes us close to the big-data regime
+in spirit but not in scale. This bonus asks what would change if p
+were truly large (say, p > n).
+
+:::{.callout-important icon=false}
+## ⚠️ B4: A reflection without code
+
+Imagine Sarah comes back next year with the full 11-brand price matrix
+*and* loyalty-card-level customer demographics — say, 200 variables.
+
+a. Why would OLS fail completely in this setting? (Hint: think about
+   the $X^\top X$ matrix.)
+b. Why does Lasso continue to work even when p > n?
+c. Which assumption from §0.1a of the lab development schema becomes
+   relevant here — and what does it imply for the inference / prediction
+   distinction?
+
+This is a written reflection — no R code expected.
+:::
+
+## ⚠️ B5: Multilevel as the E1 alternative
+
+Lasso is a Path-P tool. For Path E1 — inferential reading — clustered
+or multilevel models address related concerns more directly.
+
+:::{.callout-important icon=false}
+## ⚠️ B5: Fit a multilevel model with random intercepts by store
+
+```{r b5-multilevel}
+#| eval: false
+library(lme4)
+
+mod_lme <- lmer(
+  logmove ~ feat + deal + log(price) + brand + income + educ +
+    (1 | store),
+  data = tbl_full
+)
+
+summary(mod_lme)
+```
+
+a. How does the `feat` coefficient compare to the OLS estimate from
+   Step 1?
+b. What does the random-intercept variance tell us about between-store
+   heterogeneity?
+c. Why is this **not** a substitute for the regularisation pathway —
+   what does it add, what doesn't it address?
+:::
+
+---
+
+# Summary — what we found
+
+```{r summary-table}
+#| echo: false
+
+tibble::tribble(
+  ~`Finding type`,                    ~`Key result`,                                                 ~`Implication for Lab 3`,
+  "E1 — advertising effect",          "Demographics do not change the feat estimate from Lab 1",     "The A1 problem is structural and needs a study design (Lab 3)",
+  "E1 — own-price elasticity",        "Own-price elasticity moderates when cross-prices are added",  "Competitor information matters for both inference and prediction",
+  "P — full OLS specification",       "Higher in-sample R², but worse cross-validated MSE",          "Classical OLS limit reached at p ≈ 36",
+  "P — Lasso selection",              "Sparse model performs better out-of-sample than full OLS",    "Variable selection is feasible and informative",
+  "P — board intuition",              "'More variables = better information' fails out-of-sample",   "The board needs a clearer mental model of prediction"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_style(gt::cell_fill("#f0fff0"), gt::cells_body(rows = c(2, 4))) %>%
+  gt::tab_style(gt::cell_fill("#fff8e1"), gt::cells_body(rows = c(1, 3, 5))) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+---
+
+# What comes next
+
+| Lab | Question it answers |
+|-----|---------------------|
+| **Lab 3 — A/B-test design + DiD simulation** | If Sarah really wants the causal effect of advertising, how must she set up the study? And what would she do with a natural experiment (Path E2)? |
+
+**What Lab 3 will add to this story.** Lab 1 showed that OVB
+contaminates the OLS estimate of $\beta_{\text{feat}}$. Lab 2 showed
+that no amount of Path-P sophistication (Ridge, Lasso, demographic
+controls) can fix this — they all live in the same DGP. The fix
+must come from a *different DGP*: a study design that manipulates
+the treatment instead of observing it.
+
+- **A/B-test design** as the gold standard
+- **Difference-in-Differences and Event-Study Designs** as quasi-
+  experimental paths when randomisation is infeasible
+- **Instrumental Variables** sneak-peek
+- **Double Machine Learning** [@chernozhukov_DoubleML_2018] as the
+  operative answer to the Spiess-style institutional argument from
+  Lab 1's "Note of Caution": ML for nuisance modeling, with
+  sample-splitting protecting the causal estimate
+
+The mini-DAG from Lab 1 (`deal` as common cause of `feat` and
+`logmove`) is the starting point. Lab 3 develops the DAG framework
+systematically.

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 320" font-family="Helvetica, Arial, sans-serif">
+
+  <!-- ===== LEFT PANEL: Lasso (L1) ===== -->
+  <g transform="translate(0,0)">
+    <text x="150" y="22" font-size="14" font-weight="bold" text-anchor="middle" fill="#D50006">Lasso (L₁)</text>
+
+    <!-- Axes -->
+    <line x1="30" y1="170" x2="270" y2="170" stroke="#686868" stroke-width="1.2"/>
+    <line x1="150" y1="50" x2="150" y2="290" stroke="#686868" stroke-width="1.2"/>
+    <text x="278" y="174" font-size="11" fill="#686868">β₁</text>
+    <text x="146" y="46"  font-size="11" fill="#686868" text-anchor="end">β₂</text>
+
+    <!-- L1 penalty region (diamond) -->
+    <polygon points="150,100 200,170 150,240 100,170" fill="#fff5f5" stroke="#D50006" stroke-width="2"/>
+
+    <!-- OLS solution (outside the diamond) -->
+    <circle cx="225" cy="105" r="4.5" fill="#000"/>
+    <text x="232" y="105" font-size="10.5" fill="#000">β̂ OLS</text>
+
+    <!-- RSS contours (concentric ellipses around OLS solution) -->
+    <ellipse cx="225" cy="105" rx="38" ry="22" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+    <ellipse cx="225" cy="105" rx="58" ry="33" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+    <ellipse cx="225" cy="105" rx="80" ry="46" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+
+    <!-- Contact point at corner: top corner of diamond (β1 = 0) -->
+    <circle cx="150" cy="100" r="5" fill="#D50006"/>
+    <line x1="150" y1="100" x2="145" y2="80" stroke="#D50006" stroke-width="1"/>
+    <text x="105" y="76" font-size="10" fill="#D50006" font-weight="bold">contact on axis</text>
+    <text x="105" y="88" font-size="10" fill="#D50006">β̂₁ = 0  (selection!)</text>
+  </g>
+
+  <!-- ===== RIGHT PANEL: Ridge (L2) ===== -->
+  <g transform="translate(300,0)">
+    <text x="150" y="22" font-size="14" font-weight="bold" text-anchor="middle" fill="#502479">Ridge (L₂)</text>
+
+    <!-- Axes -->
+    <line x1="30" y1="170" x2="270" y2="170" stroke="#686868" stroke-width="1.2"/>
+    <line x1="150" y1="50" x2="150" y2="290" stroke="#686868" stroke-width="1.2"/>
+    <text x="278" y="174" font-size="11" fill="#686868">β₁</text>
+    <text x="146" y="46"  font-size="11" fill="#686868" text-anchor="end">β₂</text>
+
+    <!-- L2 penalty region (circle) -->
+    <circle cx="150" cy="170" r="55" fill="#faf5ff" stroke="#502479" stroke-width="2"/>
+
+    <!-- OLS solution -->
+    <circle cx="225" cy="105" r="4.5" fill="#000"/>
+    <text x="232" y="105" font-size="10.5" fill="#000">β̂ OLS</text>
+
+    <!-- RSS contours -->
+    <ellipse cx="225" cy="105" rx="38" ry="22" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+    <ellipse cx="225" cy="105" rx="58" ry="33" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+    <ellipse cx="225" cy="105" rx="80" ry="46" fill="none" stroke="#686868" stroke-width="0.9" stroke-dasharray="3,3" transform="rotate(-25 225 105)"/>
+
+    <!-- Contact point: interior, e.g. (192, 132) -->
+    <circle cx="194" cy="132" r="5" fill="#502479"/>
+    <line x1="194" y1="132" x2="180" y2="105" stroke="#502479" stroke-width="1"/>
+    <text x="65" y="100" font-size="10" fill="#502479" font-weight="bold">interior contact</text>
+    <text x="65" y="112" font-size="10" fill="#502479">both β̂ &gt; 0  (shrinkage only)</text>
+  </g>
+</svg>

@@ -1,0 +1,867 @@
+---
+title: "Data Science and Strategy for Business"
+subtitle: "Complexity, Generalization & Causality: Predict or Intervene?"
+author: "Prof. Dr. Jörg Schoder"
+institute: "FFHS"
+date: "`r Sys.Date()`"
+bibliography: ../../lit/my_bib.bib
+lang: en-US
+reference-section-title: References
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css:
+         - default
+         - ../../css/ffhs-theme_js.css
+         - xaringan-themer.css
+    includes:
+      after_body: ../../css/insert-logo.html
+    lib_dir: ../../libs
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    seal: false
+---
+class: title-slide
+
+```{r xaringan-themer, include=FALSE}
+library(xaringanthemer)
+style_xaringan(text_color = "#d50006",
+               inverse_text_color = "#FFFFFF",
+               inverse_background_color = "#d50006",
+               title_slide_background_color = "#d50006",
+               header_background_color = "#d50006",
+               header_color = "#FFFFFF",
+               header_h1_font_size = "32px",
+               header_h2_font_size = "26px",
+               link_color = "#502479",
+               header_h3_font_size = "20px",
+               text_slide_number_color = "#d50006",
+               text_slide_number_font_size = "0.5em")
+```
+
+```{r xaringanExtra, echo=FALSE}
+xaringanExtra::use_progress_bar(color = "#d50006", location = "bottom")
+xaringanExtra::use_xaringan_extra(c("tile_view","scribble","panelset","tachyons"))
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+xaringanExtra::use_editable(expires = 1)
+xaringanExtra::use_freezeframe(trigger = "hover")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi = 150)
+options(htmltools.dir.version = FALSE)
+library(latex2exp)
+library(fontawesome)
+library(tidyverse)
+library(kableExtra)
+library(gt)
+source(xfun::from_root("lit","helper.R"))
+library(RefManageR)
+BibOptions(check.entries = FALSE,
+           bib.style = "authoryear",
+           style = "markdown",
+           dashed = TRUE)
+bib <- ReadBib(xfun::from_root("lit","my_bib.bib"))
+Zitiere <- function(bib, key, ...) {
+  gsub(" and ", " and ", Citet(bib, key, ...))
+}
+
+# colour palette (consistent with labs)
+col_primary   <- "#D50006"   # red — Path E1 / OLS / current
+col_secondary <- "#502479"   # purple — Path P / Lasso / Lab 2
+col_tertiary  <- "#7d0a52"   # dark accent — Path E2 / Causal / Lab 3
+col_neutral   <- "#686868"
+```
+
+
+# ER114 — Data Science and Strategy for Business
+
+## Session 3
+
+### Complexity, Generalization & Causality. *Predict or Intervene?*
+
+<br>
+<br>
+<br>
+<br>
+<br>
+### FS 2026
+<br>
+### Prof. Dr. Jörg Schoder
+.mycontacts[
+`r fa('github')` @FFHS-EconomicResearch
+`r fa('linkedin')` @jfschoder
+]
+
+
+---
+layout: true
+
+<div class="my-footer"></div>
+
+<div style="position: absolute;left:400px;bottom:10px;font-size:9px">`r fa('creative-commons')``r rmarkdown::metadata$author`</div>
+
+
+
+
+---
+class: left
+
+.blockquote[Agenda]
+
+## Session 3 Overview
+
+<div style="display:grid; grid-template-columns:80px 1fr; gap:0.3em 1em;
+            font-size:0.82em; margin-top:0.5em; align-items:center;">
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('rotate-left')` <strong>Welcome &amp; Recap</strong> — where Sessions 1+2 left us</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('lightbulb')` <strong>Prediction vs. Explanation</strong> — the central dilemma of Block&nbsp;3</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('chart-line')` <strong>The In-Sample Illusion</strong> — why high R² alone is dangerous</div>
+
+<div style="color:#D50006; font-weight:bold;">45'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;1</strong> — Reality Check via Out-of-Sample Validation</div>
+
+<div style="color:#686868;">15'</div>
+<div>`r fa('triangle-exclamation')` <strong>When OLS Fails</strong> — the BLUE bridge, bias–variance, Lasso preview</div>
+
+<div style="color:#686868; font-style:italic;">10'</div>
+<div style="color:#686868; font-style:italic;">`r fa('mug-hot')` Break</div>
+
+<div style="color:#D50006; font-weight:bold;">25'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;2</strong> — Multicollinearity &amp; Regularization</div>
+
+<div style="color:#686868;">25'</div>
+<div>`r fa('compass')` <strong>Causal-Inference Primer</strong> — beyond correlation: A/B&nbsp;tests, quasi-experiments, IV, DML</div>
+
+<div style="color:#D50006; font-weight:bold;">30'</div>
+<div style="color:#D50006; font-weight:bold;">`r fa('flask')` <strong>Lab&nbsp;3</strong> — Design your Experiment (Innovator's Hypothesis)</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('forward')` <strong>Outlook ER017</strong> — Machine Learning &amp; Causal+ML</div>
+
+<div style="color:#686868;">10'</div>
+<div>`r fa('flag-checkered')` <strong>Debrief &amp; Evaluation</strong></div>
+
+</div>
+
+???
+* Red blocks = labs (Lab 1 is longer because it covers the OLS diagnostic foundation)
+* Three connecting threads: DGP-paths E1/E2/P, Spiess credibility argument, Sarah Chen narrative
+* Total ≈ 195 min including break
+
+
+---
+class: inverse, center, middle
+
+## Recap
+
+### Where did Sessions 1 + 2 leave us?
+
+
+---
+class: left
+
+.blockquote[Recap]
+
+## Sessions 1 → 2 → **3**
+
+.panelset[
+.panel[.panel-name[Session 1]
+###  *See &amp; Describe*
+
+`r fa('eye')` Descriptive regression as **conditional mean**:
+$$\hat{y} = \mathbb{E}[y\,|\,\mathbf{x}]$$
+
+`r fa('eye')` CRISP-DM as project skeleton
+
+`r fa('eye')` Tidyverse pipeline + EDA
+
+`r fa('eye')` First contact with **OVB** — missing variables bias all coefficients
+
+]
+.panel[.panel-name[Session 2]
+### *Hypotheses Testing*
+
+`r fa('dice')` Population vs. sample · **stochastic** regression
+
+`r fa('dice')` Bootstrap &amp; permutation — *"only one test"*
+
+`r fa('dice')` Type I/II errors as economic risks (EV-Framework)
+
+`r fa('dice')` p-Hacking, FDR, BH
+
+]
+.panel[.panel-name[Session 3]
+### *Today*
+
+`r fa('circle-question')` **Inference vs. Prediction** — when is which the right purpose?
+
+`r fa('circle-question')` **Multicollinearity** &amp; the BLUE limits
+
+`r fa('circle-question')` **Bias-variance trade-off** &amp; regularization
+
+`r fa('circle-question')` **Cross-validation** as the out-of-sample yardstick
+
+`r fa('circle-question')` **Causal engineering** — when correlation is not enough
+
+.blockquote[
+"The Block&nbsp;3 question is no longer *what do we see?* &mdash; it is *what should we believe and what should we act on?*"
+]
+]
+]
+
+???
+* The recap stresses that Sessions 1 and 2 stayed on the **same dataset** with the **same model** — only the lens changed
+* Today we change the lens twice more: out-of-sample (Lab 1+2) and counterfactual (Lab 3)
+
+
+---
+class: left
+
+.blockquote[Today's Question]
+
+## What should we believe — and act on?
+
+<br>
+
+.pull-left[
+### `r fa('chart-line', fill='#502479')` Will the pattern generalize?
+
+The **prediction** question.
+
+`r fa('arrow-right', fill='#502479')` Path **P**
+
+`r fa('arrow-right', fill='#502479')` Operational in **Lab 2**
+]
+
+.pull-right[
+### `r fa('flask', fill='#D50006')` What changes if I intervene?
+
+The **causal** question.
+
+`r fa('arrow-right', fill='#D50006')` Path **E** (E2 sub-question)
+
+`r fa('arrow-right', fill='#D50006')` Operational in **Lab 3**
+]
+
+<br>
+<br>
+
+.center[
+.blockquote[
+Lab&nbsp;1 stress-tests the **classical inference** path (E1) under the A/B/C assumptions — and shows where it breaks.
+]
+]
+
+???
+* Two simple questions — one entire session built around them
+* E1 is "what is the partial effect?" — same path E as E2, but a different sub-question
+* Lab 1 is the gateway: it exposes where classical inference reaches its limits, motivating both Path P (Lab 2) and Path E2 (Lab 3)
+
+
+---
+class: inverse, center, middle
+
+## Part 1
+
+### Foundations: Two Paths from the DGP
+
+
+---
+class: left
+
+.blockquote[Part 1 · The model]
+
+## Regression Model: The conditional expectation E[y|x]
+
+.pull-left[
+For a response $y$ and inputs $\mathbf{x}$:
+
+$$\mathbb{E}[y\,|\,\mathbf{x}] = f(\mathbf{x}'\boldsymbol{\beta})$$
+
+`r fa('arrow-right')` **Marginal** distribution: the unconditional shape of $y$
+
+`r fa('arrow-right')` **Conditional** expectation: a *function* of $\mathbf{x}$ — sliced by inputs
+
+The conditional mean is what every regression — descriptive, inferential, predictive, causal — estimates.
+
+]
+
+.pull-right[
+```{r conditional-mean-illustration, echo=FALSE, fig.width=4.5, fig.height=4, fig.align='center', out.width="100%"}
+set.seed(20260522)
+n <- 300
+tbl <- tibble(
+  bathrooms = sample(0:6, n, replace = TRUE, prob = c(0.05, 0.15, 0.4, 0.25, 0.1, 0.04, 0.01)),
+  home_value = exp(11 + 0.35 * bathrooms + rnorm(n, sd = 0.4)) / 1000
+)
+
+ggplot(tbl, aes(factor(bathrooms), home_value)) +
+  geom_boxplot(fill = col_primary, alpha = 0.6, outlier.size = 0.6,
+               outlier.colour = col_neutral) +
+  stat_summary(fun = mean, geom = "point", color = col_secondary,
+               size = 3, shape = 18) +
+  labs(x = "number of bathrooms",
+       y = "home value (k$)",
+       title = "Conditional distribution",
+       subtitle = "Purple diamond = conditional mean") +
+  theme_minimal(base_size = 10) +
+  theme(plot.subtitle = element_text(color = col_neutral, size = 9))
+```
+]
+
+.tr[.small[Own Illustration based on `r Citet(bib, "taddy_business_2019")` Ch. 1]]
+
+
+???
+* The plot mirrors Taddy Figure 1.1 — students will see something visually similar in many texts
+* Key insight: 
+  * The marginal mean is a single number. Average houseprice. 
+  * The **conditional mean** is a function. Plot: Home price distributions conditional on the number of bathrooms
+* All three paths (E1, E2, P) ultimately make claims about parts of this conditional distribution
+
+
+---
+class: left
+
+.blockquote[Part 1 · The logic]
+
+## Induction and Deduction — two roles for data
+
+```{r induction-deduction-svg, echo=FALSE, out.width="100%", fig.align='center'}
+knitr::include_graphics(xfun::from_root("img","Session3","induction_deduction.svg"))
+```
+
+???
+* Two visually distinct halves: Induction (purple) at top, Deduction (red) at bottom
+* **Key point:** the role of data is fundamentally different
+  - In induction: data is the *source material* from which we generate a hypothesis (data mining, model training)
+  - In deduction: data is the *arbiter* that tests an a-priori hypothesis (classical inference) or yields a prediction
+* Path P = induction (training) + deduction (predicting new x)
+* Path E1 = deduction only (hypothesis pre-specified, then tested)
+* No claim of abduction here — it would not add clarity for this audience
+* Lab 1 lives in pure deduction; Lab 2 adds explicit induction (CV-tuned model); Lab 3 returns to deduction (test of pre-specified design)
+
+
+---
+class: left
+
+.blockquote[Part 1 · Translator role]
+
+## From AI User to AI Value Creator
+
+.panelset[
+.panel[.panel-name[The Concept]
+<svg viewBox="0 0 680 200" width="90%" style="display:block;margin:auto">
+  <defs>
+    <style>
+      .rtxt { font-family:sans-serif; font-size:11px; font-weight:bold;
+              fill:white; text-anchor:middle; }
+      .rarr { stroke:#686868; stroke-width:2; fill:none;
+              marker-end:url(#arr); }
+      .anno { font-family:sans-serif; font-size:10px; fill:#686868;
+              text-anchor:middle; }
+    </style>
+    <marker id="arr" markerWidth="8" markerHeight="8"
+            refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#686868"/>
+    </marker>
+  </defs>
+  <!-- Stages of the AI Ladder -->
+  <rect x="10"  y="140" width="130" height="40" rx="6" fill="#b3b2b2"/>
+  <text class="rtxt" x="75"  y="165">1. Collect</text>
+  <rect x="180" y="140" width="130" height="40" rx="6" fill="#686868"/>
+  <text class="rtxt" x="245" y="165">2. Organise</text>
+  <rect x="350" y="140" width="130" height="40" rx="6" fill="#7d0a52"/>
+  <text class="rtxt" x="415" y="165">3. Analyse</text>
+  <rect x="520" y="140" width="140" height="40" rx="6" fill="#502479"/>
+  <text class="rtxt" x="590" y="165">4. Infuse</text>
+  <!-- Arrows -->
+  <line class="rarr" x1="145" y1="160" x2="175" y2="160"/>
+  <line class="rarr" x1="315" y1="160" x2="345" y2="160"/>
+  <line class="rarr" x1="485" y1="160" x2="515" y2="160"/>
+  <!-- Divider line User vs Creator -->
+  <line x1="340" y1="20" x2="340" y2="135"
+        stroke="#D50006" stroke-width="2" stroke-dasharray="5,3"/>
+  <text style="font-family:sans-serif;font-size:10px;fill:#D50006;
+               text-anchor:middle;font-weight:bold" x="340" y="15">
+    AI User | AI Value Creator
+  </text>
+  <!-- Annotations -->
+  <text class="anno" x="170" y="125">Standard Tools</text>
+  <text class="anno" x="170" y="137">Commodity Data</text>
+  <text class="anno" x="510" y="125">Proprietary Data</text>
+  <text class="anno" x="510" y="137">Sustainable Advantage</text>
+</svg>
+]
+.panel[.panel-name[AI User]
+`r fa('user')` **AI User** *(where most start)*
+
+* Uses **standard models** (ChatGPT, Copilot) and **public data**
+* Result: operational efficiency, faster processes
+* **But:** every competitor can do the same → "commodity"
+* No sustainable competitive advantage
+
+<br>
+.blockquote[
+"If your competitive advantage depends on a tool that anyone can buy, it is not a competitive advantage."
+.tr[`r Citet(bib, "thomasAIValueCreators2025")`]
+]
+]
+.panel[.panel-name[AI Value Creator]
+`r fa('rocket')` **AI Value Creator** *(the strategic goal)*
+
+* Uses **Proprietary Data** — own, exclusive datasets
+* Trains models that **competitors cannot copy**
+* Creates **Data Moats**
+
+<br>
+
+**Examples:**
+.small[
+* Amazon: purchase history of 300M customers → recommendation algorithm impossible to copy
+* Netflix: viewing data → content decisions (House of Cards)
+* Walmart 2004: own transaction data → Pop-Tart insight no competitor had
+]
+
+.quellePanURL[`r Citet(bib, "thomasAIValueCreators2025")`]
+]
+]
+
+???
+* Carryover from Session 1, re-anchored here for Block 3
+* The Value-Creator role is the through-line: every method choice in today's labs is a Value-Creator decision
+* Bridge to next slide: a Value Creator chooses the *map* — not just the *method*
+
+
+---
+class: left
+
+.blockquote[Part 1 · The deeper layer]
+
+## Philosophy Eats AI — the layer beneath every method
+
+```{r philosophy-svg, echo=FALSE, out.width="100%", fig.align='center'}
+knitr::include_graphics(xfun::from_root("img","Session3","philosophy_eats_ai.svg"))
+```
+
+.tr[.small[Schrage &amp; Kiron (2025), *MIT Sloan Management Review*]]
+
+???
+* Schrage & Kiron (2025): every AI stack rests on philosophical commitments — usually unarticulated, sometimes catastrophically wrong
+* The three pillars are theirs (with Ethics as a fourth they discuss separately)
+* **Ontology examples**: Starbucks ontologically defined the "Starbucks experience" as connection (not transactions) before designing Deep Brew AI. Amazon Prime ontologically defined "best customers" — not "most profitable" — as the optimisation target.
+* **Epistemology examples**: prediction (Path P) and counterfactual evidence (Path E2) are two different theories of what counts as knowing. Confusing them is the root cause of half of all bad analytics
+* **Teleology examples**: Google's Gemini fiasco was teleological — accuracy and diversity goals were misaligned, and the model fell to whichever objective dominated
+* "The map is not the territory" (Korzybski via Wittgenstein, quoted by Schrage & Kiron): metrics are maps; loyalty is the territory; RFM/NPS/churn are metrics that *might* represent loyalty — or might define it by fiat
+* **The translator's job**: surface these choices before picking a method
+* This connects forward to Lab 3 (what counts as causal evidence?) and back to Lab 1+2 (what counts as a "good" prediction?)
+
+
+---
+class: left
+
+.blockquote[Part 1 · The DGP]
+
+## Two Paths from the Data-Generating Process
+
+```{r dgp-paths-slide, echo=FALSE, fig.align='center', out.width="80%"}
+knitr::include_graphics(xfun::from_root("img","Session3","DGP-Paths_gemini.svg"))
+```
+
+.center[
+.small[
+Same data, same DGP — two analytical purposes. Path E asks *what is*; Path P asks *what next*.
+]
+]
+
+???
+* Same SVG students see in Lab 1 — recognition cue intentional
+* Path E (Explanation/Inference): two sub-questions — E1 "what is the partial effect?" (next slide) and E2 "what would change under intervention?"
+* Path P (Prediction): a single goal — generalise to new data
+* The DGP is the unobservable urn; data are realisations; methods differ by what they extract from that realisation
+* Breiman 2001 was the first to make this dichotomy programmatic ("Two Cultures")
+
+
+---
+class: left
+
+.blockquote[Part 1 · Path E branches]
+
+## Path E has two sub-questions
+
+<div style="font-size:0.95em; margin-top:0.6em;">
+
+| Sub-question | Goal | Identification | Lab |
+|---|---|---|---|
+| **E1 — What is the partial effect?** | Estimate $\beta_j$ under the model | by *assumption* (A/B/C) | Lab&nbsp;1 |
+| **E2 — What would change under intervention?** | Estimate a counterfactual | by *research design* (RCT, DiD, IV) | Lab&nbsp;3 |
+
+</div>
+
+<br>
+
+.pull-left[
+### E1 lives where the model is given.
+
+The identification work was done **before** the data were seen — by specifying the equation.
+
+`r fa('forward', fill='#D50006')` Today's gateway: **Lab 1**.
+]
+
+.pull-right[
+### E2 lives where the model must earn its claim.
+
+The identification work is done **by the data structure** — randomization, parallel trends, instrument validity.
+
+`r fa('forward', fill='#7d0a52')` Today's destination: **Lab 3**.
+]
+
+???
+* The labels E1 and E2 are not arbitrary — they map directly to Schmueli (2010) and Hernán & Robins (2020) usage
+* E1 is what the classical econometrics curriculum teaches; E2 is what causal inference adds
+* Both live under Path E because both ask "what is" — the difference is what kind of "is"
+* Path P (prediction) sits beside them, asking a different question entirely
+
+
+---
+class: inverse, center, middle
+
+## Part 2
+
+### When Assumptions Bite — the BLUE Bridge
+
+
+---
+class: left
+
+.blockquote[Part 2 · The A/B/C compass]
+
+## Model Assumptions — the A/B/C compass
+
+<div style="font-size:0.85em; margin-top:0.5em;">
+
+| Group | Code | Assumption | Violated by |
+|---|---|---|---|
+| **A** Specification | A1 | No relevant variable omitted, none irrelevant | OVB, irrelevant regressors |
+|   | A2 | Linear in parameters | Structural break, non-linearity |
+|   | A3 | Parameters constant across observations | Lucas critique |
+| **B** Error term | B1 | $\mathbb{E}[\varepsilon] = 0$ | – (almost always met by construction) |
+|   | B2 | Homoscedasticity | Heteroscedasticity |
+|   | B3 | No autocorrelation | Time series, panel data |
+|   | B4 | Normality | Small samples only |
+| **C** Variables | C1 | Exogeneity $\text{Cov}(X, \varepsilon) = 0$ | Endogeneity (→ Lab 3) |
+|   | C2 | No perfect multicollinearity | Highly correlated predictors (→ Lab 2) |
+
+</div>
+
+.tr[.small[`r Citet(bib, "vonAuer_2023")` · Lab 1 Step 2]]
+
+???
+* Same compass as Lab 1 — students recognise the structure
+* C1 and C2 are the two that drive Block 3's labs (Lab 3 attacks C1, Lab 2 attacks C2)
+* A3 is the Lucas critique — comes back in Lab 3 endogeneity discussion
+
+
+---
+class: left
+
+.blockquote[Part 2 · BLUE]
+
+## BLUE — what it guarantees and what it does not
+
+.pull-left[
+### What Gauss-Markov says
+
+Under A1–A3, B1–B3, C1–C2:
+
+OLS is **B**est **L**inear **U**nbiased **E**stimator —
+the **unbiased linear** estimator with the **smallest variance**.
+
+`r fa('check', fill='#502479')` Identification is settled by assumption.
+
+`r fa('check', fill='#502479')` Standard errors are valid.
+
+`r fa('check', fill='#502479')` Coefficients are interpretable as partial effects.
+]
+
+.pull-right[
+### What it does **not** say
+
+`r fa('triangle-exclamation', fill='#D50006')` "Best" is restricted to **linear** and **unbiased** estimators only.
+
+`r fa('triangle-exclamation', fill='#D50006')` Other estimators may beat OLS on MSE — they just won't be unbiased.
+
+`r fa('triangle-exclamation', fill='#D50006')` BLUE is a property of the **estimator**, not a guarantee of practical performance.
+
+`r fa('triangle-exclamation', fill='#D50006')` Under-violation, even small ones, the guarantees evaporate.
+]
+
+???
+* This slide is the conceptual pivot of Part 2 — the same theorem looks different from each path
+* Path P will explicitly relax "unbiased" to get better MSE (Lasso/Ridge)
+* Path E will hold onto unbiasedness as a credibility commitment
+
+
+---
+class: left
+
+.blockquote[Part 2 · Different bites]
+
+## Assumption violations bite each path differently
+
+<div style="font-size:0.85em; margin-top:0.4em;">
+
+| Violation | Path E (Inference / Causal) | Path P (Prediction) | Surfaces in |
+|---|---|---|---|
+| **C2** (multicollinearity) | unstable coefficients, inflated SE | predictions still ok | Lab 2 |
+| **C1** (endogeneity, OVB) | catastrophic — wrong β̂ | ok *as long as DGP unchanged* | Lab 1 & Lab 3 |
+| **A3** (parameter shift, Lucas) | β̂ no longer represents the new regime | catastrophic when intervening | Lab 3 |
+| **B2 / B3** (heteroskedastic / autocorrelated ε) | SE wrong (fixable: robust / HAC) | unaffected | Lab 1 |
+
+</div>
+
+<br>
+
+.center[
+.blockquote[
+Prediction needs **stable relationships**. Inference needs **credible explanations**. Different goals → different vulnerabilities.
+]
+]
+
+???
+* The big-picture distinction: Path P tolerates collinearity but breaks under intervention; Path E breaks under collinearity but is the only thing that survives intervention (when designed right)
+* C1 violation kills Path E but Path P **survives** as long as you don't intervene — this is the Taddy/Lucas point
+* A3 (parameter shift) is the catastrophe for Path P — when management intervenes, the regularities Path P learned no longer hold
+
+
+---
+class: left
+
+.blockquote[Part 2 · The bridge]
+
+## BLUE as the bridge between paths
+
+<div style="margin-top:0.4em;">
+
+<svg viewBox="0 0 1000 360" xmlns="http://www.w3.org/2000/svg"
+     style="display:block;margin:auto;width:95%;max-height:360px"
+     font-family="'Source Sans Pro','Helvetica Neue',sans-serif">
+  <defs>
+    <marker id="bp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#502479"/>
+    </marker>
+    <marker id="br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D50006"/>
+    </marker>
+  </defs>
+
+  <!-- Central BLUE anchor -->
+  <rect x="400" y="140" width="200" height="80" rx="10"
+        fill="#fff" stroke="#2c2c2c" stroke-width="2.5"/>
+  <text x="500" y="170" text-anchor="middle" font-size="16" font-weight="bold">BLUE</text>
+  <text x="500" y="190" text-anchor="middle" font-size="11" fill="#686868">
+    Best Linear Unbiased Estimator
+  </text>
+  <text x="500" y="208" text-anchor="middle" font-size="10" fill="#686868">
+    under A/B/C
+  </text>
+
+  <!-- Path P branch (upper-left to upper-right) -->
+  <path d="M 410 150 Q 250 80 130 80" stroke="#502479" stroke-width="2.5"
+        fill="none" marker-end="url(#bp)"/>
+  <text x="280" y="60" text-anchor="middle" font-size="12" fill="#502479" font-weight="bold">
+    accept bias to cut variance
+  </text>
+  <rect x="40" y="80" width="180" height="80" rx="8"
+        fill="#f5f0fa" stroke="#502479" stroke-width="2"/>
+  <text x="130" y="105" text-anchor="middle" font-size="13" font-weight="bold" fill="#502479">
+    Path P
+  </text>
+  <text x="130" y="125" text-anchor="middle" font-size="11">Ridge · Lasso · Elastic Net</text>
+  <text x="130" y="142" text-anchor="middle" font-size="10" fill="#686868" font-style="italic">
+    Lab 2
+  </text>
+
+  <!-- Path E branch (lower-left) -->
+  <path d="M 410 210 Q 250 280 130 280" stroke="#D50006" stroke-width="2.5"
+        fill="none" marker-end="url(#br)"/>
+  <text x="280" y="305" text-anchor="middle" font-size="12" fill="#D50006" font-weight="bold">
+    preserve unbiasedness
+  </text>
+  <rect x="40" y="220" width="180" height="80" rx="8"
+        fill="#fff5f5" stroke="#D50006" stroke-width="2"/>
+  <text x="130" y="245" text-anchor="middle" font-size="13" font-weight="bold" fill="#D50006">
+    Path E
+  </text>
+  <text x="130" y="265" text-anchor="middle" font-size="11">Robust SE · IV · DiD · DML</text>
+  <text x="130" y="282" text-anchor="middle" font-size="10" fill="#686868" font-style="italic">
+    Lab 1 &amp; Lab 3
+  </text>
+
+  <!-- Right-side: what each branch protects against -->
+  <rect x="680" y="80" width="280" height="80" rx="8"
+        fill="#fff" stroke="#502479" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="820" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#502479">
+    Protects against
+  </text>
+  <text x="820" y="125" text-anchor="middle" font-size="11">generalization failure</text>
+  <text x="820" y="142" text-anchor="middle" font-size="10" fill="#686868" font-style="italic">
+    (overfitting, instability)
+  </text>
+
+  <rect x="680" y="220" width="280" height="80" rx="8"
+        fill="#fff" stroke="#D50006" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="820" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#D50006">
+    Protects against
+  </text>
+  <text x="820" y="265" text-anchor="middle" font-size="11">researcher misalignment</text>
+  <text x="820" y="282" text-anchor="middle" font-size="10" fill="#686868" font-style="italic">
+    (specification hacking)
+  </text>
+
+  <!-- Connecting arrows from path boxes to "protects against" -->
+  <line x1="220" y1="120" x2="680" y2="120" stroke="#502479"
+        stroke-width="0.8" stroke-dasharray="2,3"/>
+  <line x1="220" y1="260" x2="680" y2="260" stroke="#D50006"
+        stroke-width="0.8" stroke-dasharray="2,3"/>
+</svg>
+
+</div>
+
+.tr[.small[Spiess (2025): the right branch is also an *institutional* commitment, not just a statistical one.]]
+
+???
+* The visualization captures: BLUE is the common starting point; each path departs from it for a different reason
+* Path P: deliberately abandons unbiasedness to lower variance — Lasso, Ridge
+* Path E: holds onto unbiasedness because it is also the *credibility* commitment — Spiess 2025 institutional reading
+* Two protections: against overfitting (P) vs. against researcher discretion (E)
+* This is the conceptual punchline of Part 2 — Lab 2 operates on the upper branch, Lab 3 on the lower branch
+
+
+---
+class: inverse, center, middle
+
+## Memo from Sarah Chen
+
+### `r fa('envelope', fill='white')` Strategic decisions, no margin for error
+
+
+---
+class: left
+
+.blockquote[Narrative anchor]
+
+## `r fa('envelope', fill='#D50006')` Sarah Chen — two business questions
+
+.pull-left[
+**To:** Translator Team
+**From:** Sarah Chen, VP Marketing &mdash; Dominick's Finer Foods
+**Re:** Two strategic decisions this quarter
+
+<br>
+
+> *I have **two distinct questions** to settle:*
+>
+> *1. Does **feature advertising** really cause incremental sales — or are we just confirming what we already do when we promote?*
+>
+> *2. I need an **inventory-planning tool** that forecasts weekly sales for any store-brand combination.*
+>
+> *I need answers that **survive an audit** by my CEO.*
+]
+
+.pull-right[
+### Which path for which question?
+
+<br>
+
+`r fa('flask', fill='#D50006')` **Q1 — causal** → Path **E**
+
+`r fa('arrow-right', fill='#686868')` Diagnose with Lab&nbsp;1 (E1); answer with Lab&nbsp;3 (E2).
+
+<br>
+
+`r fa('chart-line', fill='#502479')` **Q2 — predictive** → Path **P**
+
+`r fa('arrow-right', fill='#686868')` Build the tool in Lab&nbsp;2.
+
+<br>
+
+.blockquote[
+.small[Three deliverables: memos **T4** (Lab 1), **T7** (Lab 2), **T<sub>final</sub>** (Lab 3).]
+]
+]
+
+???
+* The memo positions the entire afternoon as work for Sarah — every lab produces a defensible artefact
+* Q1 (causal) and Q2 (predictive) map cleanly to E and P
+* T4 / T7 / T_final are the three translator memos students will write — they appear at the end of each lab as deliverables
+
+
+---
+class: left
+
+.blockquote[Bridge to Lab 1]
+
+## Lab 1 — what you will do
+
+.pull-left[
+**Path E1**: build the baseline OLS, stress-test under A/B/C, surface where it breaks.
+
+`r fa('arrow-right', fill='#D50006')` Step 1a — baseline log-log on Store 114
+
+`r fa('arrow-right', fill='#D50006')` Step 1b — A/B/C diagnostics (autoplot, ACF, DW, VIF, robust SE)
+
+`r fa('arrow-right', fill='#D50006')` Step 1c — OVB analysis across 83 stores
+
+`r fa('arrow-right', fill='#D50006')` **Translator Memo T4** for Sarah's Q1
+
+<br>
+
+.blockquote[
+.small[The Lab 1 finale motivates Lab 3: OLS on historical data **cannot** answer Q1 — we need a designed experiment.]
+]
+]
+
+.pull-right[
+### Lab 1 timeline (45 min)
+
+<div style="display:grid; grid-template-columns:60px 1fr; gap:0.4em 0.8em; font-size:0.83em; align-items:start;">
+
+<div style="color:#D50006; font-weight:bold;">Step 0</div>
+<div>Memo, navigation, three paths from the DGP</div>
+
+<div style="color:#D50006; font-weight:bold;">Step 1a</div>
+<div>Baseline model, log-log elasticity reading</div>
+
+<div style="color:#D50006; font-weight:bold;">Step 1b</div>
+<div>A/B/C diagnostics — autoplot, ACF, DW, VIF</div>
+
+<div style="color:#D50006; font-weight:bold;">Step 1c</div>
+<div>OVB analysis: feat × deal across 83 stores</div>
+
+<div style="color:#D50006; font-weight:bold;">T4</div>
+<div>Translator memo no. 1</div>
+
+</div>
+]
+
+???
+* Same orientation map as the .qmd structure — students see the same TOC twice for navigation
+* Memo T4 is the bridge artefact between Lab 1 and Lab 3 — students draft it in-lab
+
+
+---
+class: inverse, center, middle
+
+## Lab 1 — Reality Check via Out-of-Sample Validation
+
+### `r fa('flask', fill='white')` 45 min · Path E1 · Memo T4

@@ -180,3 +180,180 @@ class: left
 * Konsequenz für Lernziel: Nicht Programmierung als Selbstzweck
 * Sondern: Als "Translator" zwischen Fachbereich und Data-Science-Teams agieren
 * Verifizierung, Validierung und strategische Einordnung sind die neuen Kernkompetenzen
+
+
+
+
+# Session 3
+
+
+
+---
+class: left
+
+.blockquote[Regularisation in operation]
+
+## Lasso in practice — the regularisation path
+
+Lasso does not produce a single model. Across the grid of $\lambda$ values it produces a whole **regularisation path** — a sequence of candidate models, from $\lambda = 0$ (full OLS, all coefficients in) to $\lambda \to \infty$ (only the intercept). Cross-validation then picks the sweet spot.
+
+.panelset[
+.panel[.panel-name[Coefficient paths]
+.pull-left[
+```{r lasso-paths, echo=FALSE, message=FALSE, fig.width=6.5, fig.height=4.0, out.width="100%"}
+set.seed(42)
+n <- 200; p <- 5
+X <- matrix(rnorm(n*p), n, p)
+colnames(X) <- c("Price", "Promo", "Quality", "Age", "Noise")
+y <- 2*X[,1] - 1.5*X[,2] + 1*X[,3] + 0.3*X[,4] + 0*X[,5] + rnorm(n)
+library(glmnet)
+fit <- glmnet(X, y, alpha = 1)
+beta_df <- as.data.frame(as.matrix(t(coef(fit)[-1,])))
+beta_df$lambda <- fit$lambda
+library(tidyr); library(ggplot2)
+beta_long <- pivot_longer(beta_df, -lambda, names_to = "Variable", values_to = "Coefficient")
+ggplot(beta_long, aes(log10(lambda), Coefficient, color = Variable)) +
+  geom_line(linewidth = 1.1) +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.3) +
+  scale_color_manual(values = c("Price"="#D50006", "Promo"="#502479",
+                                "Quality"="#27ae60", "Age"="#3498db",
+                                "Noise"="#7d0a52")) +
+  labs(x = expression(log[10](lambda)), y = "Coefficient value") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        panel.grid.minor = element_blank())
+```
+]
+
+.pull-right[
+.small[**Five candidate predictors, one of them pure noise.** As $\lambda$ increases (moving right on the x-axis):
+
+* **Noise** is the first to be shrunk to zero — Lasso correctly identifies the irrelevant variable
+* **Age** (small true effect) follows soon after
+* **Quality** and **Promo** (moderate effects) survive longer
+* **Price** (strongest signal) is the last to give in
+
+The path *visualises selection in action*. Each $\lambda$ defines a different model. The job of cross-validation is to pick which one.]
+]
+]
+
+.panel[.panel-name[Squelch analogy]
+### $\lambda$ as the squelch knob
+
+A **squelch** is the noise-suppression knob on a radio set. Turn it up too far and you hear nothing (signal blocked). Turn it down too far and you hear only static.
+
+.pull-left[
+* **$\lambda$ too small** → too little shrinkage, irrelevant variables stay in, model memorises noise (overfit)
+* **$\lambda$ too large** → too much shrinkage, even strong signals are zeroed out (underfit)
+* **$\lambda$ just right** → noise filtered, signal preserved
+]
+
+.pull-right[
+This is the operational meaning of the bias–variance trade-off in regularisation. The squelch knob is the trade-off made physical: one continuous dial, one optimum.
+
+`r fa('arrow-right', fill='#502479')` The optimum is *not* set by intuition. It is set by **cross-validation** on held-out data.
+]
+]
+
+.panel[.panel-name[Decision rule]
+### Which $\lambda$ to report
+
+After cross-validation, glmnet returns two natural choices `r Citet(bib, "taddy_modern_2023")`:
+
+* **CV-min rule** — $\hat\lambda$ that minimises the CV error. **Focus: predictive accuracy.** When forecast quality is the deliverable, this is the default.
+* **1-SE rule** — the *largest* $\hat\lambda$ within one standard error of the minimum. **Focus: parsimony.** A more conservative, more interpretable model with fewer non-zero coefficients. For executive communication and model deployment, this is often the better choice.
+
+.small[**Practical rule of thumb.** If the audience is a board of directors, lean 1-SE. If the audience is another statistician evaluating predictive performance, lean min. The choice should be deliberate, not accidental.]
+]
+]
+
+.quelle[.small[`r Citet(bib, "tibshirani_1996")`; `r Citet(bib, "taddy_modern_2023")` ch. 3 on the 1-SE rule.]]
+
+???
+* The three-panel structure mirrors the deutsche "Synthese: CV + Lasso" — three windows on the same process
+* Panel 1 visualises *what* happens; Panel 2 explains *why*; Panel 3 governs *how to report*
+* Sarah's T7 memo deliberately invokes the 1-SE rule for the parsimony argument
+* Speaking line: "Lasso gives you the menu. Cross-validation orders for you. Your job is to know which menu you ordered from."
+
+
+
+---
+class: left
+
+.blockquote[Tuning $\lambda$ out-of-sample]
+
+## How $\lambda$ is chosen: cross-validation
+
+The penalty parameter $\lambda$ controls the bias–variance trade-off. There is no theoretical formula for the right value — it must be tuned **out of sample**. Two related instruments do the job.
+
+.panelset[
+.panel[.panel-name[Train–Test split]
+.pull-left[
+### The simplest version
+Hold out a random 20% of the data as **test set**. Fit on the 80%. Evaluate on the 20%.
+
+* Diagnostic: Train-MSE $\ll$ Test-MSE? → overfit.
+* Reported metrics: RMSE, AUC, accuracy — *always* on the test set.
+* Single split → single number. Quick, but the choice of the 20% can sway the answer.
+
+`r fa('triangle-exclamation', fill='#D50006')` **Do not look at the test set during model selection.** If you tune anything based on test performance, that 20% becomes a *second training set* — and you lose the validity of the out-of-sample claim.
+]
+
+.pull-right[
+.center[
+<img src="figures/train_test_split.svg" style="width:96%;"/>
+]
+]
+]
+
+.panel[.panel-name[k-Fold CV]
+.pull-left[
+### Systematic, repeated splitting and testing
+
+1. Partition the data into $k$ equal folds (typically $k=5$ or $10$).
+2. For each candidate $\lambda$ on a grid:
+   - For $j = 1, \dots, k$: fit on all folds except $j$, predict on fold $j$
+   - Average the squared prediction error across folds → $\text{CV}(\lambda)$
+3. Every observation is in the test set exactly once — no data leakage.
+
+`r fa('arrow-right', fill='#502479')` More stable than a single split, especially when $n$ is moderate.
+]
+
+.pull-right[
+.center[
+<img src="figures/kfold_crossvalidation.svg" style="width:100%;"/>
+]
+]
+]
+
+.panel[.panel-name[Sweet spot]
+.pull-left[
+### Choosing $\hat\lambda$ from the CV curve
+
+The CV curve is U-shaped. Two natural choices:
+
+* **CV-min rule** — $\lambda_{\min}$ minimises CV error. Focus: maximum predictive accuracy.
+* **1-SE rule** — $\lambda_{1\text{SE}}$ is the *largest* $\lambda$ within one SE of the minimum. Focus: parsimony, executive-communication-friendly, robust to CV noise.
+
+`r fa('arrow-right', fill='#502479')` Lab 2 Step 5 uses both — most business deliverables (Sarah's memo) lean on the 1-SE choice.
+]
+
+.pull-right[
+.center[
+<img src="figures/cv_curve_schematic.svg" style="width:96%;"/>
+]
+]
+]
+]
+
+.small[**One assumption worth flagging:** CV assumes folds are *exchangeable*. With panel data — like the OJ data — observations within a store are correlated, so plain random CV underestimates true OOS error. Lab 2 uses store-clustered CV. We return to this in Lab 3.]
+
+.quelle[.small[Hastie, Tibshirani, Friedman 2009 ch. 7; Lab 2 Step 5 (CV with `cv.glmnet`).]]
+
+???
+* Three panels = three levels of sophistication, in order: 80/20 → k-fold → 1-SE rule
+* Train-test-split SVG is the visual primer; k-fold grid is the upgrade; CV curve is the operational object
+* Speaking line: "Never report a number on data you have looked at before."
+* Clustered CV: store-level holdout, not row-level — the methodologically honest version
+* The "exchangeability" caveat is the Lab-3-bridge: when data has structure, plain CV lies
+

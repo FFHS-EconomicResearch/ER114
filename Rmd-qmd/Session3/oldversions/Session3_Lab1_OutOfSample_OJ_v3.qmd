@@ -1,0 +1,1008 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Line references are approximate; search for the marker text.
+
+  ~Line 18   Moodle download link for dominicks_full.rds
+  ~Line 19   Moodle download link for dominicks_demo.rds
+
+============================================================ -->
+---
+title: "Session 3 · Lab 1: BLUE Bridge — Explain or Predict?"
+subtitle: "CRISP-DM Phases 4–6 --- Modelling, Evaluation, Deployment"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+bibliography: ../../lit/my_bib.bib
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)        # data wrangling and plotting
+library(gt)               # publication-quality tables
+library(broom)            # tidy model output
+library(patchwork)        # combine ggplots
+library(car)              # VIF for multicollinearity diagnostics
+
+# shared visual identity
+theme_set(theme_minimal(base_size = 11))
+
+# colour palette
+col_primary   <- "#D50006"   # main highlight (Store 114)
+col_secondary <- "#502479"   # contrast (Store 83)
+col_neutral   <- "#686868"   # grey reference
+
+# load data — both files come from data/raw/
+tbl_full <- read_rds(xfun::from_root("data", "raw", "dominicks_full.rds"))
+tbl_demo <- read_rds(xfun::from_root("data", "raw", "dominicks_demo.rds"))
+
+# convenience subsets — filtered on-the-fly from the full panel
+tbl_114 <- tbl_full %>% filter(store == 114)
+tbl_83  <- tbl_full %>% filter(store == 83)
+```
+
+## Scenario
+
+You work as a data analyst for **Dominick's Finer Foods**, a Chicago
+supermarket chain. The marketing department has asked for your help on
+two upcoming decisions. The questions look similar on the surface — but
+they require very different methodological approaches. This lab is the
+**bridge** between two paths of modern data analysis: the inferential
+world you know from Sessions 1 and 2, and the out-of-sample world of
+predictive modelling.
+
+```{r crisp-overview}
+#| echo: false
+
+tibble::tribble(
+  ~Phase, ~Name,                      ~Content,                                                  ~Status,
+  "1",    "Business Understanding",   "Marketing decisions: explain and predict",                "Done",
+  "2",    "Data Understanding",       "OJ scanner data: 83 stores × 3 brands × 121 weeks",       "Done (S1)",
+  "3",    "Data Preparation",         "Wrangled, ready",                                          "Done (S1)",
+  "4",    "Modelling",                "Linear regression with diagnostics (← here)",              "← This lab (1a/b)",
+  "5",    "Evaluation",               "Out-of-sample evaluation, replication, K-fold CV (← here)","← This lab (3)",
+  "6",    "Deployment",               "Translator memos: what can we deliver?",                   "← This lab (4)"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f0fff0"),
+                gt::cells_body(rows = Phase %in% c("4","5","6"))) %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+## Navigation
+
+| Symbol | Box | Meaning | When to read |
+|--------|-----|---------|--------------|
+| ⚠️  | <span style="color:#e02424">**Red — Action Required**</span> | Mandatory tasks | During live session |
+| 💡 | <span style="color:#2f9e44">**Green — Best Practice / Tip**</span> | coding hints, shortcuts | Skim only during lab |
+| 📚 | <span style="color:#1c7ed6">**Blue, collapsed — Background**</span> | concepts, context, derivations | At home |
+| ℹ️ |  <span style="color:#1c7ed6">**Blue, open — Note**</span> | Short clarification | Live |
+
+---
+
+# Step 0 — Translator Briefing
+
+*The icebreaker for this lab is the translator's task itself. The
+business request opens up the two methodological paths that the lab
+will pursue.*
+
+## The Memo from Marketing
+
+:::{.callout-note icon=false collapse="false"}
+## 📧 Memo from Sarah Chen, VP Marketing — Dominick's Finer Foods
+
+*"Team, two decisions are pending and I need your help.*
+
+***1. Q4 advertising campaign for the Dominick's house brand.***
+*Marketing wants to invest in a feature campaign. Before signing off,
+the executive board wants to know: **what is the effect of advertising
+on sales?** We have years of weekly data. Surely we can answer this
+from the historical record?*
+
+***2. Inventory planning tool for all 83 stores.***
+*Operations is building a forecasting tool to set weekly OJ stock
+across our 83 stores. Can you give them **a prediction model** that
+works across the whole chain?*
+
+*How would you approach these?"*
+
+---
+
+— Sarah
+:::
+
+## Your task as Translator
+
+:::{.callout-important icon=false}
+## ⚠️ T1: Two memos to Sarah
+
+By the end of this lab you will write two short memos to Sarah — one
+per question.
+For each question:
+
+1. Translate the business question into a specific statistical methodology.
+2. State what you can deliver, what it cannot, and why.
+3. Reference what additional data or studies would be required.
+
+
+
+:::
+
+## What is in the data
+
+Below is the OJ panel for **all 83 stores** of the top three brands
+(Tropicana, Minute Maid, Dominick's).
+
+```{r data-summary}
+#| echo: false
+
+tbl_full %>%
+  summarise(
+    `# stores`       = n_distinct(store),
+    `# brands`       = n_distinct(brand),
+    `# weeks`        = n_distinct(week),
+    `# observations` = n()
+  ) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+We start with a single store — **Store 114** — to keep the inferential
+framing manageable. Later in the lab we will scale up to all 83 stores.
+
+```{r store114-summary}
+#| echo: false
+
+tbl_114 %>%
+  summarise(
+    Store              = first(store),
+    `# weeks`          = n_distinct(week),
+    `# observations`   = n(),
+    `weeks min/max`    = paste(min(week), "/", max(week)),
+    `missing weeks`    = max(week) - min(week) + 1 - n_distinct(week)
+  ) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+---
+
+# Step 1 — Question 1 (The Advertising Effect): Classical Inference
+
+We start with Sarah’s first question. To answer whether advertising causes sales to rise, we enter Path B: Causal Inference/Explanation. Our goal is an unbiased estimation of the structural parameter $\beta_{\text{feat}}$
+
+
+
+
+## Step 1a — A (naïve) baseline model on Store 114
+
+Let us fit the natural baseline model treat Store 114 as our analytical
+sample. 
+```{r mod-baseline-114}
+#| code-fold: false
+mod_baseline_114 <- lm(logmove ~ feat + log(price) + brand, data = tbl_114)
+
+mod_baseline_114 %>%
+  tidy(conf.int = TRUE) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The advertising coefficient is
+**`r round(coef(mod_baseline_114)["feat"], 3)`**. Converted to the
+multiplicative scale, this means feature advertising is associated
+with sales of about
+**`r round((exp(coef(mod_baseline_114)["feat"]) - 1) * 100, 0)` %** above
+baseline. 
+
+However, before recommending an explicit campaign strategy to Sarah, we must stress-test our model against the classical Gauss-Markov assumptions [@vonAuer_2023].
+
+
+:::{.callout-note collapse="true" #abc-assumptions}
+### 📚 Background: The A–B–C assumptions in brief
+
+**A-Assumptions (the model):**
+
+- A1 (variable selection): no relevant variable is missing, no
+  irrelevant one is included
+- A2 (linearity): the true relationship is linear in the parameters
+- A3 (constant parameters): parameters are constant across all
+  $N$ observations
+
+**B-Assumptions (on the error term):**
+
+- B1: $E(\varepsilon_i) = 0$
+- B2 (homoscedasticity): $\text{Var}(\varepsilon_i) = \sigma^2$
+- B3 (no autocorrelation): $\text{Cov}(\varepsilon_i, \varepsilon_j) = 0$
+  for $i \neq j$
+- B4 (normality): $\varepsilon_i \sim N$
+
+**C-Assumptions (the data):**
+
+- C1 (exogeneity): $\text{Cov}(X_i, \varepsilon_i) = 0$
+- C2 (no perfect multicollinearity)
+
+**Note** that assumption B4 (normality of the disturbances) is **not** necessary for the Gauss–Markov theorem to hold, i.e., OLS remains BLUE even without it. However, B4 is necessary for exact finite-sample inference, i.e., for the t- and F-tests and confidence intervals to be exactly valid.
+:::
+
+### Empirical Diagnostics
+
+To visually stress-test our model against the classical Gauss-Markov assumptions, we leverage the extended `autoplot()` command from the `ggfortify` package. This generates a comprehensive six-panel diagnostic dashboard.
+
+```{r}
+#| fig-height: 7
+#| fig-width: 9
+library(ggfortify)
+autoplot(mod_baseline_114, which = 1:6, ncol = 2, label.size = 3) + theme_minimal()
+
+```
+
+
+
+
+ℹ️ Diagnostic Mapping Guide
+
+```{r}
+#| include: false
+tibble::tribble(
+  ~`Plot Number & Name`,         ~`Target Trend / Ideal Behavior`,                     ~`Relevant Von Auer Assumption`,
+  "(1) Residuals vs Fitted",     "Flat, symmetric cloud around the 0-line",            "A2 (Linearity), B2 (Homoscedasticity)",
+  "(2) Normal Q-Q",              "Points strictly tracking the diagonal line",         "B4 (Normal Distribution of errors)",
+  "(3) Scale-Location",          "Horizontal line with constant vertical spread",      "B2 (Homoscedasticity / Variance constancy)",
+  "(4) Cook's distance",         "No extreme, towering spikes",                        "A3 (Parameter Constancy / Outlier detection)",
+  "(5) Residuals vs Leverage",   "Points clustered left; no points with high leverage", "C1 / A3 (Influential data points / Endogeneity check)",
+  "(6) Cook's dist vs Leverage", "Points remain safely within the critical Cook contours","A3 (Stability of the estimated coefficients)"
+) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+
+| Plot Number & Name | Target Trend / Ideal Behavior | Relevant Von Auer Assumption |
+|:---|:---|:---|
+| **(1) Residuals vs Fitted** | Flat, symmetric, evenly spread dots around the 0-line | **A2** (Linearity), **B2** (Homoscedasticity) |
+| **(2) Normal Q-Q** | Points strictly tracking the diagonal line | **B4** (Normal Distribution of errors) |
+| **(3) Scale-Location** | Horizontal line with constant vertical spread | **B2** (Homoscedasticity / Variance constancy) |
+| **(4) Cook's distance** | No extreme, towering spikes | **A3** (Parameter Constancy / Outlier detection) |
+| **(5) Residuals vs Leverage** | Points clustered left; no points with high leverage | **C1 / A3** (Influential data points / Endogeneity check) |
+| **(6) Cook's dist vs Leverage** | Points remain safely within the critical Cook contours | **A3** (Stability of the estimated coefficients) |
+
+
+:::{.callout-important icon=false}
+### ⚠️ T2: Formulate Your Own Diagnostic Readout
+
+Analyze the six charts above with your partner. Write down a one-sentence verdict for each of the following properties before unfolding the solution box:
+
+a. Variance Constancy (B2): Does the residual spread remain stable across the entire range of fitted values?    Is there visible heteroscedasticity? Where in the fitted-value range is the residual spread largest?         (Hint: Evaluate Plots 1 and 3).
+b. Error Distribution (B4): Do the error terms follow a gaussian bell curve, or do we see systematic            deviations at the extremes (tail deviations)? (Hint: Evaluate Plot 2 with Q-Q residuals).
+c. Influential Outliers (A3): Are there specific weeks (labeled observation numbers) that heavily distort or    dominate the model's parameters? Pay close attention to data points like "23", "28", and "105".
+
+Write a one-sentence verdict per plot and the associated assumption(s).
+:::
+
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 Instructor's Solution & Diagnostic Assessment (Click here)
+
+* A3 Assessment (Outliers): The observation for Week 28 stands out as an extreme outlier in almost all plots (3, 5, and 6). In Plot 4 (Cook’s distance), Week 23 also stands out significantly. These weeks have a high leverage effect and locally distort our $\hat{\beta}$ estimates.
+* B2 Assessment: There is slight heteroscedasticity. In Plots 1 and 3, it is evident that the residuals cluster closer to the zero line at low estimated sales figures (Fitted Values < 9) than at medium values.
+* B4 assessment: The Q-Q plot shows a so-called heavy-tailed distribution. On both the left and right edges, the points systematically deviate from the ideal straight line. The assumption of normally distributed error terms is empirically violated.
+
+:::
+
+
+### Moving from Visual Impressions to Formal Hypothesis Tests
+
+To back our initial visual read with statistical rigor, we run formal hypothesis tests for Autocorrelation (**B3**) and Normality (**B4**). However, as *AI Value Creators*, we do not blindly accept p-values; we use them as starting points for deeper structural diagnostics.
+
+```{r formal-tests}
+#| code-fold: false
+# 1. Formal Durbin-Watson Test for first-order autocorrelation (B3)
+dw_result <- car::durbinWatsonTest(mod_baseline_114)
+dw_result
+
+# 2. Formal Shapiro-Wilk Test for normality of residuals (B4)
+sw_result <- shapiro.test(residuals(mod_baseline_114))
+sw_result
+```
+
+:::{.callout-important icon=false}
+### ⚠️ T2b: The Statistical Paradox
+
+Look closely at the p-values from your live console output:
+
+* Durbin-Watson: The DW statistic is `r round(dw_result$dw, 3)` with a p-value of `r round(dw_result$p, 3)`.
+
+* Shapiro-Wilk: The W statistic is `r round(sw_result$statistic, 3)` with a p-value of `r formatC(sw_result$p.value, format = "e", digits = 3)` (effectively zero).
+
+Discuss with your fellow students:
+
+1. Based on standard 0.05 thresholds, what are the formal verdicts for assumption B3 and assumption B4?
+
+2. Why is the "clean" Durbin-Watson result highly surprising for weekly time-series panel data?
+
+:::
+
+**Qualifying the B3 Result:** The ACF Diagnostic Plot
+
+To investigate why our Durbin-Watson test indicates an absence of first-order autocorrelation, we analyze the Autocorrelation Function (ACF) plot. We pass the base R `acf` calculations directly into `autoplot()` to maintain a consistent `ggplot2` visualization layout.
+
+```{r acf-plot}
+#| code-fold: false
+# Visualizing residual dependencies across multiple time lags
+autoplot(acf(residuals(mod_baseline_114), plot = FALSE)) +
+  labs(title = "ACF of Residuals (Store 114)", x = "Lag (Weeks)", y = "Autocorrelation Coefficient") +
+  theme_minimal()
+```
+
+
+:::{.callout-important icon=false}
+### ⚠️ T2c: Interpreting the Visual Proof
+Examine the ACF plot above.
+
+1. Look at Lag 1 and higher lags. Do any of the vertical correlation spikes cross the blue dashed significance thresholds?
+2. How does this visual result qualify and explain the Durbin-Watson test score? Bring in your domain knowledge about the model variables.
+:::
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 Instructor Solution: Resolving the Paradox (Click to unfold)
+
+1. Demystifying the Autocorrelation Surprise (B3 Verified)
+    * **The Diagnostic Reality:** Both the Durbin-Watson p-value ($\approx 0.168 > 0.05$) and the ACF plot         confirm that we fail to reject the null hypothesis of independence. The vertical lag coefficients fall       entirely within the statistically non-significant range defined by the dashed reference lines.
+    * **The Strategic Lesson:** Standard empirical expectations suggest that weekly retail scanner data            exhibits serial correlation over time. Why is Store 114 free of first-order autocorrelation at lag 1?        Not necessarily because our model is perfectly specified causally, but because in our specific case the       model successfully captures and absorbs the weekly baseline demand shifts. Namely through the inclusion       of the time-varying covariates (prices, brand dummies, and the feature indicator) which together can         already account for most of the systematic weekly demand patterns that would otherwise manifest as           autocorrelation in the residuals.
+    * **The Critical Caveat:** This demonstrates a fundamental principle for a Data Translator: a model can        successfully account for temporal variation and reduce residual variance without necessarily having          isolated an unconfounded causal effect (see Step 1b).
+    
+2. Navigating the Large-N Normality Trap (B4 Deconstructed)
+    * **The Diagnostic Reality:** The Shapiro-Wilk test rejects the null hypothesis of normality ($p<0.05$).       This statistically confirms our visual analysis of the heavy-tailed Normal Q-Q plot. Real-world retail       demand data frequently features discrete structural shifts (such as holiday demand shocks or temporary       supply constraints) that cause departures from a symmetric Gaussian distribution.
+    * **The Large-Sample Context:** This statistical rejection does not necessarily invalidate our causal          path (Path B). Given an analytical sample size of $N = 351$, the Central Limit Theorem ensures that our       parameter estimators ($\hat{\beta}$) converge asymptotically to a normal distribution, preserving the        validity of standard hypothesis testing. The Shapiro-Wilk test here reflects a well-documented               large-sample property: because it possesses high statistical power, it flags minor tail deviations           (such as those observed in weeks 23 and 28) as statistically significant departures from normality,          even when their practical consequences for the properties of the ordinary least squares (OLS)                estimators are minor.
+    * **The Critical Caveat (Inference vs. Prediction Risks):*
+      * For Path B (Inference): Because OLS minimizes squared residuals, heavy-tailed error distributions            mean that extreme observations (such as Week 28) exert high leverage and a disproportionate influence         on the estimated regression line. Consequently, unmodeled structural events can introduce noticeable         bias into the estimated advertising coefficient reported to management.
+      * For Path A (Prediction): If the true error distribution exhibits heavy tails, forecasting models that         rely on pure normality assumptions will systematically underestimate the variance and probability of         extreme events. Operationally, this implies that an inventory tool built on these assumptions will           underpredict the risk of severe stockouts or substantial inventory imbalances during exceptional             weeks.
+
+:::
+
+
+
+### Checking for Multicollinearity
+
+To verify the absence of severe multicollinearity (assumption **C2**), we examine the Variance Inflation Factors (VIF). Multicollinearity is fundamentally a technical/numerical problem: high correlation between predictors makes the matrix  \(X'X\) nearly singular. This leads to numerical instability when inverting the matrix to compute the OLS coefficient estimates and causes inflated variances of the estimates.
+
+```{r vif-baseline-114}
+#| code-fold: false
+vif_baseline_114 <- car::vif(mod_baseline_114)
+vif_baseline_114
+```
+
+The maximum VIF in the baseline model for store 114 is
+**`r round(max(vif_baseline_114), 2)`**. Common rules of thumb suggest that VIF values below 5 are generally unproblematic, values between 5 and 10 warrant caution, and values above 10 indicate potentially severe multicollinearity. Our model lies comfortably below these thresholds.
+
+**However**, low VIF values do not guarantee that the model specification is otherwise sound. In our case, the maximum VIF of `r round(max(vif_baseline_114), 2)` indicates that multicollinearity is **technically not a problem** — the matrix \(X'X\) is well-conditioned and the estimates are numerically stable. Nevertheless, even at this low level, the presence of moderate correlations between predictors can still serve as a helpful diagnostic signal, suggesting that we should examine the model specification more carefully. As Step 1b will clearly demonstrate, omitted relevant variables, incorrect functional form, or endogeneity can still lead to serious bias in the estimates even when multicollinearity is technically absent.
+
+
+
+## Step 1b: feat × deal interaction
+
+As shown above, multicollinearity is technically not an issue in our baseline model. However, as data translators we should interpret the moderate correlation between advertising (`feat`) and the current price level (`log(price)`) as an important diagnostic hint that warrants closer inspection.
+
+Why would advertising be systematically correlated with the shelf price? 
+Domain knowledge gives us the answer: retailers rarely advertise a product at full price. They advertise *discounts*. This points directly to an **A1 violation (omitted variable)**. We modeled the advertising (`feat`), but we left out the operational trigger: the price promotion (`deal`). 
+
+Let us cross-tabulate `feat` and `deal` to see how deeply these two marketing levers are entangled in Store 114.
+
+```{r feat-deal-table-full-1b}
+#| code-fold: false
+tbl_114%>%
+  count(feat, deal) %>%
+  tidyr::complete(feat = 0:1, deal = 0:1, fill = list(n = 0)) %>%
+  group_by(feat) %>%
+  mutate(
+    share_within_feat = n / sum(n),
+    share_within_feat = scales::percent(share_within_feat, accuracy = 0.1)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    feat = paste0("feat = ", feat),
+    deal = paste0("deal = ", deal)
+  ) %>%
+  gt() %>%
+  gt::tab_header(title = "feat × deal for Store 114") %>%
+  gt::cols_label(
+    feat = "Advertising",
+    deal = "Price promotion",
+    n = "Count",
+    share_within_feat = "Share within feat"
+  ) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+:::{.callout-tip icon=false}
+## 💡 Why doesn't a model with BOTH variables crash? (The asymmetric split)
+
+Looking at the table, `feat = 1` perfectly implies `deal = 1`. If we add `deal` to our regression, shouldn't the model crash due to perfect multicollinearity (a C2 violation)? 
+
+Look at the `feat = 0` rows. When there is *no* advertising, the store still runs price promotions roughly 38% of the time (101 out of 268 weeks). This asymmetric variation is the model's lifeline:
+1. It learns the pure effect of a price drop (`deal`) from the weeks without advertising.
+2. It estimates the `feat` coefficient as the *additional* boost that advertising provides *on top* of a deal. 
+
+But because `feat = 1` never exists without a deal, the model has to strictly assume that effects are simply additive. It has never actually seen advertising work on its own.
+:::
+
+```{r feat-deal-table}
+#| code-fold: false
+tbl_114 %>%
+  count(feat, deal) %>%
+  pivot_wider(names_from = deal,
+              values_from = n,
+              names_prefix = "deal=",
+              values_fill = 0) %>%
+  gt() %>%
+  gt::tab_header(title = "Joint distribution of feat and deal in Store 114") %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+In every single week where Store 114 ran feature advertising
+(`feat = 1`), there was also a price promotion (`deal = 1`). Feature
+advertising never appears alone in the data.
+
+:::{.callout-warning icon=false}
+## ⚠️ The A1 violation
+
+Our baseline model includes `feat` but not `deal`. If `feat = 1` always
+co-occurs with `deal = 1`, then the estimated `feat` coefficient
+absorbs **both** effects: the advertising effect *and* the
+deal effect.
+
+This is the classic **omitted variable bias** (A1 violation). Through
+the domino effect, A1 violation produces a C1 violation
+(endogeneity): the omitted `deal` is now part of the error term, and
+it is correlated with `feat`.
+:::
+
+### What happens when we add `deal`?
+
+```{r mod-full-114}
+#| code-fold: false
+mod_full_114 <- lm(logmove ~ feat + deal + log(price) + brand, data = tbl_114)
+
+mod_full_114 %>%
+  tidy(conf.int = TRUE) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+Comparing the two models on Store 114:
+
+```{r coef-comparison-114}
+#| code-fold: true
+#| code-summary: "Show code: coefficient comparison table"
+bind_rows(
+  tidy(mod_baseline_114) %>% mutate(model = "Baseline (without deal)"),
+  tidy(mod_full_114)  %>% mutate(model = "Full (with deal)")
+) %>%
+  filter(term %in% c("feat", "deal")) %>%
+  select(model, term, estimate) %>%
+  pivot_wider(names_from = term, values_from = estimate) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The `feat` coefficient drops from
+**`r round(coef(mod_baseline_114)["feat"], 3)`** (naïve baseline) to
+**`r round(coef(mod_full_114)["feat"], 3)`** (with `deal`). The
+difference of
+**`r round(coef(mod_baseline_114)["feat"] - coef(mod_full_114)["feat"], 3)`**
+log units is the empirical size of the omitted-variable bias.
+
+:::{.callout-important icon=false}
+## ⚠️ T3: Interpret the OVB shift
+
+a. By how much does the `feat` coefficient change when `deal` is added
+   to the model? (Read from the comparison table.)
+b. What does this say about the (naïve) baseline estimate from Step 1a?
+c. Could you, based on these data alone, tell Sarah what an
+   advertising campaign **without** a deal would do? Why or why not?
+
+Keep your notes — they go into the first translator memo at the
+end of the lab.
+:::
+
+## Step 1c — Does this generalise? Replication and the full panel
+
+We have an OVB story for Store 114. Is this a peculiarity of Store 114,
+or is it a structural feature of the data? Two paths to find out:
+
+1. **Replicate** in a second store
+2. **Pool** all 83 stores
+
+We start with the replication, because it brings out something that
+pooling would hide.
+
+### Replication in Store 83
+
+We fit the same two models — baseline and full — on **Store 83**, a
+demographically different store.
+
+```{r mod-83}
+#| code-fold: false
+mod_baseline_83 <- lm(logmove ~ feat + log(price) + brand, data = tbl_83)
+mod_full_83  <- lm(logmove ~ feat + deal + log(price) + brand, data = tbl_83)
+```
+
+```{r replication-comparison}
+#| code-fold: true
+#| code-summary: "Show code: side-by-side comparison"
+bind_rows(
+  tibble(store = "Store 114", model = "(naïve) baseline",     feat = coef(mod_baseline_114)["feat"]),
+  tibble(store = "Store 114", model = "with deal", feat = coef(mod_full_114)["feat"]),
+  tibble(store = "Store 83",  model = "(naïve) baseline",     feat = coef(mod_baseline_83)["feat"]),
+  tibble(store = "Store 83",  model = "with deal", feat = coef(mod_full_83)["feat"])
+) %>%
+  pivot_wider(names_from = model, values_from = feat) %>%
+  mutate(
+    ovb_diff = `(naïve) baseline`- `with deal`,
+    across(where(is.numeric), \(x) round(x, 3))
+  ) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+In **Store 114** the OVB difference is
+**`r round(coef(mod_baseline_114)["feat"] - coef(mod_full_114)["feat"], 3)`** —
+positive, as expected from the theoretical argument.
+
+In **Store 83** the OVB difference is
+**`r round(coef(mod_baseline_83)["feat"] - coef(mod_full_83)["feat"], 3)`** —
+the sign **flips**. Adding `deal` does not reduce the `feat`
+coefficient here; it slightly increases it.
+
+:::{.callout-warning icon=false}
+## 💥 Aha-moment: replication as a stress test
+
+Two stores from the same chain, same brands, same time window — and
+they tell different stories about how `feat` and `deal` interact
+**locally**. Within each store, classical inference gives a confident
+answer. Across stores, the answers do not match.
+
+This is what **replication** is for. It is not a confirmation ritual.
+It is a stress test of external validity.
+
+If we had only seen Store 114, we might have written Sarah a
+confident memo. Store 83 forces us to qualify it.
+:::
+
+### The full panel: what does pooling tell us?
+
+When we fit the same models on **all 83 stores**, we get an average
+view that smooths over local heterogeneity.
+
+```{r mod-full-panel}
+#| code-fold: false
+mod_baseline_full <- lm(logmove ~ feat + log(price) + brand, data = tbl_full)
+mod_full_full  <- lm(logmove ~ feat + deal + log(price) + brand, data = tbl_full)
+```
+
+```{r panel-overview}
+#| code-fold: true
+#| code-summary: "Show code: full-panel comparison"
+tibble(
+  scope    = c("Store 114 (n = 351)", "Store 83 (n = 333)", "Full panel (n ≈ 28k)"),
+  feat_baseline = c(coef(mod_baseline_114)["feat"], coef(mod_baseline_83)["feat"], coef(mod_baseline_full)["feat"]),
+  feat_full  = c(coef(mod_full_114)["feat"],  coef(mod_full_83)["feat"],  coef(mod_full_full)["feat"])
+) %>%
+  mutate(
+    ovb_diff = feat_baseline - feat_full,
+    across(where(is.numeric), \(x) round(x, 3))
+  ) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+In the full panel the OVB difference is
+**`r round(coef(mod_baseline_full)["feat"] - coef(mod_full_full)["feat"], 3)`**.
+The structural confounding is positive on average — but the local
+picture is heterogeneous.
+
+```{r feat-deal-table-full-1c}
+#| code-fold: true
+#| code-summary: "Show code: feat × deal in the full panel"
+tbl_full %>%
+  count(feat, deal) %>%
+  pivot_wider(names_from = deal,
+              values_from = n,
+              names_prefix = "deal=",
+              values_fill = 0) %>%
+  gt() %>%
+  gt::tab_header(title = "feat × deal across all 83 stores") %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+Globally, the structural rule is exact: **whenever `feat = 1`, `deal = 1`**.
+There is no week, in any store, where a brand was featured without
+also being on price promotion.
+
+:::{.callout-important icon=false}
+## ⚠️ T4: Translator memo no. 1 (Question 1 — the advertising effect)
+
+Draft Sarah's first memo. Cover:
+
+- Can the historical data tell us what an advertising campaign
+  *causes* in terms of sales?
+- What is the methodological obstacle?
+- What would be needed to answer her question properly?
+
+**3–5 sentences, business language.** Bonus points if you mention what
+kind of **study design** would resolve the problem (forward reference
+to Lab 3).
+:::
+
+---
+
+# Step 2 — The BLUE bridge becomes operative
+
+We have hit a wall on Question 1. Classical inference delivers
+coefficients with tight confidence intervals — but we cannot interpret
+them causally, because the data foundation does not support it
+(A1 violated → C1 violated). And the replication in Store 83 shows
+that even within the chain, the local story changes.
+
+Sarah's **Question 2** is different. She wants a *prediction tool* for
+inventory planning. The question is not *"what would advertising
+cause?"*. It is *"what will sales be, given conditions we observe?"*.
+
+For prediction, BLUE is not the right criterion.
+
+:::{.callout-note collapse="true" #blue-bridge}
+## 📚 Background: BLUE for inference vs. prediction
+
+Under the Gauss-Markov assumptions, OLS is the **B**est **L**inear
+**U**nbiased **E**stimator. Note the order: *first* unbiased, *then*
+minimum variance **among the unbiased**.
+
+**For inference (explanation),** this is the gold standard. The
+coefficient should reflect the true effect — unbiasedness is essential.
+
+**For prediction,** the criterion is different. What we want is
+*minimum total error on new data*:
+
+$$\text{MSE}(\hat{Y}) = \text{Bias}^2(\hat{Y}) + \text{Var}(\hat{Y}) + \sigma_{\varepsilon}^2$$
+
+In prediction, accepting *some* bias for *much less variance* can
+lower the total MSE. This is the rationale for regularised methods
+like Lasso and Ridge — they are *not* BLUE by design.
+
+→ The same theoretical foundation explains both paths, with opposite
+optimality criteria. This is the **BLUE bridge**.
+:::
+
+This conceptual shift sets up the rest of the lab. We assume the
+business-relevant relationships are **stable** for inventory planning
+purposes (this is a working assumption, not a guarantee — the Lucas
+critique applies if the system is later perturbed). Given that
+assumption, we now ask: **how well does the model generalise to stores
+we have not seen?**
+
+---
+
+# Step 3 — Question 2 (Prediction): Out-of-Sample Evaluation
+
+## Step 3a — Train on Store 114, predict on Store 83
+
+We use the same data we already have: train on our analytical sample
+(Store 114), evaluate the prediction error on the replication store
+(Store 83).
+
+```{r predict-114-to-83}
+#| code-fold: false
+pred_83  <- predict(mod_baseline_114, newdata = tbl_83)
+rmse_83  <- sqrt(mean((pred_83 - tbl_83$logmove)^2))
+rmse_114 <- sqrt(mean(residuals(mod_baseline_114)^2))
+```
+
+| Metric                                   | RMSE on log-sales |
+|------------------------------------------|------------------:|
+| In-sample (Store 114, baseline model)       | `r round(rmse_114, 3)` |
+| Out-of-sample (Store 83 from Store 114)  | `r round(rmse_83, 3)`  |
+
+Given that `logmove` ranges roughly from 4 to 14, this is a non-trivial
+error. The out-of-sample value is meaningfully larger than the
+in-sample value — a first sign that performance on **unseen stores**
+is systematically worse than what the training data suggested.
+
+## Step 3b — Train/test split across stores
+
+A single out-of-sample target store gives one number. To get a
+realistic estimate of generalisation error, we split the **set of
+stores** itself: 80 % of stores for training, 20 % for testing.
+
+```{r train-test-split}
+#| code-fold: false
+set.seed(42)
+stores_all  <- unique(tbl_full$store)
+test_stores <- sample(stores_all, size = floor(0.20 * length(stores_all)))
+
+tbl_train <- tbl_full %>% filter(!store %in% test_stores)
+tbl_test  <- tbl_full %>% filter(store  %in% test_stores)
+
+mod_train  <- lm(logmove ~ feat + log(price) + brand, data = tbl_train)
+pred_test  <- predict(mod_train, newdata = tbl_test)
+
+rmse_train <- sqrt(mean(residuals(mod_train)^2))
+rmse_test  <- sqrt(mean((pred_test - tbl_test$logmove)^2))
+```
+
+| Metric                          | RMSE on log-sales |
+|---------------------------------|------------------:|
+| In-sample (training stores)     | `r round(rmse_train, 3)` |
+| Out-of-sample (test stores)     | `r round(rmse_test, 3)`  |
+
+:::{.callout-tip}
+## 💡 Splitting across stores, not across weeks
+
+We split the **set of stores**, not the set of weeks. Splitting at the
+week level would mean the model has already seen the same store —
+predictive performance would be artificially inflated. For a
+prediction tool that should work *in new stores*, we need store-level
+splitting.
+
+In time-series settings the same principle extends to **temporal CV**
+to avoid future-leakage. You will revisit this in ER017.
+:::
+
+## Step 3c — K-fold cross-validation
+
+A single 80/20 split depends on which 20 % we happened to draw.
+**K-fold CV** averages over all possible splits and gives a more
+stable estimate.
+
+```{r kfold-cv}
+#| code-fold: false
+set.seed(42)
+K <- 5
+stores_shuffled <- sample(unique(tbl_full$store))
+folds <- cut(seq_along(stores_shuffled), breaks = K, labels = FALSE)
+
+cv_rmses <- map_dbl(1:K, \(k) {
+  test_st  <- stores_shuffled[folds == k]
+  train_st <- stores_shuffled[folds != k]
+
+  mod_k <- lm(logmove ~ feat + log(price) + brand,
+              data = tbl_full %>% filter(store %in% train_st))
+  pred_k   <- predict(mod_k,
+                      newdata = tbl_full %>% filter(store %in% test_st))
+  actual_k <- tbl_full %>% filter(store %in% test_st) %>% pull(logmove)
+  sqrt(mean((pred_k - actual_k)^2))
+})
+
+cv_score <- mean(cv_rmses)
+```
+
+The five fold-wise RMSEs are
+**`r paste(round(cv_rmses, 3), collapse = ", ")`**. The mean of these
+gives our cross-validated estimate of out-of-sample error:
+
+| Quantity            | Value |
+|---------------------|------:|
+| Mean 5-fold CV-RMSE | `r round(cv_score, 3)` |
+
+This is the realistic generalisation-error estimate for the simple
+model `feat + log(price) + brand` on a new store.
+
+:::{.callout-important icon=false}
+## ⚠️ T5: Translator memo no. 2 (Question 2 — the prediction tool)
+
+Draft Sarah's second memo. Cover:
+
+- Can we deliver an inventory-planning tool that works across all
+  83 stores?
+- What is the realistic out-of-sample accuracy
+  (CV-RMSE ≈ `r round(cv_score, 2)`)?
+- What variables are *not yet* in the model that you would add to
+  improve it? (Hint: think about what makes Store 83 different from
+  Store 114.)
+:::
+
+---
+
+# Step 4 — Synthesis
+
+```{r synthesis-table}
+#| echo: false
+tibble::tribble(
+  ~`Question`,                              ~`Methodological path`,            ~`Verdict`,
+  "1. Effect of a Q4 advertising campaign", "Path B: causal identification",    "Not answerable from these data alone",
+  "2. Inventory prediction tool",           "Path A: out-of-sample, CV",        "Deliverable, with caveats"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#fff8e1"), gt::cells_body(rows = 1)) %>%
+  gt::tab_style(gt::cell_fill("#f0fff0"), gt::cells_body(rows = 2)) %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The same dataset gave us two methodological operations and two
+different verdicts. **This is the BLUE bridge in action:**
+
+- Path A (prediction): we accept that we cannot disentangle advertising
+  from price promotion, because for *forecasting under stable
+  structure* that does not matter. The relationship is consistent in
+  the data, and the model predicts.
+- Path B (explanation/intervention): we cannot deliver a causal claim,
+  because the data foundation does not support identification. To
+  answer Sarah's Q1 properly, we need a different study design — an
+  A/B test (forward reference to Lab 3).
+
+This is the **central lesson of the lab**: the optimality criterion
+depends on the question. Same data, two operations, two answers.
+
+:::{.callout-note collapse="true" #lucas-critique}
+## 📚 Background: Lucas critique
+
+The Path A prediction relies on a working assumption: the structure of
+the relationships does not change. If management *actively intervenes*
+(e.g. launches a big campaign), this assumption may break — a
+phenomenon known as the **Lucas critique** [@lucas_1976]. The
+historical correlations were generated under one regime; the new
+regime may behave differently.
+
+This is the deeper reason why Sarah's Q1 is fundamentally different
+from Q2: it asks about a *change* to the system, not about predicting
+within it. Path A is appropriate when the system stays as it is.
+Path B is required when we change the system.
+:::
+
+:::{.callout-note collapse="true" #pop-sample}
+## 📚 Background: Big data is not population
+
+Even when we use all 83 stores, we have not "reached population".
+These data come from **one** supermarket chain, in **one** city,
+during **one** time period (1989–1994), with **one** selected set of
+brands. Inferring from this dataset to "supermarket markets in
+general" is an extra-statistical generalisation.
+
+Big data does not dissolve the population/sample distinction — it
+just makes the sample large. The Lucas critique and external-validity
+arguments still apply.
+:::
+
+---
+
+# Bonus — For independent study
+
+Lab 2 will refine the prediction tool by adding the 12 demographic
+variables from `tbl_demo`. As preparation, you can explore:
+
+:::{.callout-important icon=false collapse="true"}
+## ⚠️ B1 (Bonus): Lasso preview on demographics
+
+Join the demographics to the full panel and fit a Lasso model with
+cross-validation:
+
+```r
+library(glmnet)
+tbl_joined <- tbl_full %>%
+  left_join(tbl_demo, by = "store")
+# build the design matrix, then:
+# cv_fit <- cv.glmnet(X, y, alpha = 1)
+```
+
+Which demographic variables survive at the optimal $\lambda$? How does
+the cross-validated RMSE compare to the simple model from Step 3?
+
+This is exactly the question we will work through together in Lab 2.
+Coming with your own attempt makes the lab more useful.
+:::
+
+---
+
+# What comes next
+
+| Lab | Question it answers |
+|-----|---------------------|
+| **Lab 2 — Regularisation on demographics** | Can we improve the prediction tool by adding demographic variables — and which of them matter? |
+| **Lab 3 — A/B-test design**                | How would we set up a study that answers Sarah's Question 1 properly? |
+
+
+
+### The full panel: exact rule or strong tendency?
+
+When we move from one store to all 83 stores, we should again verify the
+empirical relationship instead of assuming it.
+
+```{r feat-deal-table-full-4}
+#| code-fold: false
+tbl_full %>%
+  count(feat, deal) %>%
+  tidyr::complete(feat = 0:1, deal = 0:1, fill = list(n = 0)) %>%
+  group_by(feat) %>%
+  mutate(
+    share_within_feat = n / sum(n),
+    share_within_feat = scales::percent(share_within_feat, accuracy = 0.1)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    feat = paste0("feat = ", feat),
+    deal = paste0("deal = ", deal)
+  ) %>%
+  gt() %>%
+  gt::tab_header(title = "feat × deal across all 83 stores") %>%
+  gt::cols_label(
+    feat = "Advertising",
+    deal = "Price promotion",
+    n = "Count",
+    share_within_feat = "Share within feat"
+  ) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+```{r feat-deal-summary-full}
+#| code-fold: false
+tbl_full %>%
+  summarise(
+    `# obs`                  = n(),
+    `# feat = 1`             = sum(feat == 1, na.rm = TRUE),
+    `# deal = 1`             = sum(deal == 1, na.rm = TRUE),
+    `# feat = 1 & deal = 1`  = sum(feat == 1 & deal == 1, na.rm = TRUE),
+    `# feat = 1 & deal = 0`  = sum(feat == 1 & deal == 0, na.rm = TRUE),
+    `P(deal = 1 | feat = 1)` = ifelse(sum(feat == 1, na.rm = TRUE) > 0,
+                                      sum(feat == 1 & deal == 1, na.rm = TRUE) /
+                                      sum(feat == 1, na.rm = TRUE),
+                                      NA_real_)
+  ) %>%
+  mutate(`P(deal = 1 | feat = 1)` = scales::percent(`P(deal = 1 | feat = 1)`,
+                                                    accuracy = 0.1)) %>%
+  gt() %>%
+  gt::tab_header(title = "How close is the full panel to feat => deal?") %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+```{r feat-without-deal-by-store}
+#| code-fold: true
+#| code-summary: "Show code: stores with feature-without-deal cases"
+tbl_full %>%
+  group_by(store) %>%
+  summarise(
+    n_feat = sum(feat == 1, na.rm = TRUE),
+    n_feat_without_deal = sum(feat == 1 & deal == 0, na.rm = TRUE),
+    p_deal_given_feat = ifelse(n_feat > 0,
+                               sum(feat == 1 & deal == 1, na.rm = TRUE) / n_feat,
+                               NA_real_)
+  ) %>%
+  ungroup() %>%
+  filter(n_feat > 0) %>%
+  arrange(desc(n_feat_without_deal), p_deal_given_feat) %>%
+  mutate(
+    p_deal_given_feat = scales::percent(p_deal_given_feat, accuracy = 0.1)
+  ) %>%
+  gt() %>%
+  gt::tab_header(title = "Store-level dependence between feature and deal") %>%
+  gt::cols_label(
+    n_feat = "# feat = 1",
+    n_feat_without_deal = "# feat = 1 & deal = 0",
+    p_deal_given_feat = "P(deal = 1 | feat = 1)"
+  ) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+The full panel therefore tells us **how strong** the dependence between
+`feat` and `deal` is on average, while the store-level table shows that
+this dependence may still vary locally. This matters for both causal
+interpretation and out-of-sample transportability.

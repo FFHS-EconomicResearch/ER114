@@ -1,0 +1,213 @@
+---
+title: "Train-Test Split"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    transition: fade
+    width: 1100
+    height: 650
+    margin: 0.06
+    background-color: "#ffffff"
+    css: ffhs.css
+---
+
+## Train-Test Split
+
+```{=html}
+<svg width="100%" viewBox="0 0 680 400"
+     xmlns="http://www.w3.org/2000/svg"
+     style="display:block;background:#ffffff">
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+          markerWidth="6" markerHeight="6" orient="auto">
+    <path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke"
+          stroke-width="1.6" stroke-linecap="round"
+          stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- ── Header ───────────────────────────────────────────────── -->
+<text font-family="sans-serif" font-size="14" font-weight="500"
+      fill="#1a1a1a" x="340" y="34"
+      text-anchor="middle" dominant-baseline="central">
+  Gesamtdatensatz (n Beobachtungen)
+</text>
+
+<!-- ── Full dataset bar ─────────────────────────────────────── -->
+<rect x="44" y="50" width="592" height="40" rx="5"
+      fill="#f2f2f2" stroke="#b3b2b2" stroke-width="0.8"/>
+<g stroke="#b3b2b2" stroke-width="0.6">
+  <line x1="64"  y1="50" x2="64"  y2="90"/>
+  <line x1="84"  y1="50" x2="84"  y2="90"/>
+  <line x1="104" y1="50" x2="104" y2="90"/>
+  <line x1="124" y1="50" x2="124" y2="90"/>
+  <line x1="144" y1="50" x2="144" y2="90"/>
+  <line x1="164" y1="50" x2="164" y2="90"/>
+  <line x1="184" y1="50" x2="184" y2="90"/>
+  <line x1="204" y1="50" x2="204" y2="90"/>
+  <line x1="224" y1="50" x2="224" y2="90"/>
+  <line x1="244" y1="50" x2="244" y2="90"/>
+  <line x1="264" y1="50" x2="264" y2="90"/>
+  <line x1="284" y1="50" x2="284" y2="90"/>
+  <line x1="304" y1="50" x2="304" y2="90"/>
+  <line x1="324" y1="50" x2="324" y2="90"/>
+  <line x1="344" y1="50" x2="344" y2="90"/>
+  <line x1="364" y1="50" x2="364" y2="90"/>
+  <line x1="384" y1="50" x2="384" y2="90"/>
+  <line x1="404" y1="50" x2="404" y2="90"/>
+  <line x1="424" y1="50" x2="424" y2="90"/>
+  <line x1="444" y1="50" x2="444" y2="90"/>
+  <line x1="464" y1="50" x2="464" y2="90"/>
+  <line x1="484" y1="50" x2="484" y2="90"/>
+  <line x1="504" y1="50" x2="504" y2="90"/>
+  <line x1="524" y1="50" x2="524" y2="90"/>
+  <line x1="544" y1="50" x2="544" y2="90"/>
+  <line x1="564" y1="50" x2="564" y2="90"/>
+  <line x1="584" y1="50" x2="584" y2="90"/>
+  <line x1="604" y1="50" x2="604" y2="90"/>
+  <line x1="624" y1="50" x2="624" y2="90"/>
+</g>
+
+<!-- Split marker 80/20 -->
+<line x1="518" y1="42" x2="518" y2="100"
+      stroke="#686868" stroke-width="1.5" stroke-dasharray="4 2"/>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="518" y="108" text-anchor="middle" dominant-baseline="central">
+  80 / 20
+</text>
+
+<!-- Split arrows -->
+<line x1="282" y1="118" x2="200" y2="158"
+      stroke="#686868" stroke-width="0.8" marker-end="url(#arr)"/>
+<line x1="398" y1="118" x2="550" y2="158"
+      stroke="#686868" stroke-width="0.8" marker-end="url(#arr)"/>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="236" y="146" text-anchor="middle">n · 0.8</text>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="558" y="146" text-anchor="middle">n · 0.2</text>
+
+<!-- ── Train bar — Corporate Rot #D50006 ─────────────────────── -->
+<rect x="44" y="166" width="436" height="62" rx="8"
+      fill="#D50006" stroke="#D50006" stroke-width="1"/>
+<g stroke="rgba(255,255,255,0.25)" stroke-width="0.6">
+  <line x1="64"  y1="166" x2="64"  y2="228"/>
+  <line x1="84"  y1="166" x2="84"  y2="228"/>
+  <line x1="104" y1="166" x2="104" y2="228"/>
+  <line x1="124" y1="166" x2="124" y2="228"/>
+  <line x1="144" y1="166" x2="144" y2="228"/>
+  <line x1="164" y1="166" x2="164" y2="228"/>
+  <line x1="184" y1="166" x2="184" y2="228"/>
+  <line x1="204" y1="166" x2="204" y2="228"/>
+  <line x1="224" y1="166" x2="224" y2="228"/>
+  <line x1="244" y1="166" x2="244" y2="228"/>
+  <line x1="264" y1="166" x2="264" y2="228"/>
+  <line x1="284" y1="166" x2="284" y2="228"/>
+  <line x1="304" y1="166" x2="304" y2="228"/>
+  <line x1="324" y1="166" x2="324" y2="228"/>
+  <line x1="344" y1="166" x2="344" y2="228"/>
+  <line x1="364" y1="166" x2="364" y2="228"/>
+  <line x1="384" y1="166" x2="384" y2="228"/>
+  <line x1="404" y1="166" x2="404" y2="228"/>
+  <line x1="424" y1="166" x2="424" y2="228"/>
+  <line x1="444" y1="166" x2="444" y2="228"/>
+  <line x1="464" y1="166" x2="464" y2="228"/>
+</g>
+<text font-family="sans-serif" font-size="14" font-weight="500"
+      fill="#ffffff" x="262" y="190"
+      text-anchor="middle" dominant-baseline="central">
+  Trainingsdaten
+</text>
+<text font-family="sans-serif" font-size="11"
+      fill="rgba(255,255,255,0.88)" x="262" y="213"
+      text-anchor="middle" dominant-baseline="central">
+  Modell lernt &#x3B2;&#x302; · Fitting · in-sample
+</text>
+
+<!-- ── Test bar — Corporate Violett #502479 ──────────────────── -->
+<rect x="496" y="166" width="140" height="62" rx="8"
+      fill="#502479" stroke="#502479" stroke-width="1"/>
+<g stroke="rgba(255,255,255,0.25)" stroke-width="0.6">
+  <line x1="516" y1="166" x2="516" y2="228"/>
+  <line x1="536" y1="166" x2="536" y2="228"/>
+  <line x1="556" y1="166" x2="556" y2="228"/>
+  <line x1="576" y1="166" x2="576" y2="228"/>
+  <line x1="596" y1="166" x2="596" y2="228"/>
+  <line x1="616" y1="166" x2="616" y2="228"/>
+</g>
+<text font-family="sans-serif" font-size="14" font-weight="500"
+      fill="#ffffff" x="566" y="190"
+      text-anchor="middle" dominant-baseline="central">
+  Testdaten
+</text>
+<text font-family="sans-serif" font-size="11"
+      fill="rgba(255,255,255,0.88)" x="566" y="213"
+      text-anchor="middle" dominant-baseline="central">
+  out-of-sample
+</text>
+
+<!-- ── Connectors ────────────────────────────────────────────── -->
+<line x1="149" y1="228" x2="149" y2="262"
+      stroke="#D50006" stroke-width="0.9" marker-end="url(#arr)"/>
+<line x1="375" y1="228" x2="375" y2="262"
+      stroke="#7d0a52" stroke-width="0.9" marker-end="url(#arr)"/>
+<line x1="566" y1="228" x2="566" y2="262"
+      stroke="#502479" stroke-width="0.9" marker-end="url(#arr)"/>
+
+<!-- ── Outcome: In-Sample ────────────────────────────────────── -->
+<rect x="44" y="262" width="210" height="52" rx="7"
+      fill="#ffffff" stroke="#D50006" stroke-width="1.2"/>
+<text font-family="sans-serif" font-size="13" font-weight="500"
+      fill="#D50006" x="149" y="283"
+      text-anchor="middle" dominant-baseline="central">
+  In-Sample-Güte
+</text>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="149" y="303"
+      text-anchor="middle" dominant-baseline="central">
+  R² · Trainings-MSE · Log-Lik.
+</text>
+
+<!-- ── Outcome: Overfitting — Purpurrot ──────────────────────── -->
+<rect x="270" y="262" width="210" height="52" rx="7"
+      fill="#ffffff" stroke="#7d0a52" stroke-width="1.2"/>
+<text font-family="sans-serif" font-size="13" font-weight="500"
+      fill="#7d0a52" x="375" y="283"
+      text-anchor="middle" dominant-baseline="central">
+  Overfitting-Diagnose
+</text>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="375" y="303"
+      text-anchor="middle" dominant-baseline="central">
+  Train-MSE &#x226A; Test-MSE?
+</text>
+
+<!-- ── Outcome: Out-of-sample — Violett ──────────────────────── -->
+<rect x="496" y="262" width="140" height="52" rx="7"
+      fill="#ffffff" stroke="#502479" stroke-width="1.2"/>
+<text font-family="sans-serif" font-size="13" font-weight="500"
+      fill="#502479" x="566" y="283"
+      text-anchor="middle" dominant-baseline="central">
+  Out-of-sample
+</text>
+<text font-family="sans-serif" font-size="11" fill="#686868"
+      x="566" y="303"
+      text-anchor="middle" dominant-baseline="central">
+  RMSE · AUC · Accuracy
+</text>
+
+<!-- ── Warning bar ────────────────────────────────────────────── -->
+<rect x="44" y="334" width="592" height="30" rx="5"
+      fill="#fff0f0" stroke="#D50006" stroke-width="0.8"/>
+<text font-family="sans-serif" font-size="11" font-weight="500"
+      fill="#7d0a52" x="340" y="349"
+      text-anchor="middle" dominant-baseline="central">
+  Testdaten dürfen beim Training nie gesehen werden — sonst data leakage
+</text>
+</svg>
+```
+
+::: {.callout-ffhs}
+**Faustregel:** 80 % Training — 20 % Test.
+Bei kleinem n → Cross-Validation bevorzugen.
+:::

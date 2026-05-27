@@ -1,0 +1,102 @@
+<svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg"
+     font-family="'Source Sans Pro', 'Helvetica Neue', sans-serif">
+
+  <!-- TOP STRIP -->
+  <text x="500" y="32" text-anchor="middle" font-size="13" fill="#686868" font-style="italic">
+    Shared foundation, two divergent repair strategies
+  </text>
+
+  <!-- BLUE Box -->
+  <rect x="80" y="55" width="840" height="95" rx="10"
+        fill="#fff" stroke="#2c2c2c" stroke-width="3"/>
+  <text x="500" y="85" text-anchor="middle" font-size="22" font-weight="bold" fill="#2c2c2c">
+    BLUE
+  </text>
+  <text x="500" y="107" text-anchor="middle" font-size="13" fill="#2c2c2c">
+    Best Linear Unbiased Estimator &#8212; under Gauss-Markov assumptions A1&#8211;A3, B1&#8211;B3, C1&#8211;C2
+  </text>
+  <text x="500" y="130" text-anchor="middle" font-size="12" fill="#686868" font-style="italic">
+    Both paths inherit this benchmark. They diverge in what they trade away when assumptions break.
+  </text>
+
+  <!-- LEFT arrow: Path E (rot) -->
+  <line x1="250" y1="155" x2="250" y2="188" stroke="#D50006" stroke-width="3"/>
+  <polygon points="241,188 259,188 250,200" fill="#D50006"/>
+  <text x="268" y="168" font-size="11" font-style="italic" fill="#D50006">preserve unbiasedness</text>
+  <text x="268" y="183" font-size="11" font-style="italic" fill="#D50006">via design or institution</text>
+
+  <!-- Path E box (links) -->
+  <rect x="80" y="204" width="395" height="215" rx="10"
+        fill="#fff5f5" stroke="#D50006" stroke-width="2.5"/>
+  <rect x="80" y="204" width="395" height="44" rx="10" fill="#D50006"/>
+  <text x="277" y="232" text-anchor="middle" font-size="17" font-weight="bold" fill="#fff">
+    Path E &#8212; Inference
+  </text>
+  <text x="277" y="271" text-anchor="middle" font-size="14" font-weight="bold" fill="#D50006">
+    Design-Based Identification
+  </text>
+  <text x="277" y="296" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Preserve unbiasedness; earn it
+  </text>
+  <text x="277" y="313" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    through study design.
+  </text>
+  <text x="277" y="340" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Robust SE · RCT · DiD · IV
+  </text>
+  <text x="277" y="358" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Pre-registration · DML
+  </text>
+  <text x="277" y="386" text-anchor="middle" font-size="12" font-weight="bold" fill="#D50006">
+    Goal: credible causal effect
+  </text>
+  <text x="277" y="406" text-anchor="middle" font-size="11" fill="#686868" font-style="italic">
+    Angrist &amp; Pischke 2010 · &#8594; Lab 1 &amp; Lab 3
+  </text>
+
+  <!-- RIGHT arrow: Path P (lila) -->
+  <line x1="750" y1="155" x2="750" y2="188" stroke="#502479" stroke-width="3"/>
+  <polygon points="741,188 759,188 750,200" fill="#502479"/>
+  <text x="732" y="168" text-anchor="end" font-size="11" font-style="italic" fill="#502479">trade unbiasedness</text>
+  <text x="732" y="183" text-anchor="end" font-size="11" font-style="italic" fill="#502479">for lower variance</text>
+
+  <!-- Path P box (rechts) -->
+  <rect x="525" y="204" width="395" height="215" rx="10"
+        fill="#f5f0fa" stroke="#502479" stroke-width="2.5"/>
+  <rect x="525" y="204" width="395" height="44" rx="10" fill="#502479"/>
+  <text x="722" y="232" text-anchor="middle" font-size="17" font-weight="bold" fill="#fff">
+    Path P &#8212; Prediction
+  </text>
+  <text x="722" y="271" text-anchor="middle" font-size="14" font-weight="bold" fill="#502479">
+    Bias-Variance Trade-off
+  </text>
+  <text x="722" y="296" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Accept a small bias to gain a large
+  </text>
+  <text x="722" y="313" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    variance reduction.
+  </text>
+  <text x="722" y="340" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Ridge · Lasso · Elastic Net
+  </text>
+  <text x="722" y="358" text-anchor="middle" font-size="12" fill="#2c2c2c">
+    Cross-Validation
+  </text>
+  <text x="722" y="386" text-anchor="middle" font-size="12" font-weight="bold" fill="#502479">
+    Goal: minimize out-of-sample MSE
+  </text>
+  <text x="722" y="406" text-anchor="middle" font-size="11" fill="#686868" font-style="italic">
+    Hastie/Tibshirani/Friedman 2009 · &#8594; Lab 2
+  </text>
+
+  <!-- Spiess Box -->
+  <rect x="80" y="434" width="840" height="58" rx="6"
+        fill="#f5f5f5" stroke="#686868" stroke-width="0.8"/>
+  <rect x="80" y="434" width="5" height="58" rx="3" fill="#D50006"/>
+  <text x="500" y="456" text-anchor="middle" font-size="11.5" fill="#2c2c2c">
+    <tspan font-weight="bold">Spiess (2025): </tspan>preserving unbiasedness disciplines researcher discretion &#8212;
+  </text>
+  <text x="500" y="475" text-anchor="middle" font-size="11.5" fill="#2c2c2c">
+    pre-commitment is the institutional answer to p-Hacking and the replication crisis (cf. Session 2).
+  </text>
+</svg>

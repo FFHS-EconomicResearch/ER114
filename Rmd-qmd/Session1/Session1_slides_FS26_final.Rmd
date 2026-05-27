@@ -3055,7 +3055,7 @@ class: left
             background:#fff5f5; margin-top:1em;">
 <div style="font-family:sans-serif; font-size:16px; font-weight:bold;
             color:#D50006; margin-bottom:10px;">
-`r fa('flask')` Lab 4: Performance Mining &amp; Managerial Memo
+`r fa('flask')` Lab 3: Performance Mining &amp; Managerial Memo
 </div>
 <div style="font-size:0.85em; line-height:1.8;">
 
@@ -3075,7 +3075,7 @@ erstellen, Ergebnisse als Manager-Memo formulieren (Translator-Rolle).
 <br>
 
 `r fa('circle-right')` <strong>Open lab document:</strong>
-<code>Session1_Lab4_PerformanceMining.qmd</code>
+<code>Session1_Lab3_PerformanceMining.qmd</code>
 
 </div>
 </div>
