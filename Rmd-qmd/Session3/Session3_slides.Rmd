@@ -178,7 +178,7 @@ class: left
 #| echo: false
 #| out-width: "100%"
 #| fig-align: center
-knitr::include_graphics(xfun::from_root("img","Session3","roadmap_milestones_start.svg"))
+knitr::include_graphics(xfun::from_root("img","Session3","roadmap_milestones_start_v2.svg"))
 ```
 
 ]
@@ -1952,6 +1952,48 @@ class: inverse, center, middle
 
 .blockquote[Motivation & Foundations]
 
+.blockquote[Visualizing Cause and Effect with DAGs]
+
+.blockquote[Experimantal Research Designs]
+
+
+---
+class: left
+
+.blockquote[Motivation & Foundations]
+
+## How to identify causality?
+
+<br>
+
+.pull-left[
+```{r}
+#| echo: false
+#| out-width: "90%"
+knitr::include_graphics(xfun::from_root("img","Session3","Einstein_(wikimedia).jpg"))
+```
+]
+
+.pull-right[
+<br>
+
+.center[
+"Development of Western science is based on two
+great achievements: the invention of the formal
+logical system (in Euclidean geometry) by the
+Greek philosophers, and the discovery of the
+possibility to find out causal relationships by
+systematic experiment (during the Renaissance). [..] 
+The astonishing thing is that those discoveries were made at all."
+]
+
+.quelle[Albert Einstein (1953): [Letter to J.S. Switzer.](http://www.autodidactproject.org/quote/einstn2.html)]
+]
+
+???
+
+Einstein Archiv
+
 
 
 ---
@@ -2159,7 +2201,7 @@ tibble::tribble(
 ---
 class: left
 
-.blockquote[DAG]
+.blockquote[Visualizing Cause and Effect with DAGs]
 
 
 ## DAG basics: backdoor, frontdoor, collider
@@ -2209,7 +2251,7 @@ A <em>mediator</em> <math><mi>m</mi></math> between <math><mi>x</mi></math> and 
 ---
 class: left
 
-.blockquote[DAG]
+.blockquote[Visualizing Cause and Effect with DAGs]
 
 ## A systematic taxonomy of causal study designs
 
@@ -2245,7 +2287,7 @@ tibble::tribble(
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## Identification through design
 .small[
@@ -2300,7 +2342,7 @@ Credibility revolution `r Citet(bib, "angrist_harmless_2008")` is about *design*
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## A spectrum of validity: Vignette — Audit — A/B-test
 
@@ -2336,11 +2378,12 @@ tibble::tribble(
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## The IAB study: a vignette experiment with a built-in validity check
 
-The IAB study *"Immigrants' recruitment chances in the German labor market"* (2025) is a large-scale **survey experiment** embedded in the IAB Job Vacancy Survey. About 5,000 real HR decision-makers were shown hypothetical CVs whose features (origin, religion, gender, language skills, experience) were randomised. They rated on a 1–10 scale how likely they would be to invite each candidate.
+.small[
+The IAB study *"Immigrants' recruitment chances in the German labor market"* (2025) is a large-scale **survey experiment** embedded in the IAB Job Vacancy Survey. About 5,000 real HR decision-makers were shown hypothetical CVs whose features (origin, religion, gender, language skills, experience) were randomised. They rated on a 1–10 scale how likely they would be to invite each candidate.]
 
 .pull-left[
 ### `r fa('flask', fill='#502479')` Design
@@ -2373,7 +2416,7 @@ The IAB authors anticipated this and added a **list experiment** in parallel.
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## Triangulation: when two methods agree, validity rises
 
@@ -2412,7 +2455,7 @@ This is the operational meaning of *validity-by-triangulation* — and it genera
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## A note on our own data: Dominick's contains embedded RCTs
 
@@ -2454,7 +2497,7 @@ This is not a defect of the data. It is an *opportunity* — and a model for wha
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## DiD and event studies — the workhorses of design-based inference
 
@@ -2490,7 +2533,7 @@ Robust alternatives: imputation estimators (Borusyak et al.), Callaway–Sant'An
 ---
 class: left
 
-.blockquote[Experimental Designs]
+.blockquote[Experimantal Research Designs]
 
 ## Instrumental variables and regression discontinuity
 
@@ -2541,7 +2584,7 @@ Two more design-based tools complete the toolkit for situations where a clean A/
 ---
 class: left
 
-.blockquote[Experimantal Designs]
+.blockquote[Experimantal Research Designs]
 
 ## When designs converge: ML meets causal inference
 
@@ -2662,7 +2705,7 @@ class: left
 #| echo: false
 #| out-width: "100%"
 #| fig-align: center
-knitr::include_graphics(xfun::from_root("img","Session3","roadmap_milestones_start.svg"))
+knitr::include_graphics(xfun::from_root("img","Session3","roadmap_milestones_end_v2.svg"))
 ```
 ]
 
@@ -2788,6 +2831,17 @@ These are the references that have actually shaped Sessions 1–3, in order of a
 
 
 
+---
+class: center, middle
+
+> *“An interpretable model translates raw data into information that is directly relevant to decision-making.”* — Matt Taddy
+
+<br>
+
+### The value creation of the future does not come from the blind application of algorithms. 
+
+### It comes from **translators** who critically validate and strategically steer models.
+
 
 ---
 class: inverse, center, middle
@@ -2795,7 +2849,6 @@ class: inverse, center, middle
 # Thank you!
 
 ### Questions? → `r fa('comments')` Discussion & Feedback on the Module
-
 
 
 

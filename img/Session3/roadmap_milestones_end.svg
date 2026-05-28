@@ -1,53 +1,60 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 280" font-family="Helvetica, Arial, sans-serif">
-  <rect x="0" y="0" width="920" height="280" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 280" width="920" height="280"
+     font-family="Helvetica, Arial, sans-serif">
 
-  <!-- Curved road, now in dark colour (path completed) -->
-  <path d="M 50 200 Q 200 100, 350 170 T 700 150 T 870 200"
-        fill="none" stroke="#502479" stroke-width="3.5" stroke-linecap="round"/>
   <defs>
     <marker id="road-arrow-done" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
       <path d="M0,0 L0,6 L9,3 z" fill="#502479"/>
     </marker>
   </defs>
+
+  <rect x="0" y="0" width="920" height="280" fill="#ffffff"/>
+
+  <path d="M 50 200 Q 200 100, 350 170 T 700 150 T 870 200"
+        fill="none" stroke="#502479" stroke-width="3.5" stroke-linecap="round"/>
   <path d="M 820 195 L 870 200" fill="none" stroke="#502479" stroke-width="3.5" marker-end="url(#road-arrow-done)"/>
 
-  <!-- All milestones in their full thematic colour -->
+  <!-- Milestone 1 -->
   <circle cx="80" cy="195" r="14" fill="#686868" stroke="#000" stroke-width="2"/>
   <text x="80" y="201" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">1</text>
   <text x="80" y="240" font-size="11" text-anchor="middle" fill="#686868">Descriptive</text>
   <text x="80" y="254" font-size="11" text-anchor="middle" fill="#686868">regression</text>
   <text x="80" y="268" font-size="10" font-style="italic" text-anchor="middle" fill="#686868">(Session 1)</text>
 
+  <!-- Milestone 2 -->
   <circle cx="215" cy="135" r="14" fill="#686868" stroke="#000" stroke-width="2"/>
   <text x="215" y="141" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">2</text>
   <text x="215" y="85" font-size="11" text-anchor="middle" fill="#686868">Stochastic</text>
   <text x="215" y="71" font-size="11" text-anchor="middle" fill="#686868">DGP shift</text>
   <text x="215" y="57" font-size="10" font-style="italic" text-anchor="middle" fill="#686868">(Session 2)</text>
 
+  <!-- Milestone 3 -->
   <circle cx="370" cy="170" r="16" fill="#3498db" stroke="#1d6fa5" stroke-width="2.5"/>
   <text x="370" y="176" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">3</text>
   <text x="370" y="218" font-size="11" font-weight="bold" text-anchor="middle" fill="#3498db">Inference vs.</text>
   <text x="370" y="232" font-size="11" font-weight="bold" text-anchor="middle" fill="#3498db">prediction</text>
-  <text x="370" y="246" font-size="10" text-anchor="middle" fill="#000">✓ Part 1</text>
+  <text x="370" y="246" font-size="10" text-anchor="middle" fill="#000">&#x2713; Part 1</text>
 
+  <!-- Milestone 4 -->
   <circle cx="510" cy="155" r="16" fill="#27ae60" stroke="#1a7841" stroke-width="2.5"/>
   <text x="510" y="161" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">4</text>
   <text x="510" y="115" font-size="11" font-weight="bold" text-anchor="middle" fill="#27ae60">A/B/C compass</text>
-  <text x="510" y="101" font-size="11" font-weight="bold" text-anchor="middle" fill="#27ae60">+ LM → GLM</text>
-  <text x="510" y="87" font-size="10" text-anchor="middle" fill="#000">✓ Part 2</text>
+  <text x="510" y="101" font-size="11" font-weight="bold" text-anchor="middle" fill="#27ae60">+ LM &#x2192; GLM</text>
+  <text x="510" y="87" font-size="10" text-anchor="middle" fill="#000">&#x2713; Part 2</text>
 
+  <!-- Milestone 5 -->
   <circle cx="660" cy="148" r="16" fill="#D50006" stroke="#7d0a52" stroke-width="2.5"/>
   <text x="660" y="154" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">5</text>
   <text x="660" y="200" font-size="11" font-weight="bold" text-anchor="middle" fill="#D50006">Complexity &amp;</text>
   <text x="660" y="214" font-size="11" font-weight="bold" text-anchor="middle" fill="#D50006">generalisation</text>
-  <text x="660" y="228" font-size="10" text-anchor="middle" fill="#000">✓ Part 3</text>
+  <text x="660" y="228" font-size="10" text-anchor="middle" fill="#000">&#x2713; Part 3</text>
 
+  <!-- Milestone 6 -->
   <circle cx="820" cy="190" r="16" fill="#7d0a52" stroke="#502479" stroke-width="2.5"/>
   <text x="820" y="196" font-size="13" font-weight="bold" text-anchor="middle" fill="#fff">6</text>
   <text x="820" y="130" font-size="11" font-weight="bold" text-anchor="middle" fill="#7d0a52">Endogeneity &amp;</text>
   <text x="820" y="116" font-size="11" font-weight="bold" text-anchor="middle" fill="#7d0a52">causality</text>
-  <text x="820" y="102" font-size="10" text-anchor="middle" fill="#000">✓ Part 4</text>
+  <text x="820" y="102" font-size="10" text-anchor="middle" fill="#000">&#x2713; Part 4</text>
 
-  <text x="500" y="20" font-size="12" font-weight="bold" fill="#502479">Session 3: the journey covered — Complexity · Generalisation · Causality</text>
+  <text x="500" y="20" font-size="12" font-weight="bold" fill="#502479">Session 3: the journey covered &#x2014; Complexity &#xB7; Generalisation &#xB7; Causality</text>
+
 </svg>

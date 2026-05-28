@@ -1,0 +1,1216 @@
+<!-- ============================================================
+INSTRUCTOR CUSTOMISATION — update before rendering for each cohort
+Line references are approximate; search for the marker text.
+
+  Line ~46   Moodle link for tbl_stores download (search: "[MOODLE]")
+  Line ~75   Memo date and quarter reference (search: "Q4 2025")
+
+============================================================ -->
+
+---
+title: "Session 3 · Lab 3: From Observation to Manipulation — Causal Inference"
+subtitle: "CRISP-DM Phase 6 — Deployment, with Path E2 Methodology"
+author: "Prof. Dr. Jörg Schoder"
+date: today
+lang: en-US
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    theme: cosmo
+    css: ../../css/styles.css
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+bibliography: ../../lit/my_bib.bib
+---
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(broom)
+library(glue)
+library(moderndive)
+library(gt)
+library(xfun)
+library(ggdag)         # DAG construction and analysis
+library(dagitty)       # backdoor paths and identification
+library(plm)           # panel data and DiD
+library(AER)           # IV regression (ivreg)
+library(fixest)        # high-dimensional fixed effects, modern DiD
+library(fontawesome)   # Fontawesome Icons
+
+# shared visual identity
+theme_set(theme_minimal(base_size = 11))
+
+# colour palette
+col_primary   <- "#D50006"
+col_secondary <- "#502479"
+col_neutral   <- "#686868"
+col_accent    <- "#7d0a52"
+
+# load data — date stamp must match the files in data/raw/
+date_stamp <- "20260517"  # adjust to the most recent DataImport.R run
+tbl_stores  <- read_rds(xfun::from_root("data", "raw",
+                       glue::glue("dominicks_stores_{date_stamp}.rds")))
+tbl_demo    <- read_rds(xfun::from_root("data", "raw",
+                       glue::glue("dominicks_demo_{date_stamp}.rds")))
+# Merge data sets
+tbl_full   <- tbl_stores %>% left_join(tbl_demo, by = "store")
+```
+
+## Scenario — A Third Memo from Sarah Chen
+
+:::{.callout-tip icon=false}
+## 📧 Memo from Sarah Chen, VP Marketing — Dominick's Finer Foods
+
+Date: 2025-11-22
+To: Bridge Cohort
+
+Team,
+
+Lab 1 and Lab 2 made things clearer than I had hoped — and harder.
+The historical data, even with all the demographic controls Lab 2
+added, cannot tell me the *causal* effect of feature advertising
+on sales. You called this an "OVB problem" and an "identification
+problem."
+
+But then our data steward at the Kilts Center mentioned
+something I had not known: **between 1989 and 1994, Dominick's
+and Chicago Booth ran randomised pricing and shelf-management
+experiments in 25+ product categories across the whole 100-store
+chain.** Parts of the variation in our data are not the result of
+manager decisions — they are the result of *deliberate
+randomisation* by a research team.
+
+That changes things. So I have two questions for this lab:
+
+> ***Q1.*** *What does it actually buy us to know that some of
+> our data is experimental? What would we still need to know to
+> use it?*
+>
+> ***Q2.*** *Given what you find out, how would you design — for
+> Q4 2026 — an experiment to measure the causal effect of
+> feature advertising? Walk me through it. The board needs a
+> go/no-go decision on the Q4 budget review.*
+
+I want both: an honest reading of what we have, and a forward
+plan for what we still need.
+
+— Sarah
+:::
+
+## The bigger picture: when ML meets causal inference
+
+Lab 2 showed that Machine-Learning-style methods (Lasso, Ridge,
+Elastic Net) can dramatically improve prediction. They cannot,
+however, deliver causal answers — for two reasons:
+
+1. **They optimise the wrong objective.** ML minimises out-of-sample
+   MSE for $\hat y$. Causal inference targets $\hat\beta$, the
+   structural parameter of the DGP.
+2. **They are excellent p-hacking machines.** Their flexibility,
+   uncontrolled, can find a model that fits any preferred result.
+   This is exactly the institutional concern raised in Lab 1's
+   "Note of Caution" [@spiess_optimalEstimation_2025].
+
+The literature on the ML / econometrics interface
+[@athey_imbens_2019; @mullainathan_MLApplied_2017;
+@spiess_optimalEstimation_2025] has developed three responses:
+
+- **Path E2 — Study design (this lab's main path).** Manipulate the
+  DGP through randomisation. The bias is removed *structurally*,
+  not via statistical tricks.
+- **Path E2+ — Quasi-experiments.** When manipulation is infeasible,
+  exploit natural variation (DiD, Event Studies, IV).
+- **Path E1 + ML — Double Machine Learning.** Use ML for the
+  nuisance components (high-dimensional controls) while protecting
+  the causal estimate via sample-splitting. We touch on this at
+  the end of the lab.
+
+All three responses share one feature: a clear separation between
+*where the algorithm operates* (prediction, nuisance modeling) and
+*where the causal claim is made* (the study design). The human in
+the loop defines this separation — the algorithm does not.
+
+## Navigation
+
+| Symbol | Box colour | Meaning | When to read |
+|:------:|:-----------|:--------|:-------------|
+| ⚠️ | Red (Action Required) | Mandatory tasks, live session | Now |
+| 💡 | Green (Tip / Best Practice) | Coding tips, shortcuts | When relevant |
+| 📚 | Blue collapsed (Background Theory) | Concepts, theory | Read at home |
+| ℹ️ | Blue open (Note) | Short clarifications | In flow |
+
+---
+
+# Step 0 — Reflection on Experimental Data
+
+In Lab 1 we discovered a confounder. In Lab 2 we accepted that
+prediction is the only honest objective when the DGP cannot be
+manipulated. In Lab 3 we change the question itself: can we
+*manipulate* the DGP — or find places where someone already did?
+
+Sarah's memo opens with a surprising fact:
+
+> *"Parts of the variation in our data are not the result of
+> manager decisions — they are the result of deliberate
+> randomisation by a research team."*
+
+This claim is well-documented. The Kilts Center for Marketing
+documentation states explicitly:
+
+> *"From 1989 to 1994, the University of Chicago Booth School of
+> Business and Dominick's Finer Foods entered into a partnership
+> for store-level research into shelf management and pricing.
+> Together, they conducted randomized experiments in more than 25
+> different categories throughout all stores in this 100-store
+> chain."* [@KiltsCenter_2018]
+
+That changes the methodological status of our dataset. The OJ
+data is not pure observational — it is a **hybrid**, with
+experimental islands inside an observational sea.
+
+:::{.callout-important icon=false}
+### ⚠️ T1 — Reflection (5 minutes, in pairs)
+
+Discuss with your neighbour:
+
+a. **What does it buy us** to know that *some* of the variation
+   in our data is experimental? Be concrete. Name at least two
+   methodological advantages.
+b. **What would we still need to know** before we could exploit
+   this fact for Sarah's Q1? List the open questions.
+c. Could we, in principle, *identify* the experimental
+   sub-sample from the data we have today, 30 years later?
+:::
+
+:::{.callout-note collapse="true" icon=false}
+## 🟢 Discussion (click to unfold)
+
+a. Knowing some weeks/stores/categories are experimental means:
+   (i) for those rows, the treatment is **assigned independently
+   of unobserved confounders** — the OVB structure we discovered
+   in Lab 1 (`deal → feat`) does not apply; (ii) we have
+   somewhere in the data a **true Path E2 sub-sample** that can
+   serve as a benchmark for any quasi-experimental method we
+   build for the rest of the data.
+
+b. The open questions are non-trivial. We would need to know:
+   (i) **which weeks** carried experimental treatments;
+   (ii) **which stores** were assigned and to what arm;
+   (iii) the **randomisation protocol** (was assignment
+   store-level, week-level, category-level?);
+   (iv) **what the treatment actually was** (price discount?
+   shelf re-positioning? both?);
+   (v) **how compliance was monitored** — did the store managers
+   actually implement the assigned treatment?
+
+c. Without the original Chicago Booth protocols, *not really*.
+   The dataset as published does not flag experimental
+   observations. This is a sobering lesson in **data
+   provenance**: experimental status, like any other
+   methodological metadata, has to be preserved alongside the
+   numbers, or it is effectively lost. This is one reason
+   modern open-science platforms require pre-registered
+   protocols.
+:::
+
+This reflection sets up the rest of the lab. We will continue to
+treat the OJ data as observational for our analyses, because
+the experimental sub-sample is no longer identifiable. But we
+now understand that:
+
+* **Observational** is a *default state* of data analysis — not a
+  natural property of data
+* The **distance** between an observational analysis and a
+  causal claim depends entirely on the design that produced the
+  variation
+* For Sarah's Q4 2026 decision, we will need a *new* experimental
+  design — one she controls and documents
+
+**Today's roadmap:**
+
+```{r crisp-overview}
+#| echo: false
+tibble::tribble(
+  ~Step, ~Method,                                        ~`Question it answers`,
+  "0",   "Reflection on experimental data",              "What does Path E2 status of historical data buy us?",
+  "1",   "DAGs as a causal language",                    "What is the structural reason the OLS estimate is biased?",
+  "2",   "A/B-test design (Path E2)",                    "What study design removes the bias by construction?",
+  "3",   "DiD, Event Studies, IV (Path E2+)",            "When manipulation fails, what quasi-experiments help?",
+  "4",   "FE/RE methods + Double ML",                    "What identification strategies use the panel structure?",
+  "5",   "Synthesis: memo + 2026 design",                "What do we recommend Sarah do next?"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f0fff0"), gt::cells_body(rows = Step == "0")) %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+`r fa('clock')` Time estimate: ~5 min reflection (T1) · ~10 min
+DAGs (Step 1) · ~12 min A/B simulation (Step 2) · ~12 min DiD
+(Step 3) · ~12 min IV + FE (Step 4) · ~10 min synthesis +
+2026 design (Step 5). Total: ~60 minutes.
+
+---
+
+# Step 1 — DAGs as a Tool for Causal Thinking
+
+Recall the structure we discovered in Lab 1: `deal` is a common
+cause of both `feat` and `logmove`. Drawn as a graph:
+
+```{r confounder-dag}
+#| echo: false
+#| fig-align: center
+#| out-width: 65%
+knitr::include_graphics(xfun::from_root("img", "Session3", "OVB-DAG.svg"))
+```
+
+This is a **directed acyclic graph (DAG)**. We now formalise the
+language of DAGs and use them to plan causal analyses.
+
+## Three building blocks
+
+DAGs are built from three structural patterns. Each has a precise
+implication for what *conditioning* (i.e. controlling) does to the
+bias.
+
+### Confounder (common cause)
+
+```
+    Z
+   / \
+  v   v
+  X → Y
+```
+
+`Z` causes both `X` and `Y`. The unconditional correlation between
+`X` and `Y` mixes the causal effect $X \to Y$ with the confounding
+path $X \leftarrow Z \to Y$. Conditioning on `Z` **blocks** the
+confounding path and identifies the causal effect.
+
+**This is the `deal` situation from Lab 1.**
+
+### Mediator (intermediate variable)
+
+```
+  X → M → Y
+```
+
+`M` is on the causal pathway from `X` to `Y`. Conditioning on `M`
+**blocks** the indirect effect of `X` on `Y`, leaving only the
+direct effect. If the question is "what is the total effect of
+`X` on `Y`?", we **must not** condition on `M`.
+
+### Collider (common effect)
+
+```
+  X      Y
+   \    /
+    v  v
+     C
+```
+
+`C` is caused by both `X` and `Y`. `X` and `Y` are unconditionally
+independent. But if we condition on `C` (e.g., include it as a
+control in our regression), we **open** an artificial path between
+`X` and `Y` — this is **collider bias** or selection bias.
+
+:::{.callout-warning icon=false}
+### ⚠️ Counter-intuitive: adding controls can HURT
+
+A common Bachelor-level reflex is: "if in doubt, include more
+controls." DAGs show why this is wrong. Conditioning on a
+collider introduces bias where there was none. Conditioning on
+a mediator removes part of the effect you want to measure.
+
+The correct rule is the **backdoor criterion** [@pearl_2009]:
+condition on the minimal set of variables that blocks all
+backdoor paths from treatment to outcome, **without** opening
+new collider paths.
+:::
+
+## Self-selection and the identification problem
+
+Confounding is one face of a deeper problem. The same idea
+appears under several names in the applied literature; they
+describe overlapping mechanisms by which observational data fail
+to identify causal effects.
+
+```{r identification-table}
+#| echo: false
+tibble::tribble(
+  ~Mechanism,             ~`What happens in the DGP`,                                                ~`OJ-data example`,
+  "Confounding",          "Common cause $Z$ drives both $X$ and $Y$.",                                "Holiday weeks drive both `deal` and `logmove`.",
+  "Self-selection",       "Units choose treatment based on unobserved expectations of $Y$.",          "Manager runs `feat` only when she expects strong response — store-week selects itself in.",
+  "Simultaneity / reverse causality", "$X$ and $Y$ are jointly determined in the same period.",       "Price is set in response to anticipated demand.",
+  "Measurement error in $X$",         "$X$ observed with noise; OLS estimate attenuated.",           "Self-reported feature implementation, week-aggregation mismatch.",
+  "Selection on the outcome",         "Whether $(X,Y)$ is observed depends on $Y$ itself.",          "Stores that closed dropped out — survivor sample only."
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "11.5px")
+```
+
+All five share one symptom: $\mathrm{Cov}(x, \varepsilon) \neq 0$,
+and OLS becomes biased. They differ in **diagnosis**. Confounding
+is a DAG problem — add the right control. Self-selection is a
+**sampling** problem — the data we observe are *not random draws
+from the DGP*. They are the outcome of unit-level decisions made
+on the basis of unobserved information.
+
+This distinction matters for our two questions. Sarah's Q1 asks
+*what to do with the observational data we have*; Q2 asks *how to
+generate new data that avoids these problems by construction*.
+
+:::{.callout-note collapse="true" #identification-detail}
+### 📚 Background: Identification — the more general concept
+
+A parameter is **identified** if it can in principle be recovered
+from the population distribution of observables [@huntington-klein_effect_2025,
+ch. 5]. Identification is *not* a sample-size question — even
+with infinite data, an unidentified parameter cannot be
+recovered.
+
+The five mechanisms above are **identification failures**: even
+the population OLS slope does not equal the structural effect we
+want. The cure is therefore not "more data" but a **redesign of
+the variation** — either by intervention (Step 2: A/B-test) or
+by exploiting natural variation that satisfies an identifying
+assumption (Step 3: DiD, IV).
+
+For a careful treatment of the identification idea — including
+the distinction between point identification, set identification
+and partial identification — see [@huntington-klein_effect_2025,
+ch. 5] and [@cunningham_2021, ch. 1].
+:::
+
+:::{.callout-important icon=false}
+### ⚠️ T2: Read the DAG of Sarah's situation
+
+The Lab-1 mini-DAG (above) shows `deal → feat → logmove` and
+`deal → logmove`. Suppose Sarah also wonders whether **shelf
+position** matters. Imagine the following extended structure:
+
+- `deal` is set by the regional manager based on perceived demand
+- `feat` is set by the local store manager, often coordinating
+  with `deal`
+- `shelf_position` is also set by the local manager based on `feat`
+- `logmove` depends on `feat`, `deal`, and `shelf_position`
+
+a. Draw this extended DAG (paper or whiteboard).
+b. Is `shelf_position` a confounder, mediator, or collider for the
+   `feat → logmove` relationship?
+c. If we control for `shelf_position` in the regression, what
+   happens to the estimate of $\beta_{\text{feat}}$?
+:::
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 Discussion (Click to unfold)
+
+`shelf_position` is on the path `feat → shelf_position → logmove`
+— it is a **mediator** of part of the `feat` effect.
+
+If we condition on `shelf_position`, we **remove** the part of the
+advertising effect that operates through better shelf placement.
+The remaining coefficient on `feat` captures only the *direct*
+effect (e.g., the flyer-recall effect), not the *total* effect
+that Sarah cares about for her budget decision.
+
+**Lesson:** the right control set depends on the causal question
+you are asking. There is no universally "correct" set of controls.
+:::
+
+## Using DAGs in code: ggdag
+
+```{r ggdag-example}
+#| code-fold: true
+#| code-summary: "Show code: ggdag example"
+dag <- dagify(
+  logmove ~ feat + deal + shelf_position,
+  feat ~ deal,
+  shelf_position ~ feat,
+  coords = list(
+    x = c(deal = 1, feat = 2, shelf_position = 3, logmove = 4),
+    y = c(deal = 2, feat = 1, shelf_position = 2, logmove = 1)
+  )
+)
+
+ggdag(dag, layout = "auto") + theme_dag()
+```
+
+The `dagitty` package can identify minimal sufficient adjustment
+sets automatically:
+
+```{r dagitty-example}
+#| code-fold: true
+#| code-summary: "Show code: dagitty adjustment set"
+dag_obj <- dagitty::dagitty(
+  'dag {
+     deal -> feat
+     deal -> logmove
+     feat -> logmove
+     feat -> shelf_position
+     shelf_position -> logmove
+   }'
+)
+
+dagitty::adjustmentSets(dag_obj, exposure = "feat", outcome = "logmove",
+                        effect = "total")
+```
+
+For Sarah's **total effect** question, the minimal sufficient
+adjustment set is `{deal}` — confirming what Lab 1 found
+empirically.
+
+---
+
+# Step 2 — A/B-test Design: Path E2 in Action
+
+Once we have the DAG, the cleanest solution to OVB is to **break
+the confounding arrows by randomisation**. If `feat` is assigned at
+random (not by the store manager), the arrow `deal → feat` is
+severed.
+
+The DAG of an A/B test:
+
+```
+  random_assignment → feat
+  deal              → logmove
+  feat              → logmove
+```
+
+`random_assignment` replaces all other determinants of `feat`. Now
+`feat` is unconditionally uncorrelated with `deal`, with
+`shelf_position`, with all unmeasured confounders. The OLS estimate
+of $\beta_{\text{feat}}$ on randomised data is **unbiased by
+construction**.
+
+## A small simulation
+
+Let us see this empirically. We generate synthetic data with a
+known true effect, then compare the naive OLS estimate (on
+observational data) to the OLS estimate on randomised data.
+
+```{r ab-simulation}
+#| code-fold: false
+set.seed(42)
+n <- 2000
+
+# True parameters
+beta_true_feat <- 0.5
+beta_true_deal <- 0.4
+
+# Observational DGP: deal causes feat (confounder)
+deal_obs <- rbinom(n, 1, 0.3)
+feat_obs <- rbinom(n, 1, 0.2 + 0.6 * deal_obs)  # deal increases feat probability
+y_obs    <- 5 + beta_true_feat * feat_obs + beta_true_deal * deal_obs +
+            rnorm(n, 0, 0.5)
+
+tbl_obs <- tibble(feat = feat_obs, deal = deal_obs, y = y_obs)
+
+# Randomised DGP: feat is independent of deal
+deal_rct <- rbinom(n, 1, 0.3)
+feat_rct <- rbinom(n, 1, 0.5)  # randomisation: 50/50, independent of deal
+y_rct    <- 5 + beta_true_feat * feat_rct + beta_true_deal * deal_rct +
+            rnorm(n, 0, 0.5)
+
+tbl_rct <- tibble(feat = feat_rct, deal = deal_rct, y = y_rct)
+
+# Naive OLS on observational data — without deal control
+mod_obs_naive <- lm(y ~ feat, data = tbl_obs)
+
+# Naive OLS on RCT data — without deal control
+mod_rct_naive <- lm(y ~ feat, data = tbl_rct)
+
+bind_rows(
+  tidy(mod_obs_naive) %>% mutate(setting = "Observational"),
+  tidy(mod_rct_naive) %>% mutate(setting = "Randomised (A/B)")
+) %>%
+  filter(term == "feat") %>%
+  select(setting, estimate, std.error, p.value) %>%
+  mutate(true_value = beta_true_feat,
+         bias = round(estimate - beta_true_feat, 3),
+         across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+:::{.callout-important icon=false}
+### ⚠️ T3: Read the simulation output
+
+a. What is the bias of the naive OLS estimate on observational
+   data?
+b. What is the bias on the randomised data?
+c. Why does randomisation work, even though we did *not* control
+   for `deal` in either regression?
+:::
+
+:::{.callout-note collapse="true" icon=false color="success"}
+### 🟢 Discussion (Click to unfold)
+
+a. On observational data, the naive OLS estimate is biased
+   upward (overstates the true `feat` effect) because it absorbs
+   the `deal` effect that operates through the correlation
+   `deal → feat`.
+b. On randomised data, the estimate is unbiased — within sampling
+   noise it equals the true value 0.5.
+c. Randomisation **breaks the arrow** `deal → feat` by construction.
+   `feat` is now uncorrelated with `deal` (and with every other
+   confounder, observed or unobserved). The OLS estimate of
+   $\beta_{\text{feat}}$ is identified from the experimental
+   variation alone.
+
+**This is the gold standard for Path E2.** It does not require us
+to *measure* every confounder — randomisation handles all of them
+at once, including unobservable ones.
+:::
+
+## Practical considerations
+
+A/B tests in retail are operationally non-trivial:
+
+- **Unit of randomisation.** Store-week, store-level, or brand
+  × store-week? Each choice has implications for power and for
+  what causal estimand we identify.
+- **Spillover.** If neighbouring stores share customers, treating
+  store A while controlling store B contaminates the control.
+- **Compliance.** A randomly assigned `feat = 1` may not be
+  implemented uniformly by the local manager.
+- **Cost.** Sarah needs board approval to *not* advertise in some
+  stores during Q4.
+
+For Sarah's purposes, a **cluster-randomised store-level A/B
+test** in non-peak weeks is realistic and would identify the
+total effect of `feat` cleanly.
+
+:::{.callout-note collapse="true" #ab-vignette-audit}
+### 📚 Background: A/B-test, vignette, audit — same logic, different cost
+
+In Part 4 of today's session we placed three closely related
+designs on a single validity spectrum (Vignette — Audit — A/B-test).
+For Sarah's question, the candidate is clearly the A/B-test
+(real users, real behaviour, real outcomes). But the alternatives
+are worth keeping in mind:
+
+| Design                        | What Sarah would do for her question                                                                | Cost                                              |
+|:------------------------------|:-------------------------------------------------------------------------------------------------|:--------------------------------------------------|
+| **Vignette experiment**       | Survey store managers with hypothetical advertising scenarios; measure stated intent.            | Low. Replicable in a thesis project.              |
+| **Audit / correspondence**    | Not directly applicable here — audits use real but *fictitious* applicants/applications.          | Not applicable to internal pricing decisions.     |
+| **A/B-test (Sarah's choice)** | Randomise `feat = 1/0` across actual store-weeks; measure actual sales.                          | Board approval needed; opportunity cost real.     |
+
+The A/B-test has by far the highest external validity for this
+specific business decision. But — as the IAB example from the
+slides shows — if budget approval fails, a **vignette experiment
+with store managers** can still produce a defensible signal at
+near-zero cost. The two designs answer slightly different
+questions (intention vs. behaviour) and the gap between them is
+itself informative.
+:::
+
+---
+
+# Step 3 — Difference-in-Differences, Event Studies, and IV
+
+When randomisation is impossible (politically, operationally, or
+ethically), **quasi-experimental designs** exploit natural
+variation. The classical example: a policy change rolls out at
+different times across regions, giving us "treated" and "control"
+groups whose pre-treatment trends should be parallel.
+
+## The DiD logic
+
+Suppose the regional office expanded the advertising programme
+in Chicago stores starting week 80, while Suburb stores received
+no change. The DiD estimator compares:
+
+$$\hat\delta_{\text{DiD}} = \big(\bar Y_{\text{Chicago}, \text{post}} - \bar Y_{\text{Chicago}, \text{pre}}\big) - \big(\bar Y_{\text{Suburb}, \text{post}} - \bar Y_{\text{Suburb}, \text{pre}}\big)$$
+
+The key identifying assumption is **parallel trends**: in the
+absence of treatment, the Chicago and Suburb sales would have
+evolved similarly.
+
+## A synthetic DiD example
+
+```{r did-simulation}
+#| code-fold: false
+set.seed(1)
+
+# Treatment: a subset of stores receives an intensified ad campaign starting week 80
+treated_stores <- tbl_stores %>% pull(store) %>% unique() %>% sample(20)
+
+tbl_did <- tbl_stores %>%
+  mutate(
+    treated = as.numeric(store %in% treated_stores),
+    post    = as.numeric(week >= 80),
+    treat_post = treated * post,
+    # synthetic treatment effect: log-sales rise by 0.15 in treated × post
+    logmove_simulated = logmove + 0.15 * treat_post
+  )
+
+# DiD regression with two-way fixed effects
+mod_did <- fixest::feols(logmove_simulated ~ treat_post | store + week,
+                         data = tbl_did)
+
+# extract the DiD coefficient
+tidy(mod_did) %>%
+  filter(term == "treat_post") %>%
+  mutate(across(where(is.numeric), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+The estimated DiD coefficient should be close to 0.15 — the true
+effect we injected.
+
+## A recent critique: TWFE with staggered adoption
+
+The classical two-way-fixed-effects (TWFE) regression we just
+ran has been shown to misbehave when treatment timing varies
+across units (staggered rollout). [@borusyak_etal_2024]
+demonstrate that TWFE implicitly compares newly-treated units to
+already-treated units, producing **negative weights** and
+**aggregation biases**.
+
+**The remedy: imputation-based DiD.** Model the counterfactual
+outcome for control observations explicitly, then compute
+treatment effects only for treated observations:
+
+1. Fit a model on never-treated and not-yet-treated observations
+2. Predict counterfactual outcomes for treated observations
+3. Treatment effect = actual − counterfactual
+
+This **separates** the modeling of the control trend from the
+estimation of the causal effect — a recurring pattern in modern
+causal inference, and again an instance of the Spiess-style
+institutional argument [@spiess_optimalEstimation_2025]: estimation
+and selection / modeling are kept in separate "rooms" to protect
+the causal claim.
+
+```{r did-imputation-sketch}
+#| eval: false
+# Sketch (not run in this lab; uses didimputation package)
+library(didimputation)
+
+did_imp <- did_imputation(
+  data = tbl_did,
+  yname = "logmove_simulated",
+  gname = "first_treated_week",  # week at which each unit was first treated
+  tname = "week",
+  idname = "store"
+)
+summary(did_imp)
+```
+
+The `didimputation` package implements [@borusyak_etal_2024]
+directly. Full treatment in →ER017.
+
+## Event-study designs as the dynamic extension
+
+DiD gives a **single average** treatment effect. Event-study
+designs are the dynamic extension: they trace how the treatment
+effect evolves *over time* relative to the treatment date. Each
+"lead" (period before treatment) and "lag" (period after)
+receives its own coefficient.
+
+| Approach | What it estimates | When to use |
+|:---|:---|:---|
+| **DiD** | Average effect post vs. pre | Single sharp policy change |
+| **Event study** | Dynamic profile of effect | When timing of effect matters |
+| **Synthetic control** | Effect for one treated unit | Single unit, many controls |
+| **Imputation DiD** | Robust to staggered adoption | Multiple treatment timings |
+
+The Event-Study design pre-treatment coefficients also provide a
+**direct test of parallel trends**: if they are all close to zero,
+the parallel-trends assumption is empirically supported.
+
+:::{.callout-note collapse="true" #event-study-detail}
+### 📚 Background: How an event study differs from DiD
+
+In a classical DiD with treatment at time $t^*$, we estimate one
+coefficient: the average effect post-$t^*$ relative to pre-$t^*$.
+
+In an event study, we estimate one coefficient *per event time*.
+If the event is at week 80 and we observe 10 weeks before and
+10 weeks after, we estimate 21 coefficients (or 20 with one
+omitted as reference):
+
+$$Y_{it} = \alpha_i + \lambda_t + \sum_{\tau = -10}^{10} \beta_\tau \mathbb{1}\{t - t^*_i = \tau\} + \varepsilon_{it}$$
+
+The plot of $\{\hat\beta_\tau\}$ against $\tau$ shows:
+
+- The pre-treatment coefficients should hover around zero
+  (parallel trends test)
+- The post-treatment coefficients show how the effect builds up,
+  peaks, and possibly decays
+
+Event studies are now standard practice for evaluating policy
+interventions where timing matters, and they are the natural
+host for the imputation-style estimator from
+[@borusyak_etal_2024].
+:::
+
+---
+
+# Step 4 — Panel Methods, IV, and Double Machine Learning
+
+So far we have looked at experimental designs (Step 2) and at
+quasi-experiments that exploit a time-of-treatment (Step 3). One
+last family of methods uses the **panel structure** of the data
+itself — the fact that we observe the *same* stores repeatedly
+over *many* weeks. The same panel structure underpins our
+within-store analysis from Lab 1, the DiD specification from
+Step 3, and the modern Double-ML pipeline.
+
+## Fixed effects, random effects, and the within-transformation
+
+Lab 1's analysis of `tbl_s114` was implicitly a **within-store**
+analysis: by working with one store, we held all store-specific
+heterogeneity constant. Fixed-effects panel models generalise
+this to all 83 stores while still removing store-level
+confounders [@huntington-klein_effect_2025, ch. 16].
+
+Let $i$ index stores and $t$ index weeks. The two-way fixed
+effects model is
+
+$$y_{it} = \beta\, x_{it} + \alpha_i + \lambda_t + \varepsilon_{it}$$
+
+where $\alpha_i$ absorbs **all time-invariant** store
+characteristics (manager identity, neighbourhood demographics,
+shelf-space layout) and $\lambda_t$ absorbs all common time
+shocks (national promotions, holidays, weather waves).
+
+```{r fe-demo}
+#| code-fold: false
+# Two-way fixed effects: store + week
+mod_fe <- fixest::feols(
+  logmove ~ feat + deal + log(price) | store + week,
+  data = tbl_stores
+)
+
+bind_rows(
+  tidy(lm(logmove ~ feat + deal + log(price), data = tbl_stores)) %>%
+    mutate(model = "Pooled OLS"),
+  tidy(mod_fe) %>% mutate(model = "Two-way FE (store + week)")
+) %>%
+  filter(term %in% c("feat", "deal", "log(price)")) %>%
+  select(model, term, estimate, std.error) %>%
+  mutate(across(c(estimate, std.error), \(x) round(x, 3))) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+Comparing pooled OLS to two-way FE reveals two things at once.
+First, $\hat\beta_{\text{feat}}$ typically *changes* when store
+fixed effects are added — the pooled estimate was absorbing
+between-store differences in baseline performance. Second, the
+estimates **gain interpretation**: the FE coefficient is now a
+*within-store* effect, identified from variation in `feat`
+*within* the same store over time.
+
+:::{.callout-note collapse="true" #fe-vs-re}
+### 📚 Background: Fixed effects vs. random effects (FE vs. RE)
+
+Two strategies handle unobserved store heterogeneity $\alpha_i$.
+The choice is not aesthetic — it rests on whether $\alpha_i$ is
+correlated with the regressors.
+
+**Fixed effects.** $\alpha_i$ is treated as a parameter to
+estimate (or, equivalently, demeaned away by the within-
+transformation). Identification requires **only** that the
+*time-varying* error $\varepsilon_{it}$ is uncorrelated with
+$x_{it}$. Time-invariant store characteristics are not
+identified — they are absorbed into the $\alpha_i$.
+
+**Random effects.** $\alpha_i$ is modelled as a random draw from
+a distribution, *uncorrelated with $x_{it}$ by assumption*. This
+gives more efficient estimates (recovers between-store variation
+too) — but if the assumption fails (typically: manager skill
+$\alpha_i$ correlates with `feat`), the estimates are biased.
+
+**The Hausman test** [@huntington-klein_effect_2025, ch. 16]
+compares the two: if RE and FE estimates differ substantially,
+RE is rejected. Most modern applied work defaults to FE for
+robustness.
+
+In our setting, FE is the right choice: store-level managerial
+skill, neighbourhood quality and shelf design almost certainly
+correlate with how often `feat` is run.
+:::
+
+The within-transformation behind FE is an application of the
+**Frisch-Waugh-Lovell theorem** [@huntington-klein_effect_2025,
+ch. 13]: regressing $y$ on $x$ after partialling out store
+dummies is identical to regressing $y$ on $x$ after demeaning
+both within each store. This is the same residualisation logic
+that returns — in much greater generality — in the Double-ML
+sample-splitting step at the end of this section.
+
+## Instrumental variables and 2SLS — a working demonstration
+
+Sometimes the causal question is about a continuous variable
+(price, for example) and we have no natural experiment. We need
+an **instrument** $Z$ that:
+
+1. Is correlated with the treatment $D$ (**relevance**)
+2. Affects the outcome $Y$ only through $D$ (**exclusion
+   restriction**)
+
+For Sarah's setting, **competitor pricing volatility**
+(`cpwvol5`) is one candidate: stores facing more volatile
+competition adjust their own prices more often, but `cpwvol5`
+plausibly affects sales only via the price channel, not
+directly. (This argument is debatable — see the warning below.)
+
+```{r iv-2sls-demo}
+#| code-fold: false
+# Pooled OLS for log(price) — likely biased by demand confounding
+mod_ols_price <- lm(logmove ~ log(price) + feat + brand, data = tbl_full)
+
+# 2SLS: log(price) instrumented by cpwvol5
+# Syntax in AER::ivreg: outcome ~ regressors | instruments
+mod_iv <- AER::ivreg(
+  logmove ~ log(price) + feat + brand |
+            cpwvol5    + feat + brand,
+  data = tbl_full
+)
+
+bind_rows(
+  tidy(mod_ols_price) %>% mutate(model = "Pooled OLS"),
+  tidy(mod_iv)        %>% mutate(model = "2SLS (cpwvol5 as instrument)")
+) %>%
+  filter(term == "log(price)") %>%
+  select(model, estimate, std.error, p.value) %>%
+  mutate(across(c(estimate, std.error, p.value), \(x) round(x, 4))) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "12px")
+```
+
+The OLS coefficient on `log(price)` reflects whatever in our
+data correlates `price` with `logmove`. The 2SLS coefficient
+uses *only* the part of price variation that is driven by
+`cpwvol5` — and asks: how does *that exogenous* variation
+relate to sales?
+
+:::{.callout-warning icon=false}
+### ⚠️ The exclusion restriction is untestable
+
+The IV estimate above only has a causal interpretation if
+`cpwvol5` affects `logmove` *only* through `log(price)`. If
+competitor volatility also drives in-store customer mood, or
+correlates with regional events that move sales directly, the
+exclusion is violated and the IV estimate is no better than the
+OLS one — possibly worse.
+
+This is the central honesty of IV estimation: the assumption
+that justifies it cannot be tested with the data the
+assumption rests on. The exclusion restriction must be argued
+substantively. For Sarah's board, this means: do not present an
+IV estimate without a one-paragraph defence of why the
+instrument is plausibly exogenous.
+
+For full operational treatment with weak-instrument diagnostics,
+overidentification tests and modern IV variants → ER017.
+:::
+
+## Double Machine Learning — when controls are high-dimensional
+
+Sometimes the causal question is not about a missing instrument
+but about *too many potential controls*. With 12 demographic
+variables, 3 brand interactions, and time-varying competitors,
+the number of candidate confounders is large. Including all of
+them naively in OLS can introduce overfitting and incidental
+endogeneity (recall Fan/Han/Liu from Lab 2).
+
+**Double Machine Learning** [@chernozhukov_DoubleML_2018]
+generalises the Frisch-Waugh-Lovell logic from FE to *flexible*
+nuisance models:
+
+1. **Use ML to model the nuisance parts** of the data:
+   - $\hat E[Y \mid X]$: how outcome relates to controls
+   - $\hat E[D \mid X]$: how treatment relates to controls
+2. **Residualise.** Compute $\tilde Y = Y - \hat E[Y \mid X]$
+   and $\tilde D = D - \hat E[D \mid X]$.
+3. **Final causal estimate.** Regress $\tilde Y$ on $\tilde D$.
+   The coefficient is the causal effect.
+
+**The crucial twist: cross-fitting.** Steps 1 and 2 use *one
+half* of the data; step 3 uses the *other half*. This
+sample-splitting [@spiess_optimalEstimation_2025] prevents the
+ML's flexibility from leaking into the causal estimate.
+
+This is the operative answer to the institutional argument from
+Lab 1's "Note of Caution": ML for nuisance modeling, with
+sample-splitting protecting the causal estimate.
+
+```{r dml-sketch}
+#| eval: false
+# Conceptual code — full implementation in ER017
+library(DoubleML)
+library(mlr3)
+
+data <- DoubleMLData$new(tbl_full,
+  y_col  = "logmove",
+  d_cols = "feat",
+  x_cols = c("log_price", "age60", "income", "educ", "ethnic",
+             "hhlarge", "workwom", "hval150", "sstrdist",
+             "sstrvol", "cpdist5", "cpwvol5"))
+
+ml_g <- lrn("regr.ranger")  # Random Forest for E[Y|X]
+ml_m <- lrn("regr.ranger")  # Random Forest for E[D|X]
+
+dml_model <- DoubleMLPLR$new(data, ml_g, ml_m, n_folds = 5)
+dml_model$fit()
+dml_model$summary()
+```
+
+The result: a causal estimate of $\beta_{\text{feat}}$ that uses
+ML's flexibility for the controls but preserves unbiasedness
+for the treatment effect. Full operational treatment with the
+`DoubleML` package → ER017.
+
+---
+
+# Step 5 — Synthesis: Memo for Sarah and a Design for 2026
+
+The three labs together answer Sarah's two questions in a
+structured way:
+
+```{r summary-table}
+#| echo: false
+tibble::tribble(
+  ~Question,           ~Path,  ~`Method (this module)`,                            ~`What was achieved`,
+  "Q1 (causal effect)", "E1",   "Lab 1 OLS + diagnostics",                          "Bias diagnosed (`deal` confounder)",
+  "Q1 (causal effect)", "E1+P", "Lab 2 Lasso with controls",                        "Bias confirmed structural, not solvable by controls",
+  "Q1 (causal effect)", "E2",   "Lab 3 A/B test design",                            "Clean identification possible — design required",
+  "Q1 (causal effect)", "E2+",  "Lab 3 DiD / Event Study / IV",                     "Quasi-experimental fallbacks if A/B test infeasible",
+  "Q1 (causal effect)", "E1+ML","Lab 3 Double ML",                                  "High-dimensional controls + unbiased estimate",
+  "Q2 (prediction)",    "P",    "Lab 2 cv-Lasso with demographics",                 "Inventory tool ready, OOS RMSE quantified",
+  "Q2 (design 2026)",   "E2",   "Step 5 — new design for Q4 2026",                  "Forward-looking experimental protocol"
+) %>%
+  gt() %>%
+  gt::tab_style(gt::cell_fill("#f5f0fa"), gt::cells_column_labels()) %>%
+  gt::tab_options(table.font.size = "13px")
+```
+
+:::{.callout-important icon=false}
+### ⚠️ T_final (a): Memo on the historical analysis
+
+Draft Sarah's memo on what the *existing* historical data can —
+and cannot — tell her about Q1 (the causal effect of feature
+advertising):
+
+a. Which design would you recommend if she had to **measure**
+   the effect today? A/B test, DiD, IV or DML? Argue based on
+   feasibility, cost, validity, and what causal claim each
+   supports.
+b. If the board insists on having a recommendation *now*
+   (before any new experiment), what is the *best estimate* you
+   can provide from observational data — and how do you
+   communicate its limitations honestly?
+c. How does the Lab-1 "Note of Caution" argument
+   [@spiess_optimalEstimation_2025] apply to what you are about
+   to write? What does the institutional restriction of
+   unbiasedness mean for *you* as the analyst?
+
+**5–8 sentences per question. Business language.**
+:::
+
+## A new experiment for Q4 2026
+
+The historical Dominick's data was collected in the 1989–1994
+period — a retail world without scanner panels, without loyalty
+cards, without geofenced mobile coupons, without programmatic
+shelf cameras, without micro-targeted digital advertising. The
+methodological *logic* of an A/B-test has not changed in 30
+years, but the **technology of experimentation** has.
+
+This is the practical setting for Schrage's *Innovator's
+Hypothesis* (introduced in Part 4 of today's session): high-
+performing firms run cheap, small, fast experiments — and they
+run *many* of them — precisely because they cannot reliably
+forecast which interventions will pay off. The cost of running
+an experiment in 2026 is a small fraction of what it cost in
+1994. The value of the design discipline is correspondingly
+higher.
+
+:::{.callout-important icon=false}
+### ⚠️ T_final (b): Design Sarah's 2026 experiment
+
+Draft a one-page experimental protocol for Q4 2026 that would
+let Sarah answer her Q1 cleanly. Cover the following points,
+deliberately exploiting capabilities that did not exist in
+1994:
+
+a. **Unit of randomisation.** Store-week, store-day, customer-
+   level (via loyalty card)? Which choice best matches the
+   causal estimand Sarah cares about?
+b. **Treatment definition.** What exactly is randomised — the
+   *flyer*, the *display*, the *digital ad*, the *price
+   discount*? How do you keep the treatment clean?
+c. **Sample size and power.** Given the variability of
+   `logmove` in the historical data (use Bonus B2 for
+   guidance), how long does the experiment need to run?
+d. **Compliance and spillover.** What technology would you use
+   in 2026 to monitor compliance? How do you handle customers
+   who shop across stores?
+e. **What you would pre-register.** Following the Spiess
+   institutional argument: which hypotheses, which estimands,
+   which subgroups would you commit to *before* seeing data?
+f. **One thing the 1994 Chicago Booth team probably could not
+   do.** What single methodological move from the 2020s would
+   change the design most?
+
+**Half a page. Aimed at Sarah's CFO and CTO — they should each
+recognise one of their concerns being addressed.**
+:::
+
+:::{.callout-tip icon=false}
+### 💡 The point of T_final (b)
+
+This is not an exercise in technological optimism. It is a
+disciplined application of Schrage's hypothesis to a concrete
+business decision. *Knowing what existed in 1994* is the
+sober anchor; *knowing what exists in 2026* is the lever. The
+gap between them is precisely the budget conversation Sarah
+needs to have with her board.
+
+A good memo here will not list every new technology — it will
+identify the *one* design decision that turns a high-cost,
+slow experiment into a low-cost, fast one.
+:::
+
+## A note on the human in the loop
+
+Across Lab 1, Lab 2, and Lab 3, you have seen three roles for the
+analyst:
+
+- **Lab 1 (Path E1):** the analyst diagnoses model misspecification
+- **Lab 2 (Path P):** the analyst tunes regularisation to optimise
+  prediction
+- **Lab 3 (Path E2):** the analyst designs the study to enable
+  causal identification
+
+In all three roles, the algorithm operates in a sub-space defined
+by the analyst. The algorithm does not choose the question, does
+not validate the assumptions, does not bear responsibility for
+the recommendation. **The human is in the loop.** Sarah Chen's
+memos do not come from `lm()` or `cv.glmnet()` or `DoubleML$fit()`
+— they come from your judgment, informed by the algorithms'
+output.
+
+This is the central professional skill of the modern data scientist
+in business: not the technical mastery of any one tool, but the
+ability to map a business question onto the right methodological
+path, validate the underlying assumptions, and communicate the
+honest answer — including its limitations.
+
+---
+
+# Bonus — For independent study
+
+## ⚠️ B1: Collider-bias simulation
+
+Construct a small DAG where `X → C` and `Y → C` (C is a collider).
+Generate data accordingly. Show that:
+
+a. The unconditional regression of `Y` on `X` gives an unbiased
+   estimate (which is zero, by construction).
+b. Conditioning on `C` (including it as a control) introduces a
+   spurious correlation between `X` and `Y`.
+
+This is the empirical version of the warning in Step 1.
+
+## ⚠️ B2: Power analysis for a store-level A/B test
+
+For Sarah's planned A/B test:
+
+a. Given the variability of `logmove` in `tbl_stores`, how many
+   store-weeks per arm are needed to detect an effect of size
+   $\delta = 0.10$ at 80% power and $\alpha = 0.05$?
+b. How does the required sample change if Sarah wants to detect
+   a smaller effect ($\delta = 0.05$)?
+c. What does this imply for the **duration** of the A/B test
+   given the 83 available stores?
+
+Use `pwr::pwr.t.test()` or `pwr::pwr.f2.test()`.
+
+## ⚠️ B3: Event study on the synthetic DiD data
+
+Re-fit the DiD example from Step 3 as an event study:
+
+a. Replace the single `treat_post` indicator with a set of
+   indicators for $\tau \in \{-10, -9, \ldots, +10\}$.
+b. Plot the coefficient profile.
+c. Are the pre-treatment coefficients consistent with parallel
+   trends?
+
+## ⚠️ B4: Hausman test for IV validity
+
+Use the IV setup from Step 4. Run a Hausman test comparing OLS
+and IV estimates:
+
+a. What does the Hausman test tell you about whether `log(price)`
+   is endogenous?
+b. What does it *not* tell you (hint: about the validity of the
+   instrument itself)?
+
+## ⚠️ B5: Sensitivity analysis for DiD parallel trends
+
+The parallel-trends assumption is **untestable** for the
+post-treatment period (by construction we never see it). But
+[@rambachan_roth_2023] developed bounds-based sensitivity analyses:
+"how much would parallel trends have to be violated to overturn
+my conclusion?"
+
+a. Conceptually: why is this question more useful than a
+   yes/no test of the assumption?
+b. Sketch (in prose) how you would communicate the result to
+   Sarah's board.
+
+## ⚠️ B6: Reconstructing the Chicago Booth × Dominick's experimental design
+
+This is the historical research extension of Step 0. The Kilts
+Center documents that Dominick's and Booth ran RCTs in 25+
+categories between 1989 and 1994 [@KiltsCenter_2018], but the
+operational protocols are not in the public data dump.
+
+a. Search the marketing-science literature (Marketing Science,
+   JMR, JM) for the original Chicago Booth × Dominick's
+   experimental papers. Hoch, Drèze, and Purk are useful
+   starting authors.
+b. Identify, for one published experiment of your choice: the
+   randomisation unit (store/week/SKU), the duration, the
+   measured outcomes, and any compliance issues the authors
+   discuss.
+c. Compare that 1990s protocol to the 2026 design you
+   sketched in T_final (b). Which differences are
+   methodological, which are technological, and which would
+   matter most for Sarah's specific question?
+
+**This bonus connects the historical curiosity of Step 0 with
+the forward-looking design of T_final (b). It is the deepest
+exercise in the lab — plan an afternoon for it.**
+
+---
+
+# What comes next (→ER117)
+
+| Module | What it adds |
+|:---|:---|
+| **Time Series & Causal Inference** | Full operational treatment of DiD, Event Studies, IV, Synthetic Control, DML |
+| **Panel Data Methods** | Fixed effects, random effects, GMM, dynamic panels |
+
+The DGP framework from Session 3 carries through both modules:
+the question is always *what is the DGP*, *which path approaches
+it*, and *what does our chosen method actually identify*.
